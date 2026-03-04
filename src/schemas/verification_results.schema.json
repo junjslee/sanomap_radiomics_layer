@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VerificationResult",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "verified",
+    "proposed_r",
+    "reason",
+    "support_pixels",
+    "required_support",
+    "support_fraction"
+  ],
+  "properties": {
+    "verified": {"type": "boolean"},
+    "proposed_r": {"type": "number"},
+    "reason": {"type": "string"},
+    "nearest_r": {"type": ["number", "null"]},
+    "min_abs_error": {"type": ["number", "null"]},
+    "support_pixels": {"type": "integer"},
+    "required_support": {"type": "integer"},
+    "support_fraction": {"type": "number"}
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EdgeCandidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "edge_id",
+    "pmid",
+    "radiomic_feature",
+    "relation_type",
+    "evidence_type",
+    "confidence",
+    "evidence",
+    "verification_passed"
+  ],
+  "properties": {
+    "edge_id": {"type": "string"},
+    "pmid": {"type": "string"},
+    "microbe": {"type": ["string", "null"]},
+    "radiomic_feature": {"type": "string"},
+    "disease": {"type": ["string", "null"]},
+    "relation_type": {"type": "string"},
+    "r_value": {"type": ["number", "null"]},
+    "evidence_type": {"type": "string"},
+    "confidence": {"type": "number"},
+    "figure_id": {"type": ["string", "null"]},
+    "evidence": {"type": "string"},
+    "verification_passed": {"type": "boolean"}
+  }
+}

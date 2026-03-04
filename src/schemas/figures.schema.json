@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FigureRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "figure_id",
+    "topology",
+    "topology_confidence",
+    "heuristic_hits",
+    "caption"
+  ],
+  "properties": {
+    "figure_id": {"type": "string"},
+    "topology": {"type": "string", "enum": ["heatmap", "forest_plot", "unknown"]},
+    "topology_confidence": {"type": "number"},
+    "heuristic_hits": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "caption": {"type": "string"},
+    "pmid": {"type": ["string", "null"]},
+    "image_path": {"type": ["string", "null"]},
+    "source_context": {"type": ["string", "null"]}
+  }
+}

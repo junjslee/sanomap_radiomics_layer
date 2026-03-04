@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RelationStrengths",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "group_key",
+    "support_count",
+    "total_strength_raw",
+    "total_strength_if",
+    "total_strength_ifq"
+  ],
+  "properties": {
+    "group_key": {"type": "object"},
+    "support_count": {"type": "integer"},
+    "total_strength_raw": {"type": "integer"},
+    "total_strength_if": {"type": "number"},
+    "total_strength_ifq": {"type": "number"}
+  }
+}

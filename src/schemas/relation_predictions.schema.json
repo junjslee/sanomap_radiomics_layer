@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RelationPrediction",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "prediction_id",
+    "pmid",
+    "microbe",
+    "disease",
+    "sentence",
+    "final_label",
+    "accepted",
+    "full_consistency",
+    "sample_labels",
+    "vote_counts",
+    "model_backend",
+    "model_family",
+    "model_id",
+    "temperatures"
+  ],
+  "properties": {
+    "prediction_id": {"type": "string"},
+    "pmid": {"type": "string"},
+    "microbe": {"type": "string"},
+    "disease": {"type": "string"},
+    "sentence": {"type": "string"},
+    "final_label": {"type": "string", "enum": ["positive", "negative", "unrelated"]},
+    "accepted": {"type": "boolean"},
+    "full_consistency": {"type": "boolean"},
+    "sample_labels": {
+      "type": "array",
+      "items": {"type": "string", "enum": ["positive", "negative", "unrelated"]}
+    },
+    "vote_counts": {"type": "object"},
+    "model_backend": {"type": "string"},
+    "model_family": {"type": "string"},
+    "model_id": {"type": "string"},
+    "temperatures": {
+      "type": "array",
+      "items": {"type": "number"}
+    },
+    "impact_factor": {"type": ["number", "string", "null"]},
+    "quartile": {"type": ["number", "string", "null"]}
+  }
+}

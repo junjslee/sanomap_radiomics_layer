@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VisionProposal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposal_id",
+    "pmid",
+    "figure_id",
+    "proposed_r",
+    "verification"
+  ],
+  "properties": {
+    "proposal_id": {"type": "string"},
+    "pmid": {"type": "string"},
+    "figure_id": {"type": "string"},
+    "proposed_r": {"type": "number"},
+    "verification": {"type": "object"},
+    "microbe": {"type": ["string", "null"]},
+    "radiomic_feature": {"type": ["string", "null"]},
+    "disease": {"type": ["string", "null"]},
+    "model_name": {"type": ["string", "null"]},
+    "legend_bbox": {
+      "type": ["array", "null"],
+      "items": {"type": "integer"}
+    },
+    "heatmap_bbox": {
+      "type": ["array", "null"],
+      "items": {"type": "integer"}
+    }
+  }
+}

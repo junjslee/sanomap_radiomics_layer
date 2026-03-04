@@ -1,0 +1,7 @@
+/references
+/artifacts
+__pycache__/
+*.pyc
+/plans
+/agent_logs
+/docs

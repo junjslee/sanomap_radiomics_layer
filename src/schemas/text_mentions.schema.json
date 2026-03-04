@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RadiomicMention",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mention_id",
+    "pmid",
+    "sentence",
+    "span_start",
+    "span_end",
+    "raw_feature",
+    "canonical_feature",
+    "ibsi_id",
+    "confidence",
+    "mapping_method",
+    "evidence"
+  ],
+  "properties": {
+    "mention_id": {"type": "string"},
+    "pmid": {"type": "string"},
+    "sentence": {"type": "string"},
+    "span_start": {"type": "integer"},
+    "span_end": {"type": "integer"},
+    "raw_feature": {"type": "string"},
+    "canonical_feature": {"type": "string"},
+    "ibsi_id": {"type": "string"},
+    "confidence": {"type": "number"},
+    "mapping_method": {"type": "string"},
+    "evidence": {"type": "string"},
+    "modality": {"type": ["string", "null"]},
+    "body_location": {"type": ["string", "null"]},
+    "disease": {"type": ["string", "null"]}
+  }
+}

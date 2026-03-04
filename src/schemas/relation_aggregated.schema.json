@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RelationAggregated",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pmid",
+    "microbe",
+    "disease",
+    "final_label",
+    "accepted",
+    "evidence",
+    "sentence_count",
+    "vote_counts"
+  ],
+  "properties": {
+    "pmid": {"type": "string"},
+    "microbe": {"type": "string"},
+    "disease": {"type": "string"},
+    "final_label": {"type": "string", "enum": ["positive", "negative", "unrelated"]},
+    "accepted": {"type": "boolean"},
+    "evidence": {"type": "string"},
+    "sentence_count": {"type": "integer"},
+    "vote_counts": {"type": "object"},
+    "impact_factor": {"type": ["number", "string", "null"]},
+    "quartile": {"type": ["number", "string", "null"]}
+  }
+}

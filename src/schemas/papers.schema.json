@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PaperRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pmid",
+    "title",
+    "abstract",
+    "query",
+    "retrieval_date",
+    "source"
+  ],
+  "properties": {
+    "pmid": {"type": "string"},
+    "title": {"type": "string"},
+    "abstract": {"type": "string"},
+    "query": {"type": "string"},
+    "retrieval_date": {"type": "string"},
+    "source": {"type": "string"},
+    "pmcid": {"type": ["string", "null"]},
+    "doi": {"type": ["string", "null"]},
+    "journal": {"type": ["string", "null"]},
+    "year": {"type": ["integer", "null"]},
+    "language": {"type": ["string", "null"]},
+    "full_text_path": {"type": ["string", "null"]}
+  }
+}
