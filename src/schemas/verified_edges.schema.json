@@ -24,6 +24,13 @@
     "evidence_type": {"type": "string"},
     "confidence": {"type": "number"},
     "figure_id": {"type": ["string", "null"]},
+    "journal": {"type": ["string", "null"]},
+    "title": {"type": ["string", "null"]},
+    "pmcid": {"type": ["string", "null"]},
+    "publication_year": {"type": ["integer", "null"]},
+    "impact_factor": {"type": ["number", "null"]},
+    "quartile": {"type": ["string", "null"]},
+    "issn": {"type": ["string", "null"]},
     "evidence": {"type": "string"},
     "verification_passed": {"type": "boolean"}
   }

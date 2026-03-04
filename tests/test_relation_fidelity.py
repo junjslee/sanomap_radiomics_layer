@@ -33,6 +33,8 @@ class TestRelationFidelity(unittest.TestCase):
         )
         self.assertEqual(out.final_label, UNRELATED)
         self.assertFalse(out.accepted)
+        self.assertFalse(out.zero_entropy)
+        self.assertGreater(out.label_entropy, 0.0)
 
     def test_self_consistency_majority_allowed(self) -> None:
         backend = SequenceBackend([POSITIVE, POSITIVE, NEGATIVE])
@@ -46,6 +48,21 @@ class TestRelationFidelity(unittest.TestCase):
         )
         self.assertEqual(out.final_label, POSITIVE)
         self.assertTrue(out.accepted)
+        self.assertFalse(out.zero_entropy)
+
+    def test_self_consistency_zero_entropy_for_unanimous(self) -> None:
+        backend = SequenceBackend([NEGATIVE, NEGATIVE, NEGATIVE])
+        out = self_consistency_predict(
+            backend=backend,
+            sentence="x",
+            microbe="m",
+            disease="d",
+            temperatures=[0.4, 0.6, 0.8],
+            require_complete_consistency=True,
+        )
+        self.assertEqual(out.final_label, NEGATIVE)
+        self.assertTrue(out.zero_entropy)
+        self.assertEqual(out.label_entropy, 0.0)
 
     def test_within_paper_majority(self) -> None:
         rows = [

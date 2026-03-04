@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
+import sys
+from pathlib import Path
 from typing import Any
+
+if __package__ is None or __package__ == "":
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from src.artifact_utils import read_jsonl, write_jsonl, write_manifest
+from src.schema_utils import SchemaValidationError, load_schema, validate_record
 
 try:
     import numpy as np  # type: ignore
@@ -38,6 +47,18 @@ def _parse_bbox(text: str | None) -> tuple[int, int, int, int] | None:
     x, y, w, h = [int(p) for p in parts]
     if w <= 0 or h <= 0:
         raise ValueError("bbox width/height must be > 0")
+    return x, y, w, h
+
+
+def _coerce_bbox_list(value: Any) -> tuple[int, int, int, int] | None:
+    if not isinstance(value, list) or len(value) != 4:
+        return None
+    try:
+        x, y, w, h = [int(v) for v in value]
+    except (TypeError, ValueError):
+        return None
+    if w <= 0 or h <= 0:
+        return None
     return x, y, w, h
 
 
@@ -255,6 +276,41 @@ def _infer_r_values(
     return r_forward, r_reverse
 
 
+def _verification_id(*parts: str) -> str:
+    return hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()[:16]
+
+
+def _failure_payload(
+    *,
+    proposed_r: float,
+    reason_code: str,
+    r_min: float,
+    r_max: float,
+    legend_bbox: list[int] | None = None,
+    orientation: str | None = None,
+    pixel_count: int = 0,
+    diagnostics: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "verified": False,
+        "pass_fail": False,
+        "proposed_r": float(proposed_r),
+        "reason": reason_code,
+        "reason_code": reason_code,
+        "observed_range": [float(r_min), float(r_max)],
+        "distance_metric": None,
+        "nearest_r": None,
+        "min_abs_error": None,
+        "support_pixels": 0,
+        "required_support": 0,
+        "support_fraction": 0.0,
+        "legend_bbox": legend_bbox,
+        "orientation": orientation,
+        "pixel_count": int(pixel_count),
+        "diagnostics": diagnostics or {},
+    }
+
+
 def verify_heatmap_r_value(
     proposed_r: float,
     image_path: str,
@@ -266,23 +322,16 @@ def verify_heatmap_r_value(
     legend_bbox: tuple[int, int, int, int] | None = None,
     heatmap_bbox: tuple[int, int, int, int] | None = None,
 ) -> dict[str, Any]:
-    _require_deps()
-
     if proposed_r < r_min or proposed_r > r_max:
-        return {
-            "verified": False,
-            "proposed_r": proposed_r,
-            "reason": "r_out_of_range",
-            "nearest_r": None,
-            "min_abs_error": None,
-            "support_pixels": 0,
-            "required_support": 0,
-            "support_fraction": 0.0,
-            "legend_bbox": None,
-            "orientation": None,
-            "pixel_count": 0,
-            "diagnostics": {"r_min": r_min, "r_max": r_max},
-        }
+        return _failure_payload(
+            proposed_r=proposed_r,
+            reason_code="r_out_of_range",
+            r_min=r_min,
+            r_max=r_max,
+            diagnostics={"r_min": r_min, "r_max": r_max},
+        )
+
+    _require_deps()
 
     rgb = _load_rgb(image_path)
     hsv = _rgb_to_hsv(rgb)
@@ -290,20 +339,12 @@ def verify_heatmap_r_value(
     try:
         detected_legend, legend_orientation, legend_conf = _detect_legend(rgb, hsv, legend_bbox)
     except RuntimeError:
-        return {
-            "verified": False,
-            "proposed_r": proposed_r,
-            "reason": "legend_not_found",
-            "nearest_r": None,
-            "min_abs_error": None,
-            "support_pixels": 0,
-            "required_support": 0,
-            "support_fraction": 0.0,
-            "legend_bbox": None,
-            "orientation": None,
-            "pixel_count": 0,
-            "diagnostics": {},
-        }
+        return _failure_payload(
+            proposed_r=proposed_r,
+            reason_code="legend_not_found",
+            r_min=r_min,
+            r_max=r_max,
+        )
 
     profile = _extract_legend_profile(rgb, detected_legend, legend_orientation)
     sampled_pixels, total_candidates = _sample_heatmap_pixels(
@@ -311,20 +352,15 @@ def verify_heatmap_r_value(
     )
 
     if total_candidates == 0 or sampled_pixels.shape[0] == 0:
-        return {
-            "verified": False,
-            "proposed_r": proposed_r,
-            "reason": "insufficient_colored_pixels",
-            "nearest_r": None,
-            "min_abs_error": None,
-            "support_pixels": 0,
-            "required_support": 0,
-            "support_fraction": 0.0,
-            "legend_bbox": list(detected_legend),
-            "orientation": legend_orientation,
-            "pixel_count": 0,
-            "diagnostics": {"legend_confidence": legend_conf},
-        }
+        return _failure_payload(
+            proposed_r=proposed_r,
+            reason_code="insufficient_colored_pixels",
+            r_min=r_min,
+            r_max=r_max,
+            legend_bbox=[int(v) for v in detected_legend],
+            orientation=legend_orientation,
+            diagnostics={"legend_confidence": legend_conf},
+        )
 
     r_forward, r_reverse = _infer_r_values(sampled_pixels, profile, r_min, r_max)
 
@@ -357,8 +393,12 @@ def verify_heatmap_r_value(
 
     return {
         "verified": bool(verified),
+        "pass_fail": bool(verified),
         "proposed_r": float(proposed_r),
         "reason": reason,
+        "reason_code": reason,
+        "observed_range": [float(r_min), float(r_max)],
+        "distance_metric": min_abs_error,
         "nearest_r": nearest_r,
         "min_abs_error": min_abs_error,
         "support_pixels": int(estimated_support_pixels),
@@ -376,25 +416,151 @@ def verify_heatmap_r_value(
     }
 
 
+def _build_figure_lookup(figures_rows: list[dict[str, Any]]) -> dict[str, str]:
+    lookup: dict[str, str] = {}
+    for row in figures_rows:
+        figure_id = str(row.get("figure_id") or "")
+        image_path = row.get("image_path")
+        if figure_id and isinstance(image_path, str) and image_path.strip():
+            lookup[figure_id] = image_path
+    return lookup
+
+
+def _verification_from_proposal(
+    *,
+    proposal: dict[str, Any],
+    figure_lookup: dict[str, str],
+    tolerance: float,
+    r_min: float,
+    r_max: float,
+    min_support_pixels: int,
+    min_support_fraction: float,
+) -> dict[str, Any]:
+    proposal_id = str(proposal.get("proposal_id") or "")
+    pmid = str(proposal.get("pmid") or "")
+    figure_id = str(proposal.get("figure_id") or "")
+
+    candidate = proposal.get("candidate_r", proposal.get("proposed_r"))
+    candidate_r = None
+    try:
+        if candidate is not None:
+            candidate_r = float(candidate)
+    except (TypeError, ValueError):
+        candidate_r = None
+
+    if candidate_r is None:
+        result = _failure_payload(
+            proposed_r=0.0,
+            reason_code="missing_candidate_r",
+            r_min=r_min,
+            r_max=r_max,
+        )
+    else:
+        image_path = proposal.get("image_path") or figure_lookup.get(figure_id)
+        if not isinstance(image_path, str) or not image_path.strip():
+            result = _failure_payload(
+                proposed_r=candidate_r,
+                reason_code="missing_image",
+                r_min=r_min,
+                r_max=r_max,
+            )
+        elif not Path(image_path).exists():
+            result = _failure_payload(
+                proposed_r=candidate_r,
+                reason_code="image_not_found",
+                r_min=r_min,
+                r_max=r_max,
+            )
+        else:
+            legend_bbox = _coerce_bbox_list(proposal.get("legend_bbox"))
+            heatmap_bbox = _coerce_bbox_list(proposal.get("heatmap_bbox", proposal.get("bbox")))
+            try:
+                result = verify_heatmap_r_value(
+                    proposed_r=candidate_r,
+                    image_path=image_path,
+                    tolerance=tolerance,
+                    r_min=r_min,
+                    r_max=r_max,
+                    min_support_pixels=min_support_pixels,
+                    min_support_fraction=min_support_fraction,
+                    legend_bbox=legend_bbox,
+                    heatmap_bbox=heatmap_bbox,
+                )
+            except Exception as exc:
+                result = _failure_payload(
+                    proposed_r=candidate_r,
+                    reason_code="runtime_error",
+                    r_min=r_min,
+                    r_max=r_max,
+                    diagnostics={"error": str(exc)},
+                )
+
+    verification_id = _verification_id(
+        proposal_id or "na",
+        pmid or "na",
+        figure_id or "na",
+        str(result.get("proposed_r")),
+    )
+
+    result["verification_id"] = verification_id
+    result["proposal_id"] = proposal_id or None
+    result["pmid"] = pmid or None
+    result["figure_id"] = figure_id or None
+    return result
+
+
+def verify_proposals(
+    *,
+    proposals: list[dict[str, Any]],
+    figure_lookup: dict[str, str],
+    tolerance: float,
+    r_min: float,
+    r_max: float,
+    min_support_pixels: int,
+    min_support_fraction: float,
+) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    for proposal in proposals:
+        output.append(
+            _verification_from_proposal(
+                proposal=proposal,
+                figure_lookup=figure_lookup,
+                tolerance=tolerance,
+                r_min=r_min,
+                r_max=r_max,
+                min_support_pixels=min_support_pixels,
+                min_support_fraction=min_support_fraction,
+            )
+        )
+    return output
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Deterministically verify an r-value against a heatmap legend."
     )
-    parser.add_argument("--r", type=float, required=True, help="Proposed r-value.")
-    parser.add_argument("--image", required=True, help="Path to heatmap image.")
+    parser.add_argument("--r", type=float, help="Proposed r-value for single-image mode.")
+    parser.add_argument("--image", help="Path to heatmap image for single-image mode.")
+    parser.add_argument("--proposals", default=None, help="Path to vision_proposals.jsonl for batch mode.")
+    parser.add_argument("--figures", default="artifacts/figures.jsonl", help="Optional figures.jsonl for figure_id->image_path lookup.")
+    parser.add_argument("--output", default="artifacts/verification_results.jsonl", help="Output path for batch mode.")
+    parser.add_argument("--manifest-dir", default="artifacts/manifests")
     parser.add_argument("--tolerance", type=float, default=0.05)
     parser.add_argument("--r-min", type=float, default=-1.0)
     parser.add_argument("--r-max", type=float, default=1.0)
     parser.add_argument("--min-support-pixels", type=int, default=30)
     parser.add_argument("--min-support-fraction", type=float, default=0.0005)
-    parser.add_argument("--legend-bbox", default=None, help="Optional x,y,w,h")
-    parser.add_argument("--heatmap-bbox", default=None, help="Optional x,y,w,h")
+    parser.add_argument("--legend-bbox", default=None, help="Optional x,y,w,h (single-image mode).")
+    parser.add_argument("--heatmap-bbox", default=None, help="Optional x,y,w,h (single-image mode).")
+    parser.add_argument("--validate-schema", action="store_true")
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args(argv)
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
+def _run_single(args: argparse.Namespace) -> int:
+    if args.r is None or args.image is None:
+        raise ValueError("Single mode requires both --r and --image")
+
     try:
         result = verify_heatmap_r_value(
             proposed_r=args.r,
@@ -408,12 +574,77 @@ def main(argv: list[str] | None = None) -> int:
             heatmap_bbox=_parse_bbox(args.heatmap_bbox),
         )
     except Exception as exc:
-        payload = {"verified": False, "error": str(exc), "reason": "runtime_error"}
+        payload = {
+            "verified": False,
+            "pass_fail": False,
+            "reason": "runtime_error",
+            "reason_code": "runtime_error",
+            "error": str(exc),
+        }
         print(json.dumps(payload, indent=2 if args.pretty else None))
         return 2
 
     print(json.dumps(result, indent=2 if args.pretty else None))
     return 0 if result.get("verified") else 1
+
+
+def _run_batch(args: argparse.Namespace) -> int:
+    proposals = read_jsonl(args.proposals)
+    figures = read_jsonl(args.figures) if Path(args.figures).exists() else []
+    figure_lookup = _build_figure_lookup(figures)
+
+    results = verify_proposals(
+        proposals=proposals,
+        figure_lookup=figure_lookup,
+        tolerance=args.tolerance,
+        r_min=args.r_min,
+        r_max=args.r_max,
+        min_support_pixels=args.min_support_pixels,
+        min_support_fraction=args.min_support_fraction,
+    )
+
+    if args.validate_schema:
+        schema = load_schema("verification_results.schema.json")
+        for idx, row in enumerate(results):
+            try:
+                validate_record(row, schema)
+            except SchemaValidationError as exc:
+                raise SchemaValidationError(f"verification_results[{idx}] invalid: {exc}") from exc
+
+    count = write_jsonl(args.output, results)
+    metrics = {
+        "proposals_in": len(proposals),
+        "results_out": count,
+        "verified": sum(1 for r in results if bool(r.get("verified"))),
+        "rejected": sum(1 for r in results if not bool(r.get("verified"))),
+    }
+
+    write_manifest(
+        manifest_dir=args.manifest_dir,
+        stage="verify_heatmap",
+        params={
+            "proposals": args.proposals,
+            "figures": args.figures,
+            "tolerance": args.tolerance,
+            "r_min": args.r_min,
+            "r_max": args.r_max,
+            "min_support_pixels": args.min_support_pixels,
+            "min_support_fraction": args.min_support_fraction,
+        },
+        metrics=metrics,
+        outputs={"verification_results": str(Path(args.output).resolve())},
+        command=" ".join(sys.argv),
+    )
+
+    print(json.dumps({"output": args.output, "metrics": metrics}, indent=2))
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    if args.proposals:
+        return _run_batch(args)
+    return _run_single(args)
 
 
 if __name__ == "__main__":

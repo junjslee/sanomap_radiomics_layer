@@ -19,6 +19,9 @@ from src.relation_fidelity import (
 )
 from src.schema_utils import SchemaValidationError, load_schema, validate_record
 
+GENERIC_MICROBE_TERMS = {"bacteria", "bacterias", "probiotic", "probiotics"}
+GENERIC_DISEASE_TERMS = {"disease", "diseases"}
+
 
 def _prediction_id(pmid: str, microbe: str, disease: str, sentence: str) -> str:
     base = f"{pmid}|{microbe}|{disease}|{sentence}"
@@ -34,6 +37,50 @@ def _default_temperatures(num_samples: int) -> list[float]:
     return [round(start + i * step, 3) for i in range(num_samples)]
 
 
+def _row_filter_reason(
+    row: dict[str, Any],
+    *,
+    max_evidence_words: int,
+    max_evidence_chars: int,
+) -> str | None:
+    sentence = str(row.get("sentence") or "").strip()
+    microbe = str(row.get("microbe") or "").strip().lower()
+    disease = str(row.get("disease") or "").strip().lower()
+
+    if not sentence:
+        return "missing_sentence"
+    if len(sentence.split()) >= max_evidence_words:
+        return "evidence_too_long_words"
+    if len(sentence) >= max_evidence_chars:
+        return "evidence_too_long_chars"
+    if microbe in GENERIC_MICROBE_TERMS:
+        return "generic_microbe_term"
+    if disease in GENERIC_DISEASE_TERMS:
+        return "generic_disease_term"
+    return None
+
+
+def filter_relation_input_rows(
+    rows: list[dict[str, Any]],
+    *,
+    max_evidence_words: int = 500,
+    max_evidence_chars: int = 5000,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    reason_counts: dict[str, int] = {}
+    kept: list[dict[str, Any]] = []
+    for row in rows:
+        reason = _row_filter_reason(
+            row,
+            max_evidence_words=max_evidence_words,
+            max_evidence_chars=max_evidence_chars,
+        )
+        if reason is not None:
+            reason_counts[reason] = reason_counts.get(reason, 0) + 1
+            continue
+        kept.append(row)
+    return kept, reason_counts
+
+
 def run_relation_extraction(
     *,
     input_rows: list[dict[str, Any]],
@@ -44,6 +91,10 @@ def run_relation_extraction(
     temperatures: list[float],
     max_new_tokens: int,
     require_complete_consistency: bool,
+    apply_upstream_filters: bool = True,
+    max_evidence_words: int = 500,
+    max_evidence_chars: int = 5000,
+    filtered_reason_counts: dict[str, int] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     backend = build_backend(
         backend=backend_name,
@@ -52,8 +103,20 @@ def run_relation_extraction(
         device=device,
     )
 
+    rows = input_rows
+    local_filter_counts: dict[str, int] = {}
+    if apply_upstream_filters:
+        rows, local_filter_counts = filter_relation_input_rows(
+            input_rows,
+            max_evidence_words=max_evidence_words,
+            max_evidence_chars=max_evidence_chars,
+        )
+    if filtered_reason_counts is not None:
+        filtered_reason_counts.clear()
+        filtered_reason_counts.update(local_filter_counts)
+
     predictions: list[dict[str, Any]] = []
-    for row in input_rows:
+    for row in rows:
         pmid = str(row.get("pmid") or "")
         microbe = str(row.get("microbe") or "")
         disease = str(row.get("disease") or "")
@@ -80,6 +143,8 @@ def run_relation_extraction(
             "final_label": result.final_label,
             "accepted": result.accepted,
             "full_consistency": result.full_consistency,
+            "label_entropy": result.label_entropy,
+            "zero_entropy": result.zero_entropy,
             "sample_labels": result.sample_labels,
             "vote_counts": result.vote_counts,
             "model_backend": backend_name,
@@ -115,6 +180,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--temperatures", default=None, help="Comma-separated temperatures.")
     parser.add_argument("--max-new-tokens", type=int, default=16)
     parser.add_argument("--allow-majority-consistency", action="store_true")
+    parser.add_argument("--disable-upstream-filters", action="store_true")
+    parser.add_argument("--max-evidence-words", type=int, default=500)
+    parser.add_argument("--max-evidence-chars", type=int, default=5000)
     parser.add_argument("--validate-schema", action="store_true")
 
     return parser.parse_args(argv)
@@ -129,6 +197,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         temperatures = _default_temperatures(args.num_samples)
 
+    filtered_reason_counts: dict[str, int] = {}
     predictions, aggregated, strengths = run_relation_extraction(
         input_rows=input_rows,
         backend_name=args.backend,
@@ -138,6 +207,10 @@ def main(argv: list[str] | None = None) -> int:
         temperatures=temperatures,
         max_new_tokens=args.max_new_tokens,
         require_complete_consistency=not args.allow_majority_consistency,
+        apply_upstream_filters=not args.disable_upstream_filters,
+        max_evidence_words=args.max_evidence_words,
+        max_evidence_chars=args.max_evidence_chars,
+        filtered_reason_counts=filtered_reason_counts,
     )
 
     if args.validate_schema:
@@ -166,9 +239,16 @@ def main(argv: list[str] | None = None) -> int:
 
     metrics = {
         "input_rows": len(input_rows),
+        "rows_after_filters": len(predictions),
+        "filtered_out_rows": len(input_rows) - len(predictions),
+        "filtered_reason_counts": filtered_reason_counts,
         "predictions_out": len(predictions),
         "full_consistency_rate": round(
             sum(1 for p in predictions if bool(p.get("full_consistency"))) / max(1, len(predictions)),
+            4,
+        ),
+        "zero_entropy_rate": round(
+            sum(1 for p in predictions if bool(p.get("zero_entropy"))) / max(1, len(predictions)),
             4,
         ),
         "accepted_sentence_relations": sum(1 for p in predictions if bool(p.get("accepted"))),
@@ -188,6 +268,9 @@ def main(argv: list[str] | None = None) -> int:
             "temperatures": temperatures,
             "max_new_tokens": args.max_new_tokens,
             "require_complete_consistency": not args.allow_majority_consistency,
+            "apply_upstream_filters": not args.disable_upstream_filters,
+            "max_evidence_words": args.max_evidence_words,
+            "max_evidence_chars": args.max_evidence_chars,
         },
         metrics=metrics,
         outputs={

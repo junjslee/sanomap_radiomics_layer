@@ -7,26 +7,60 @@
     "proposal_id",
     "pmid",
     "figure_id",
-    "proposed_r",
-    "verification"
+    "panel_id",
+    "candidate_r",
+    "prompt_id",
+    "model_id",
+    "raw_response",
+    "status"
   ],
   "properties": {
     "proposal_id": {"type": "string"},
     "pmid": {"type": "string"},
     "figure_id": {"type": "string"},
-    "proposed_r": {"type": "number"},
-    "verification": {"type": "object"},
-    "microbe": {"type": ["string", "null"]},
-    "radiomic_feature": {"type": ["string", "null"]},
-    "disease": {"type": ["string", "null"]},
-    "model_name": {"type": ["string", "null"]},
+    "panel_id": {"type": "string"},
+    "candidate_r": {"type": ["number", "null"]},
+    "proposed_r": {"type": ["number", "null"]},
+    "bbox": {
+      "type": ["array", "null"],
+      "items": {"type": "integer"},
+      "minItems": 4,
+      "maxItems": 4
+    },
     "legend_bbox": {
       "type": ["array", "null"],
-      "items": {"type": "integer"}
+      "items": {"type": "integer"},
+      "minItems": 4,
+      "maxItems": 4
     },
     "heatmap_bbox": {
       "type": ["array", "null"],
-      "items": {"type": "integer"}
-    }
+      "items": {"type": "integer"},
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "modality": {"type": ["string", "null"]},
+    "prompt_id": {"type": "string"},
+    "model_id": {"type": "string"},
+    "raw_response": {"type": "string"},
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "ok",
+        "model_error",
+        "fallback_heuristic",
+        "heuristic_error",
+        "missing_image",
+        "unsupported_backend"
+      ]
+    },
+    "backend": {"type": ["string", "null"]},
+    "image_path": {"type": ["string", "null"]},
+    "error": {"type": ["string", "null"]},
+    "verification": {"type": ["object", "null"]},
+    "microbe": {"type": ["string", "null"]},
+    "radiomic_feature": {"type": ["string", "null"]},
+    "disease": {"type": ["string", "null"]}
   }
 }

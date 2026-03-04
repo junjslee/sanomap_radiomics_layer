@@ -21,8 +21,11 @@
     "pmcid": {"type": ["string", "null"]},
     "doi": {"type": ["string", "null"]},
     "journal": {"type": ["string", "null"]},
+    "issn": {"type": ["string", "null"]},
     "year": {"type": ["integer", "null"]},
     "language": {"type": ["string", "null"]},
+    "impact_factor": {"type": ["number", "null"]},
+    "quartile": {"type": ["string", "null"]},
     "full_text_path": {"type": ["string", "null"]}
   }
 }

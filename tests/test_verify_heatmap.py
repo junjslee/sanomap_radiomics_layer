@@ -22,6 +22,15 @@ def _color_from_r(r: float) -> tuple[int, int, int]:
     return rch, 0, bch
 
 
+class TestVerifyHeatmapContract(unittest.TestCase):
+    def test_out_of_range_contract_without_image_deps(self) -> None:
+        out = verify_heatmap_r_value(proposed_r=2.0, image_path="unused.png")
+        self.assertFalse(out["verified"])
+        self.assertFalse(out["pass_fail"])
+        self.assertEqual(out["reason_code"], "r_out_of_range")
+        self.assertEqual(out["observed_range"], [-1.0, 1.0])
+
+
 @unittest.skipUnless(_HAS_DEPS, "numpy/Pillow are required for heatmap verification tests")
 class TestVerifyHeatmap(unittest.TestCase):
     def _make_synthetic_heatmap(self, r_value: float) -> Path:
@@ -53,6 +62,9 @@ class TestVerifyHeatmap(unittest.TestCase):
                 min_support_fraction=0.01,
             )
             self.assertTrue(out["verified"])
+            self.assertTrue(out["pass_fail"])
+            self.assertEqual(out["reason_code"], "verified")
+            self.assertIn("distance_metric", out)
         finally:
             path.unlink(missing_ok=True)
 
@@ -67,6 +79,8 @@ class TestVerifyHeatmap(unittest.TestCase):
                 min_support_fraction=0.01,
             )
             self.assertFalse(out["verified"])
+            self.assertFalse(out["pass_fail"])
+            self.assertEqual(out["reason_code"], "insufficient_support")
         finally:
             path.unlink(missing_ok=True)
 

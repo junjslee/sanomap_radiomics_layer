@@ -14,7 +14,22 @@ class SelfConsistencyResult:
     sample_labels: list[str]
     vote_counts: dict[str, int]
     full_consistency: bool
+    label_entropy: float
+    zero_entropy: bool
     accepted: bool
+
+
+def _shannon_entropy_from_counts(counts: list[int]) -> float:
+    total = sum(counts)
+    if total <= 0:
+        return 0.0
+    entropy = 0.0
+    for c in counts:
+        if c <= 0:
+            continue
+        p = c / total
+        entropy -= p * log10(p)
+    return float(entropy)
 
 
 def self_consistency_predict(
@@ -41,8 +56,10 @@ def self_consistency_predict(
     vote = Counter(sample_labels)
     top_label, top_count = vote.most_common(1)[0]
     full_consistency = top_count == len(sample_labels)
+    label_entropy = _shannon_entropy_from_counts(list(vote.values()))
+    zero_entropy = label_entropy <= 1e-12
 
-    if require_complete_consistency and not full_consistency:
+    if require_complete_consistency and not zero_entropy:
         final_label = UNRELATED
     else:
         final_label = top_label
@@ -53,6 +70,8 @@ def self_consistency_predict(
         sample_labels=sample_labels,
         vote_counts={k: int(v) for k, v in vote.items()},
         full_consistency=full_consistency,
+        label_entropy=label_entropy,
+        zero_entropy=zero_entropy,
         accepted=accepted,
     )
 

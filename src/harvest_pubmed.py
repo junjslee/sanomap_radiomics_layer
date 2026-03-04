@@ -136,6 +136,7 @@ def efetch_pubmed_details(pmids: list[str], api_key: str | None) -> list[dict[st
             "abstract": _extract_abstract(article),
             "journal": _first_text(article, "MedlineCitation/Article/Journal/Title")
             or _first_text(article, "MedlineCitation/Article/Journal/ISOAbbreviation"),
+            "issn": _first_text(article, "MedlineCitation/Article/Journal/ISSN") or None,
             "year": _extract_article_year(article),
             "language": _first_text(article, "MedlineCitation/Article/Language") or None,
             "doi": _extract_doi_from_xml(article),
@@ -196,6 +197,7 @@ def collect_papers(
             title=article.get("title") or "",
             abstract=article.get("abstract") or "",
             journal=article.get("journal"),
+            issn=article.get("issn"),
             year=article.get("year"),
             language=article.get("language"),
             query=query,

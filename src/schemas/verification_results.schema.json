@@ -2,23 +2,50 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "VerificationResult",
   "type": "object",
-  "additionalProperties": true,
+  "additionalProperties": false,
   "required": [
-    "verified",
+    "verification_id",
     "proposed_r",
+    "verified",
+    "pass_fail",
     "reason",
+    "reason_code",
+    "observed_range",
+    "distance_metric",
     "support_pixels",
     "required_support",
     "support_fraction"
   ],
   "properties": {
-    "verified": {"type": "boolean"},
+    "verification_id": {"type": "string"},
+    "proposal_id": {"type": ["string", "null"]},
+    "pmid": {"type": ["string", "null"]},
+    "figure_id": {"type": ["string", "null"]},
     "proposed_r": {"type": "number"},
+    "verified": {"type": "boolean"},
+    "pass_fail": {"type": "boolean"},
     "reason": {"type": "string"},
+    "reason_code": {"type": "string"},
+    "observed_range": {
+      "type": "array",
+      "items": {"type": "number"},
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "distance_metric": {"type": ["number", "null"]},
     "nearest_r": {"type": ["number", "null"]},
     "min_abs_error": {"type": ["number", "null"]},
     "support_pixels": {"type": "integer"},
     "required_support": {"type": "integer"},
-    "support_fraction": {"type": "number"}
+    "support_fraction": {"type": "number"},
+    "legend_bbox": {
+      "type": ["array", "null"],
+      "items": {"type": "integer"},
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "orientation": {"type": ["string", "null"]},
+    "pixel_count": {"type": "integer"},
+    "diagnostics": {"type": "object"}
   }
 }

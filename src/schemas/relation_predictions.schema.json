@@ -12,6 +12,8 @@
     "final_label",
     "accepted",
     "full_consistency",
+    "label_entropy",
+    "zero_entropy",
     "sample_labels",
     "vote_counts",
     "model_backend",
@@ -28,6 +30,8 @@
     "final_label": {"type": "string", "enum": ["positive", "negative", "unrelated"]},
     "accepted": {"type": "boolean"},
     "full_consistency": {"type": "boolean"},
+    "label_entropy": {"type": "number"},
+    "zero_entropy": {"type": "boolean"},
     "sample_labels": {
       "type": "array",
       "items": {"type": "string", "enum": ["positive", "negative", "unrelated"]}

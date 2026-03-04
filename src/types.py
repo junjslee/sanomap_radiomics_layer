@@ -15,8 +15,11 @@ class PaperRecord:
     pmcid: Optional[str] = None
     doi: Optional[str] = None
     journal: Optional[str] = None
+    issn: Optional[str] = None
     year: Optional[int] = None
     language: Optional[str] = None
+    impact_factor: Optional[float] = None
+    quartile: Optional[str] = None
     full_text_path: Optional[str] = None
 
 
@@ -55,12 +58,22 @@ class VisionProposal:
     proposal_id: str
     pmid: str
     figure_id: str
-    proposed_r: float
-    verification: Dict[str, Any]
+    panel_id: str
+    candidate_r: Optional[float]
+    prompt_id: str
+    model_id: str
+    raw_response: str
+    proposed_r: Optional[float] = None
+    verification: Dict[str, Any] | None = None
+    bbox: Optional[list[int]] = None
+    modality: Optional[str] = None
+    status: Optional[str] = None
+    backend: Optional[str] = None
+    image_path: Optional[str] = None
+    error: Optional[str] = None
     microbe: Optional[str] = None
     radiomic_feature: Optional[str] = None
     disease: Optional[str] = None
-    model_name: Optional[str] = None
     legend_bbox: Optional[list[int]] = None
     heatmap_bbox: Optional[list[int]] = None
 
@@ -78,6 +91,10 @@ class VerificationResult:
     proposal_id: Optional[str] = None
     pmid: Optional[str] = None
     figure_id: Optional[str] = None
+    pass_fail: Optional[bool] = None
+    reason_code: Optional[str] = None
+    observed_range: Optional[list[float]] = None
+    distance_metric: Optional[float] = None
     nearest_r: Optional[float] = None
     min_abs_error: Optional[float] = None
 
@@ -96,6 +113,13 @@ class EdgeCandidate:
     disease: Optional[str] = None
     r_value: Optional[float] = None
     figure_id: Optional[str] = None
+    journal: Optional[str] = None
+    title: Optional[str] = None
+    pmcid: Optional[str] = None
+    publication_year: Optional[int] = None
+    impact_factor: Optional[float] = None
+    quartile: Optional[str] = None
+    issn: Optional[str] = None
 
 
 RECORD_TYPES: dict[str, Type[Any]] = {

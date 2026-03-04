@@ -16,14 +16,89 @@ MODEL_FAMILY_MAP: dict[str, str] = {
     "zephyr_7b_beta": "HuggingFaceH4/zephyr-7b-beta",
 }
 
+MINERVA_TEMPLATE_GENERAL_INSTRUCTION = (
+    "You are an expert microbiologist who given an excerpt from a research paper can easily "
+    "identify the type of relation between a microbe and a disease. Doesn't create new information, "
+    "but is completely faithful to the information provided, and always gives concise answers."
+)
+MINERVA_TEMPLATE_INSTRUCTION = (
+    "Given the following meaning of the labels, answer the following question with the appropiate label.\n"
+    "positive: This type is used to annotate microbe-disease entity pairs with positive correlation, "
+    "such as microbe will cause or aggravate the disease, the microbe will increase when disease occurs.\n"
+    "negative: This type is used to annotate microbe-disease entity pairs that have a negative correlation, "
+    "such as microbe can be a treatment for a disease, or microbe will decrease when disease occurs.\n"
+    "na: This type is used when the relation between a microbe and a disease is not clear from the context or there is no relation. "
+    "In other words, use this label if the relation is not positive and not negative."
+)
+MINERVA_TEMPLATE_EVIDENCE = (
+    "Based on the above description, evidence is as follows:\n"
+    "{evidence}\n\n"
+    "\"What is the relationship between {microbe} and {disease}?\n"
+    "\""
+)
+
+
+def _build_minerva_system_user(*, sentence: str, microbe: str, disease: str) -> tuple[str, str]:
+    system = MINERVA_TEMPLATE_GENERAL_INSTRUCTION + "\n" + MINERVA_TEMPLATE_INSTRUCTION
+    user = MINERVA_TEMPLATE_EVIDENCE.format(
+        evidence=sentence,
+        microbe=microbe,
+        disease=disease,
+    )
+    return system, user
+
+
+def build_minerva_prompt_messages(*, sentence: str, microbe: str, disease: str) -> tuple[str, str]:
+    return _build_minerva_system_user(sentence=sentence, microbe=microbe, disease=disease)
+
+
+def _format_chat_prompt(*, system: str, user: str, model_family: str) -> str:
+    fam = model_family.lower()
+
+    # MINERVA's own pipeline merged system+user for Mistral-like models.
+    if "mistral" in fam or "mixtral" in fam or "biomistral" in fam:
+        merged = system + "\n" + user
+        return f"<s>[INST] {merged} [/INST]"
+    if "zephyr" in fam:
+        return f"<|system|>\n{system}</s>\n<|user|>\n{user}</s>\n<|assistant|>\n"
+    if "llama" in fam:
+        return (
+            "<|begin_of_text|>"
+            "<|start_header_id|>system<|end_header_id|>\n"
+            f"{system}<|eot_id|>"
+            "<|start_header_id|>user<|end_header_id|>\n"
+            f"{user}<|eot_id|>"
+            "<|start_header_id|>assistant<|end_header_id|>\n"
+        )
+
+    return f"System: {system}\nUser: {user}\nAssistant:"
+
+
+def format_prompt_for_model(*, system: str, user: str, model_family: str) -> str:
+    return _format_chat_prompt(system=system, user=user, model_family=model_family)
+
 
 def normalize_relation_label(text: str) -> str:
     normalized = text.strip().lower()
+    first_line = normalized.splitlines()[0].strip() if normalized else ""
+    first_token = first_line.split()[0].strip("()[]{}:;,.\"'") if first_line else ""
+
+    alternatives = {
+        "a": POSITIVE,
+        "b": NEGATIVE,
+        "c": UNRELATED,
+        "d": UNRELATED,
+    }
+    if first_token in alternatives:
+        return alternatives[first_token]
+
     if "positive" in normalized:
         return POSITIVE
     if "negative" in normalized:
         return NEGATIVE
-    if normalized in {"na", "none", "unrelated", "relate", "related"}:
+    if first_token in {"na", "none", "unrelated", "relate", "related", "nan", "c", "d"}:
+        return UNRELATED
+    if normalized in {"na", "none", "unrelated", "relate", "related", "nan"}:
         return UNRELATED
     return UNRELATED
 
@@ -97,6 +172,8 @@ class HeuristicRelationBackend(BaseRelationBackend):
 @dataclass
 class HuggingFaceTextGenBackend(BaseRelationBackend):
     model_id: str
+    model_family: str = "biomistral_7b"
+    prompt_style: str = "minerva_upstream"
     device: str = "cpu"
     backend_name: str = "hf_textgen"
 
@@ -116,6 +193,18 @@ class HuggingFaceTextGenBackend(BaseRelationBackend):
         )
 
     def _build_prompt(self, sentence: str, microbe: str, disease: str) -> str:
+        if self.prompt_style == "minerva_upstream":
+            system, user = _build_minerva_system_user(
+                sentence=sentence,
+                microbe=microbe,
+                disease=disease,
+            )
+            return _format_chat_prompt(
+                system=system,
+                user=user,
+                model_family=self.model_family,
+            )
+
         return (
             "Given the sentence below, classify the relation between the microbe and disease as "
             "positive, negative, or unrelated. Return one label only.\n\n"
@@ -165,7 +254,12 @@ def build_backend(
         return HeuristicRelationBackend()
     if backend == "hf_textgen":
         resolved = resolve_model_id(model_family, model_id)
-        return HuggingFaceTextGenBackend(model_id=resolved, device=device)
+        return HuggingFaceTextGenBackend(
+            model_id=resolved,
+            model_family=model_family,
+            prompt_style="minerva_upstream",
+            device=device,
+        )
     raise ValueError(f"Unsupported backend: {backend}")
 
 
@@ -174,6 +268,11 @@ __all__ = [
     "NEGATIVE",
     "UNRELATED",
     "MODEL_FAMILY_MAP",
+    "MINERVA_TEMPLATE_GENERAL_INSTRUCTION",
+    "MINERVA_TEMPLATE_INSTRUCTION",
+    "MINERVA_TEMPLATE_EVIDENCE",
+    "build_minerva_prompt_messages",
+    "format_prompt_for_model",
     "BaseRelationBackend",
     "HeuristicRelationBackend",
     "HuggingFaceTextGenBackend",
