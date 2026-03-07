@@ -23,8 +23,14 @@ GENERIC_MICROBE_TERMS = {"bacteria", "bacterias", "probiotic", "probiotics"}
 GENERIC_DISEASE_TERMS = {"disease", "diseases"}
 
 
-def _prediction_id(pmid: str, microbe: str, disease: str, sentence: str) -> str:
-    base = f"{pmid}|{microbe}|{disease}|{sentence}"
+def _prediction_id(
+    pmid: str,
+    subject_node_type: str,
+    subject_node: str,
+    disease: str,
+    sentence: str,
+) -> str:
+    base = f"{pmid}|{subject_node_type}|{subject_node}|{disease}|{sentence}"
     return hashlib.sha1(base.encode("utf-8")).hexdigest()[:16]
 
 
@@ -44,7 +50,8 @@ def _row_filter_reason(
     max_evidence_chars: int,
 ) -> str | None:
     sentence = str(row.get("sentence") or "").strip()
-    microbe = str(row.get("microbe") or "").strip().lower()
+    subject_node_type = str(row.get("subject_node_type") or "Microbe").strip()
+    subject_node = str(row.get("subject_node") or row.get("microbe") or "").strip().lower()
     disease = str(row.get("disease") or "").strip().lower()
 
     if not sentence:
@@ -53,7 +60,7 @@ def _row_filter_reason(
         return "evidence_too_long_words"
     if len(sentence) >= max_evidence_chars:
         return "evidence_too_long_chars"
-    if microbe in GENERIC_MICROBE_TERMS:
+    if subject_node_type == "Microbe" and subject_node in GENERIC_MICROBE_TERMS:
         return "generic_microbe_term"
     if disease in GENERIC_DISEASE_TERMS:
         return "generic_disease_term"
@@ -119,6 +126,8 @@ def run_relation_extraction(
     for row in rows:
         pmid = str(row.get("pmid") or "")
         microbe = str(row.get("microbe") or "")
+        subject_node_type = str(row.get("subject_node_type") or "Microbe")
+        subject_node = str(row.get("subject_node") or microbe)
         disease = str(row.get("disease") or "")
         sentence = str(row.get("sentence") or "")
         impact_factor = row.get("impact_factor", "NA")
@@ -127,7 +136,7 @@ def run_relation_extraction(
         result = self_consistency_predict(
             backend=backend,
             sentence=sentence,
-            microbe=microbe,
+            subject=subject_node or microbe,
             disease=disease,
             temperatures=temperatures,
             max_new_tokens=max_new_tokens,
@@ -135,9 +144,11 @@ def run_relation_extraction(
         )
 
         prediction = {
-            "prediction_id": _prediction_id(pmid, microbe, disease, sentence),
+            "prediction_id": _prediction_id(pmid, subject_node_type, subject_node or microbe, disease, sentence),
             "pmid": pmid,
             "microbe": microbe,
+            "subject_node_type": subject_node_type,
+            "subject_node": subject_node or microbe,
             "disease": disease,
             "sentence": sentence,
             "final_label": result.final_label,
@@ -171,7 +182,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output-strengths", default="artifacts/relation_strengths.jsonl")
     parser.add_argument("--manifest-dir", default="artifacts/manifests")
 
-    parser.add_argument("--backend", default="heuristic", choices=["heuristic", "hf_textgen"])
+    parser.add_argument("--backend", default="hf_textgen", choices=["heuristic", "hf_textgen"])
     parser.add_argument("--model-family", default="biomistral_7b")
     parser.add_argument("--model-id", default=None)
     parser.add_argument("--device", default="cpu")

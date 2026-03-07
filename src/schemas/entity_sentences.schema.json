@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EntitySentenceRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_id",
+    "pmid",
+    "sentence",
+    "sentence_index",
+    "diseases",
+    "microbes",
+    "source_text",
+    "extraction_meta"
+  ],
+  "properties": {
+    "record_id": {"type": "string"},
+    "pmid": {"type": "string"},
+    "sentence": {"type": "string"},
+    "sentence_index": {"type": "integer"},
+    "diseases": {
+      "type": "array",
+      "items": {"type": "object"}
+    },
+    "microbes": {
+      "type": "array",
+      "items": {"type": "object"}
+    },
+    "source_text": {"type": "string"},
+    "extraction_meta": {"type": "object"},
+    "paper_title": {"type": ["string", "null"]}
+  }
+}

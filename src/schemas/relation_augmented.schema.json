@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AugmentedRelationRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "aug_id",
+    "seed_id",
+    "pmid",
+    "sentence",
+    "microbe",
+    "disease",
+    "label",
+    "augmentation_type",
+    "model_id",
+    "prompt_id",
+    "status",
+    "source_sentence",
+    "metadata"
+  ],
+  "properties": {
+    "aug_id": {"type": "string"},
+    "seed_id": {"type": "string"},
+    "pmid": {"type": ["string", "null"]},
+    "sentence": {"type": "string"},
+    "microbe": {"type": "string"},
+    "disease": {"type": "string"},
+    "label": {"type": "string"},
+    "augmentation_type": {"type": "string"},
+    "model_id": {"type": "string"},
+    "prompt_id": {"type": "string"},
+    "status": {"type": "string"},
+    "source_sentence": {"type": "string"},
+    "metadata": {"type": "object"}
+  }
+}

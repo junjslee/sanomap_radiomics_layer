@@ -60,6 +60,11 @@
     "error": {"type": ["string", "null"]},
     "verification": {"type": ["object", "null"]},
     "microbe": {"type": ["string", "null"]},
+    "subject_node_type": {
+      "type": ["string", "null"],
+      "enum": ["Microbe", "MicrobialSignature", null]
+    },
+    "subject_node": {"type": ["string", "null"]},
     "radiomic_feature": {"type": ["string", "null"]},
     "disease": {"type": ["string", "null"]}
   }

@@ -26,7 +26,7 @@ class TestRelationFidelity(unittest.TestCase):
         out = self_consistency_predict(
             backend=backend,
             sentence="x",
-            microbe="m",
+            subject="m",
             disease="d",
             temperatures=[0.4, 0.6, 0.8],
             require_complete_consistency=True,
@@ -41,7 +41,7 @@ class TestRelationFidelity(unittest.TestCase):
         out = self_consistency_predict(
             backend=backend,
             sentence="x",
-            microbe="m",
+            subject="m",
             disease="d",
             temperatures=[0.4, 0.6, 0.8],
             require_complete_consistency=False,
@@ -55,7 +55,7 @@ class TestRelationFidelity(unittest.TestCase):
         out = self_consistency_predict(
             backend=backend,
             sentence="x",
-            microbe="m",
+            subject="m",
             disease="d",
             temperatures=[0.4, 0.6, 0.8],
             require_complete_consistency=True,
@@ -66,19 +66,47 @@ class TestRelationFidelity(unittest.TestCase):
 
     def test_within_paper_majority(self) -> None:
         rows = [
-            {"pmid": "1", "microbe": "a", "disease": "b", "final_label": POSITIVE, "sentence": "s1"},
-            {"pmid": "1", "microbe": "a", "disease": "b", "final_label": POSITIVE, "sentence": "s2"},
-            {"pmid": "1", "microbe": "a", "disease": "b", "final_label": NEGATIVE, "sentence": "s3"},
+            {
+                "pmid": "1",
+                "microbe": "a",
+                "subject_node_type": "Microbe",
+                "subject_node": "a",
+                "disease": "b",
+                "final_label": POSITIVE,
+                "sentence": "s1",
+            },
+            {
+                "pmid": "1",
+                "microbe": "a",
+                "subject_node_type": "Microbe",
+                "subject_node": "a",
+                "disease": "b",
+                "final_label": POSITIVE,
+                "sentence": "s2",
+            },
+            {
+                "pmid": "1",
+                "microbe": "a",
+                "subject_node_type": "Microbe",
+                "subject_node": "a",
+                "disease": "b",
+                "final_label": NEGATIVE,
+                "sentence": "s3",
+            },
         ]
         agg = aggregate_within_paper(rows)
         self.assertEqual(len(agg), 1)
         self.assertEqual(agg[0]["final_label"], POSITIVE)
         self.assertTrue(agg[0]["accepted"])
+        self.assertEqual(agg[0]["subject_node_type"], "Microbe")
+        self.assertEqual(agg[0]["subject_node"], "a")
 
     def test_strength_scores(self) -> None:
         aggregated = [
             {
                 "microbe": "a",
+                "subject_node_type": "Microbe",
+                "subject_node": "a",
                 "disease": "b",
                 "accepted": True,
                 "final_label": POSITIVE,
@@ -87,6 +115,8 @@ class TestRelationFidelity(unittest.TestCase):
             },
             {
                 "microbe": "a",
+                "subject_node_type": "Microbe",
+                "subject_node": "a",
                 "disease": "b",
                 "accepted": True,
                 "final_label": NEGATIVE,

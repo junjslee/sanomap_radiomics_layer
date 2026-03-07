@@ -36,7 +36,7 @@ def self_consistency_predict(
     *,
     backend: BaseRelationBackend,
     sentence: str,
-    microbe: str,
+    subject: str,
     disease: str,
     temperatures: list[float],
     max_new_tokens: int = 16,
@@ -46,7 +46,7 @@ def self_consistency_predict(
     for t in temperatures:
         label = backend.predict_relation(
             sentence=sentence,
-            microbe=microbe,
+            microbe=subject,
             disease=disease,
             temperature=t,
             max_new_tokens=max_new_tokens,
@@ -87,17 +87,20 @@ def _majority_label(labels: list[str]) -> str:
 
 
 def aggregate_within_paper(predictions: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    grouped: dict[tuple[str, str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in predictions:
+        subject_node_type = str(row.get("subject_node_type") or "Microbe")
+        subject_node = str(row.get("subject_node") or row.get("microbe") or "")
         key = (
             str(row.get("pmid") or ""),
-            str(row.get("microbe") or ""),
+            subject_node_type,
+            subject_node,
             str(row.get("disease") or ""),
         )
         grouped[key].append(row)
 
     output: list[dict[str, Any]] = []
-    for (pmid, microbe, disease), rows in grouped.items():
+    for (pmid, subject_node_type, subject_node, disease), rows in grouped.items():
         labels = [str(r.get("final_label") or UNRELATED) for r in rows]
         final_label = _majority_label(labels)
 
@@ -108,8 +111,10 @@ def aggregate_within_paper(predictions: list[dict[str, Any]]) -> list[dict[str, 
         vote_counts = Counter(labels)
         out = {
             "pmid": pmid,
-            "microbe": microbe,
+            "microbe": rows[0].get("microbe", subject_node),
             "disease": disease,
+            "subject_node_type": subject_node_type,
+            "subject_node": subject_node,
             "final_label": final_label,
             "accepted": final_label in {POSITIVE, NEGATIVE},
             "evidence": evidence_text,
@@ -152,7 +157,7 @@ def compute_strength_scores(
     *,
     default_impact: float = 3.5,
     default_quartile: int = 2,
-    group_fields: tuple[str, ...] = ("microbe", "disease"),
+    group_fields: tuple[str, ...] = ("subject_node_type", "subject_node", "disease"),
 ) -> list[dict[str, Any]]:
     grouped: dict[tuple[str, ...], list[dict[str, Any]]] = defaultdict(list)
     for row in aggregated_relations:

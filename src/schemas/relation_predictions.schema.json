@@ -7,6 +7,8 @@
     "prediction_id",
     "pmid",
     "microbe",
+    "subject_node_type",
+    "subject_node",
     "disease",
     "sentence",
     "final_label",
@@ -25,6 +27,11 @@
     "prediction_id": {"type": "string"},
     "pmid": {"type": "string"},
     "microbe": {"type": "string"},
+    "subject_node_type": {
+      "type": "string",
+      "enum": ["Microbe", "MicrobialSignature"]
+    },
+    "subject_node": {"type": "string"},
     "disease": {"type": "string"},
     "sentence": {"type": "string"},
     "final_label": {"type": "string", "enum": ["positive", "negative", "unrelated"]},

@@ -14,7 +14,10 @@
     "ibsi_id",
     "confidence",
     "mapping_method",
-    "evidence"
+    "evidence",
+    "feature_family",
+    "node_type",
+    "ontology_namespace"
   ],
   "properties": {
     "mention_id": {"type": "string"},
@@ -28,8 +31,29 @@
     "confidence": {"type": "number"},
     "mapping_method": {"type": "string"},
     "evidence": {"type": "string"},
+    "feature_family": {
+      "type": "string",
+      "enum": ["radiomic", "body_composition"]
+    },
+    "node_type": {
+      "type": "string",
+      "enum": ["RadiomicFeature", "BodyCompositionFeature"]
+    },
+    "ontology_namespace": {
+      "type": "string",
+      "enum": ["IBSI", "BODYCOMP"]
+    },
     "modality": {"type": ["string", "null"]},
     "body_location": {"type": ["string", "null"]},
-    "disease": {"type": ["string", "null"]}
+    "disease": {"type": ["string", "null"]},
+    "claim_hint": {
+      "type": ["string", "null"],
+      "enum": ["association", "predictive", "diagnostic", "prognostic", null]
+    },
+    "subject_node_type": {
+      "type": ["string", "null"],
+      "enum": ["Microbe", "MicrobialSignature", null]
+    },
+    "subject_node": {"type": ["string", "null"]}
   }
 }

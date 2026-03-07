@@ -9,6 +9,8 @@ class TestRelationExtractStage(unittest.TestCase):
             {
                 "pmid": "101",
                 "microbe": "lactobacillus",
+                "subject_node_type": "Microbe",
+                "subject_node": "lactobacillus",
                 "disease": "obesity",
                 "sentence": "Lactobacillus reduced obesity markers and showed protective effects.",
                 "impact_factor": 5.0,
@@ -17,6 +19,8 @@ class TestRelationExtractStage(unittest.TestCase):
             {
                 "pmid": "101",
                 "microbe": "lactobacillus",
+                "subject_node_type": "Microbe",
+                "subject_node": "lactobacillus",
                 "disease": "obesity",
                 "sentence": "Lactobacillus reduced obesity markers in repeat analysis.",
                 "impact_factor": 5.0,
@@ -25,6 +29,8 @@ class TestRelationExtractStage(unittest.TestCase):
             {
                 "pmid": "101",
                 "microbe": "bacteria",
+                "subject_node_type": "Microbe",
+                "subject_node": "bacteria",
                 "disease": "obesity",
                 "sentence": "Bacteria is linked to obesity.",
                 "impact_factor": 5.0,
@@ -52,6 +58,9 @@ class TestRelationExtractStage(unittest.TestCase):
         self.assertIn("generic_microbe_term", filtered_reasons)
         self.assertIn("label_entropy", predictions[0])
         self.assertIn("zero_entropy", predictions[0])
+        self.assertEqual(predictions[0]["subject_node_type"], "Microbe")
+        self.assertEqual(predictions[0]["subject_node"], "lactobacillus")
+        self.assertEqual(aggregated[0]["subject_node"], "lactobacillus")
 
 
 if __name__ == "__main__":

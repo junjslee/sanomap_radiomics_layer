@@ -61,6 +61,8 @@ class TestProposeVisionQwen(unittest.TestCase):
         self.assertEqual(row["model_id"], DEFAULT_MODEL_ID)
         self.assertEqual(row["prompt_id"], DEFAULT_PROMPT_ID)
         self.assertIn("raw_response", row)
+        self.assertIn("subject_node_type", row)
+        self.assertIn("subject_node", row)
 
 
 if __name__ == "__main__":

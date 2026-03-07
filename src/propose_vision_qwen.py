@@ -34,6 +34,10 @@ class ProposerOptions:
     temperature: float
     max_tokens: int
     allow_fallback: bool
+    device: str = "cpu"
+
+
+_QWEN_LOCAL_PIPE_CACHE: dict[tuple[str, str], Any] = {}
 
 
 def _proposal_id(pmid: str, figure_id: str, panel_id: str) -> str:
@@ -203,6 +207,103 @@ def _call_qwen_openai_compatible(
     raise RuntimeError("missing_message_content")
 
 
+def _get_qwen_local_pipe(model_id: str, device: str) -> Any:
+    key = (model_id, device)
+    if key in _QWEN_LOCAL_PIPE_CACHE:
+        return _QWEN_LOCAL_PIPE_CACHE[key]
+
+    try:
+        from transformers import pipeline  # type: ignore
+    except Exception as exc:
+        raise RuntimeError("transformers_not_available_for_qwen_local") from exc
+
+    device_arg = -1
+    if device.startswith("cuda"):
+        device_arg = 0
+
+    pipe = pipeline("image-text-to-text", model=model_id, device=device_arg)
+    _QWEN_LOCAL_PIPE_CACHE[key] = pipe
+    return pipe
+
+
+def _coerce_local_output_text(output: Any) -> str:
+    if isinstance(output, str):
+        return output
+    if isinstance(output, list) and output:
+        first = output[0]
+        if isinstance(first, str):
+            return first
+        if isinstance(first, dict):
+            generated = first.get("generated_text")
+            if isinstance(generated, str):
+                return generated
+            if isinstance(generated, list):
+                text_parts: list[str] = []
+                for item in generated:
+                    if isinstance(item, dict):
+                        content = item.get("content")
+                        if isinstance(content, str):
+                            text_parts.append(content)
+                if text_parts:
+                    return "\n".join(text_parts)
+    if isinstance(output, dict):
+        generated = output.get("generated_text")
+        if isinstance(generated, str):
+            return generated
+    raise RuntimeError("qwen_local_unexpected_output_shape")
+
+
+def _call_qwen_local(
+    *,
+    image_path: str,
+    caption: str,
+    options: ProposerOptions,
+) -> str:
+    pipe = _get_qwen_local_pipe(options.model_id, options.device)
+    prompt = _build_prompt(caption)
+
+    attempts: list[dict[str, Any]] = [
+        {
+            "images": image_path,
+            "text": prompt,
+            "max_new_tokens": options.max_tokens,
+            "temperature": options.temperature,
+            "do_sample": True,
+        },
+        {
+            "inputs": {"image": image_path, "text": prompt},
+            "max_new_tokens": options.max_tokens,
+            "temperature": options.temperature,
+            "do_sample": True,
+        },
+        {
+            "inputs": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "image": image_path},
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ],
+            "max_new_tokens": options.max_tokens,
+            "temperature": options.temperature,
+            "do_sample": True,
+        },
+    ]
+
+    last_exc: Exception | None = None
+    for kwargs in attempts:
+        try:
+            output = pipe(**kwargs)
+            return _coerce_local_output_text(output)
+        except Exception as exc:
+            last_exc = exc
+            continue
+
+    raise RuntimeError(f"qwen_local_inference_failed:{last_exc}") from last_exc
+
+
 def _parse_qwen_output(raw_response: str) -> dict[str, Any]:
     obj = _extract_first_json_object(raw_response)
 
@@ -225,6 +326,8 @@ def _parse_qwen_output(raw_response: str) -> dict[str, Any]:
         "heatmap_bbox": _coerce_bbox(obj.get("heatmap_bbox", obj.get("bbox"))),
         "modality": modality,
         "microbe": obj.get("microbe"),
+        "subject_node_type": obj.get("subject_node_type"),
+        "subject_node": obj.get("subject_node", obj.get("microbe")),
         "radiomic_feature": obj.get("radiomic_feature"),
         "disease": obj.get("disease"),
     }
@@ -306,6 +409,8 @@ def _propose_for_figure(figure: dict[str, Any], options: ProposerOptions) -> dic
         "backend": options.backend,
         "image_path": image_path,
         "microbe": None,
+        "subject_node_type": None,
+        "subject_node": None,
         "radiomic_feature": None,
         "disease": None,
         "error": None,
@@ -321,9 +426,30 @@ def _propose_for_figure(figure: dict[str, Any], options: ProposerOptions) -> dic
         base["error"] = "image_path_not_found"
         return base
 
-    attempted_qwen = False
-    if options.backend in {"auto", "qwen_api"}:
-        attempted_qwen = True
+    attempted_model = False
+
+    if options.backend == "qwen_local":
+        attempted_model = True
+        try:
+            raw_response = _call_qwen_local(
+                image_path=image_path,
+                caption=caption,
+                options=options,
+            )
+            parsed = _parse_qwen_output(raw_response)
+            base.update(parsed)
+            base["raw_response"] = raw_response
+            base["status"] = "ok"
+            base["backend"] = "qwen_local"
+            base["proposal_id"] = _proposal_id(pmid, figure_id, str(base.get("panel_id") or "main"))
+            base["proposed_r"] = base["candidate_r"]
+            return base
+        except Exception as exc:
+            base["error"] = str(exc)
+            base["status"] = "model_error"
+
+    if options.backend == "qwen_api":
+        attempted_model = True
         try:
             raw_response = _call_qwen_openai_compatible(
                 image_path=image_path,
@@ -342,8 +468,50 @@ def _propose_for_figure(figure: dict[str, Any], options: ProposerOptions) -> dic
             base["error"] = str(exc)
             base["status"] = "model_error"
 
-    if options.backend in {"auto", "heuristic"}:
-        if attempted_qwen and not options.allow_fallback and options.backend == "auto":
+    if options.backend == "auto":
+        attempted_model = True
+        local_error = None
+        try:
+            raw_response = _call_qwen_local(
+                image_path=image_path,
+                caption=caption,
+                options=options,
+            )
+            parsed = _parse_qwen_output(raw_response)
+            base.update(parsed)
+            base["raw_response"] = raw_response
+            base["status"] = "ok"
+            base["backend"] = "qwen_local"
+            base["proposal_id"] = _proposal_id(pmid, figure_id, str(base.get("panel_id") or "main"))
+            base["proposed_r"] = base["candidate_r"]
+            return base
+        except Exception as exc:
+            local_error = str(exc)
+
+        if options.api_base_url:
+            try:
+                raw_response = _call_qwen_openai_compatible(
+                    image_path=image_path,
+                    caption=caption,
+                    options=options,
+                )
+                parsed = _parse_qwen_output(raw_response)
+                base.update(parsed)
+                base["raw_response"] = raw_response
+                base["status"] = "ok"
+                base["backend"] = "qwen_api"
+                base["proposal_id"] = _proposal_id(pmid, figure_id, str(base.get("panel_id") or "main"))
+                base["proposed_r"] = base["candidate_r"]
+                return base
+            except Exception as exc:
+                base["error"] = f"local={local_error};api={exc}"
+                base["status"] = "model_error"
+        else:
+            base["error"] = local_error
+            base["status"] = "model_error"
+
+    if options.backend in {"auto", "heuristic", "qwen_api", "qwen_local"}:
+        if attempted_model and not options.allow_fallback and options.backend in {"auto", "qwen_api", "qwen_local"}:
             return base
 
         candidate_r, legend_bbox, raw = _heuristic_proposal(image_path)
@@ -352,13 +520,13 @@ def _propose_for_figure(figure: dict[str, Any], options: ProposerOptions) -> dic
         base["legend_bbox"] = legend_bbox
         base["raw_response"] = raw
         base["status"] = "ok" if candidate_r is not None else "heuristic_error"
-        if attempted_qwen and base.get("error"):
+        if attempted_model and base.get("error"):
             base["status"] = "fallback_heuristic"
         base["backend"] = "heuristic"
-        base["model_id"] = options.model_id if attempted_qwen else "deterministic_heuristic"
+        base["model_id"] = options.model_id if attempted_model else "deterministic_heuristic"
         return base
 
-    if options.backend == "qwen_api" and base["status"] == "model_error":
+    if options.backend in {"qwen_api", "qwen_local"} and base["status"] == "model_error":
         return base
 
     base["status"] = "unsupported_backend"
@@ -395,7 +563,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--figures", default="artifacts/figures.jsonl")
     parser.add_argument("--output", default="artifacts/vision_proposals.jsonl")
     parser.add_argument("--manifest-dir", default="artifacts/manifests")
-    parser.add_argument("--backend", choices=["auto", "qwen_api", "heuristic"], default="auto")
+    parser.add_argument("--backend", choices=["auto", "qwen_local", "qwen_api", "heuristic"], default="auto")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
     parser.add_argument("--prompt-id", default=DEFAULT_PROMPT_ID)
     parser.add_argument(
@@ -408,6 +576,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--temperature", type=float, default=0.1)
     parser.add_argument("--max-tokens", type=int, default=180)
+    parser.add_argument("--device", default="cpu")
     parser.add_argument("--disable-fallback", action="store_true")
     parser.add_argument("--min-topology-confidence", type=float, default=0.1)
     parser.add_argument("--include-non-heatmap", action="store_true")
@@ -430,6 +599,7 @@ def main(argv: list[str] | None = None) -> int:
         temperature=args.temperature,
         max_tokens=args.max_tokens,
         allow_fallback=not args.disable_fallback,
+        device=args.device,
     )
 
     proposals = run_proposer(
@@ -468,6 +638,7 @@ def main(argv: list[str] | None = None) -> int:
             "prompt_id": args.prompt_id,
             "temperature": args.temperature,
             "max_tokens": args.max_tokens,
+            "device": args.device,
             "fallback_enabled": not args.disable_fallback,
             "min_topology_confidence": args.min_topology_confidence,
             "include_non_heatmap": args.include_non_heatmap,

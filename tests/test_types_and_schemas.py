@@ -26,6 +26,11 @@ class TestTypesAndSchemas(unittest.TestCase):
             "text_mentions.schema.json",
             "vision_proposals.schema.json",
             "verified_edges.schema.json",
+            "bridge_hypotheses.schema.json",
+            "entity_sentences.schema.json",
+            "relation_input.schema.json",
+            "relation_augmented.schema.json",
+            "merged_paper_provenance.schema.json",
         }
         names = {p.name for p in schema_dir.glob("*.json")}
         self.assertTrue(expected.issubset(names))

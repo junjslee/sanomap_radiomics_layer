@@ -48,9 +48,64 @@ class RadiomicMention:
     confidence: float
     mapping_method: str
     evidence: str
+    feature_family: str
+    node_type: str
+    ontology_namespace: str
     modality: Optional[str] = None
     body_location: Optional[str] = None
     disease: Optional[str] = None
+    claim_hint: Optional[str] = None
+    subject_node_type: Optional[str] = None
+    subject_node: Optional[str] = None
+
+
+@dataclass
+class EntitySentenceRecord:
+    record_id: str
+    pmid: str
+    sentence: str
+    sentence_index: int
+    diseases: list[dict[str, Any]]
+    microbes: list[dict[str, Any]]
+    source_text: str
+    extraction_meta: dict[str, Any]
+    paper_title: Optional[str] = None
+
+
+@dataclass
+class RelationInputRecord:
+    row_id: str
+    pmid: str
+    sentence: str
+    microbe: str
+    disease: str
+    subject_node_type: str
+    subject_node: str
+    impact_factor: Optional[float] = None
+    quartile: Optional[str] = None
+    entity_sentence_id: Optional[str] = None
+    disease_cui: Optional[str] = None
+    microbe_cui: Optional[str] = None
+    radiomic_features: Optional[list[str]] = None
+    has_radiomics_context: Optional[bool] = None
+    source: Optional[str] = None
+
+
+@dataclass
+class AugmentedRelationRecord:
+    aug_id: str
+    seed_id: str
+    pmid: Optional[str]
+    sentence: str
+    microbe: str
+    disease: str
+    label: str
+    augmentation_type: str
+    model_id: str
+    prompt_id: str
+    status: str
+    source_sentence: str
+    metadata: dict[str, Any]
 
 
 @dataclass
@@ -72,6 +127,8 @@ class VisionProposal:
     image_path: Optional[str] = None
     error: Optional[str] = None
     microbe: Optional[str] = None
+    subject_node_type: Optional[str] = None
+    subject_node: Optional[str] = None
     radiomic_feature: Optional[str] = None
     disease: Optional[str] = None
     legend_bbox: Optional[list[int]] = None
@@ -104,6 +161,11 @@ class EdgeCandidate:
     edge_id: str
     pmid: str
     radiomic_feature: str
+    subject_node_type: str
+    subject_node: str
+    object_node_type: str
+    object_node: str
+    graph_rel_type: str
     relation_type: str
     evidence_type: str
     confidence: float
@@ -120,15 +182,37 @@ class EdgeCandidate:
     impact_factor: Optional[float] = None
     quartile: Optional[str] = None
     issn: Optional[str] = None
+    feature_family: Optional[str] = None
+    claim_hint: Optional[str] = None
+    assertion_level: str = "direct_evidence"
+
+
+@dataclass
+class BridgeHypothesis:
+    hypothesis_id: str
+    pmid: str
+    microbe_or_signature: str
+    microbe_or_signature_type: str
+    phenotype: str
+    phenotype_node_type: str
+    disease: str
+    evidence_fragments: list[str]
+    bridge_reason: str
+    confidence: float
+    not_for_graph_ingestion: bool = True
 
 
 RECORD_TYPES: dict[str, Type[Any]] = {
     "paper": PaperRecord,
     "figure": FigureRecord,
     "radiomic_mention": RadiomicMention,
+    "entity_sentence": EntitySentenceRecord,
+    "relation_input": RelationInputRecord,
+    "relation_augmented": AugmentedRelationRecord,
     "vision_proposal": VisionProposal,
     "verification_result": VerificationResult,
     "edge_candidate": EdgeCandidate,
+    "bridge_hypothesis": BridgeHypothesis,
 }
 
 T = TypeVar("T")
@@ -154,9 +238,13 @@ __all__ = [
     "PaperRecord",
     "FigureRecord",
     "RadiomicMention",
+    "EntitySentenceRecord",
+    "RelationInputRecord",
+    "AugmentedRelationRecord",
     "VisionProposal",
     "VerificationResult",
     "EdgeCandidate",
+    "BridgeHypothesis",
     "RECORD_TYPES",
     "to_dict",
     "from_dict",

@@ -13,6 +13,7 @@ if __package__ is None or __package__ == "":
     sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from src.artifact_utils import read_jsonl, write_jsonl, write_manifest
+from src.paper_text_utils import paper_text
 from src.schema_utils import SchemaValidationError, load_schema, validate_record
 from src.types import RadiomicMention, to_dict
 
@@ -54,6 +55,49 @@ IBSI_FEATURES = [
     },
 ]
 
+BODYCOMP_FEATURES = [
+    {
+        "canonical": "skeletal_muscle_index",
+        "ontology_id": "BODYCOMP:SKELETAL_MUSCLE_INDEX",
+        "aliases": ["skeletal muscle index", "smi"],
+    },
+    {
+        "canonical": "visceral_adipose_tissue",
+        "ontology_id": "BODYCOMP:VISCERAL_ADIPOSE_TISSUE",
+        "aliases": ["visceral adipose tissue", "visceral adiposity", "vat"],
+    },
+    {
+        "canonical": "subcutaneous_adipose_tissue",
+        "ontology_id": "BODYCOMP:SUBCUTANEOUS_ADIPOSE_TISSUE",
+        "aliases": ["subcutaneous adipose tissue", "sat"],
+    },
+    {
+        "canonical": "myosteatosis",
+        "ontology_id": "BODYCOMP:MYOSTEATOSIS",
+        "aliases": ["myosteatosis"],
+    },
+    {
+        "canonical": "muscle_attenuation",
+        "ontology_id": "BODYCOMP:MUSCLE_ATTENUATION",
+        "aliases": ["muscle attenuation"],
+    },
+    {
+        "canonical": "psoas_area",
+        "ontology_id": "BODYCOMP:PSOAS_AREA",
+        "aliases": ["psoas area", "psoas muscle area"],
+    },
+    {
+        "canonical": "liver_surface_nodularity",
+        "ontology_id": "BODYCOMP:LIVER_SURFACE_NODULARITY",
+        "aliases": ["liver surface nodularity"],
+    },
+    {
+        "canonical": "sarcopenia",
+        "ontology_id": "BODYCOMP:SARCOPENIA",
+        "aliases": ["sarcopenia"],
+    },
+]
+
 MODALITY_TERMS = {
     "ct": "CT",
     "computed tomography": "CT",
@@ -81,24 +125,169 @@ BODY_LOCATION_TERMS = [
     "aorta",
 ]
 
+# Single-token aliases are useful but highly ambiguous in clinical writing.
+AMBIGUOUS_ALIASES = {
+    "mean",
+    "entropy",
+    "contrast",
+    "homogeneity",
+    "inhomogeneity",
+    "skewness",
+    "kurtosis",
+    "sphericity",
+}
+
+RADIOMICS_CONTEXT_TERMS = {
+    "radiomics",
+    "radiomic",
+    "texture",
+    "histogram",
+    "first order",
+    "first-order",
+    "glcm",
+    "glrlm",
+    "glszm",
+    "ngtdm",
+    "gray level",
+    "voxel",
+    "pixel",
+    "ibsi",
+    "haralick",
+    "feature",
+    "features",
+    "intensity",
+    "attenuation",
+    "adc",
+    "suv",
+}
+
+BODYCOMP_CONTEXT_TERMS = {
+    "body composition",
+    "skeletal muscle",
+    "muscle index",
+    "adipose",
+    "adiposity",
+    "myosteatosis",
+    "sarcopenia",
+    "dxa",
+    "dual-energy x-ray absorptiometry",
+    "waist",
+    "fat mass",
+    "lean mass",
+    "psoas",
+}
+
+MICROBIAL_SIGNATURE_TERMS = {
+    "dysbiosis",
+    "alpha diversity",
+    "beta diversity",
+    "microbial signature",
+    "microbial signatures",
+    "microbiota composition",
+    "gut microbiota composition",
+    "microbial community",
+    "intratumoral microbiome",
+    "microbiome abundance",
+}
+
+MICROBE_GENUS_TERMS = {
+    "akkermansia",
+    "bacteroides",
+    "bifidobacterium",
+    "bilophila",
+    "christensenellaceae",
+    "collinsella",
+    "enterococcus",
+    "escherichia",
+    "fusobacterium",
+    "helicobacter",
+    "lactobacillus",
+    "parabacteroides",
+    "phascolarctobacterium",
+    "porphyromonadaceae",
+    "prevotella",
+    "rikenellaceae",
+    "roseburia",
+    "ruminococcus",
+    "streptococcus",
+}
+
+MICROBE_BINOMIAL_PATTERN = re.compile(r"\b([A-Z][a-z]{2,}\s[a-z][a-z\-]{2,})\b")
+MICROBE_STOPWORDS = {
+    "analysis",
+    "cancer",
+    "carcinoma",
+    "disease",
+    "lesion",
+    "model",
+    "response",
+    "syndrome",
+    "therapy",
+    "tumor",
+    "tumour",
+}
+
 DISEASE_PATTERN = re.compile(
-    r"\b([a-z][a-z\- ]{1,40}(?:cancer|carcinoma|tumou?r|disease|syndrome|lesion|fibrosis|diabetes|obesity|cirrhosis|adenocarcinoma|inflammation))\b",
+    r"\b([a-z][a-z\-]*(?:\s[a-z][a-z\-]*){0,4}\s(?:cancer|carcinoma|tumou?r|disease|syndrome|lesion|fibrosis|diabetes|obesity|cirrhosis|adenocarcinoma|inflammation))\b",
     re.IGNORECASE,
 )
 
 
-_ALIAS_TO_CANONICAL: dict[str, tuple[str, str]] = {}
+_ALIAS_TO_CANONICAL: dict[str, tuple[str, str, str, str]] = {}
 for feat in IBSI_FEATURES:
     canonical = feat["canonical"]
-    ibsi_id = feat["ibsi_id"]
+    ontology_id = feat["ibsi_id"]
     for alias in feat["aliases"]:
-        _ALIAS_TO_CANONICAL[alias.lower()] = (canonical, ibsi_id)
+        _ALIAS_TO_CANONICAL[alias.lower()] = (
+            canonical,
+            ontology_id,
+            "radiomic",
+            "RadiomicFeature",
+        )
+
+for feat in BODYCOMP_FEATURES:
+    canonical = feat["canonical"]
+    ontology_id = feat["ontology_id"]
+    for alias in feat["aliases"]:
+        _ALIAS_TO_CANONICAL[alias.lower()] = (
+            canonical,
+            ontology_id,
+            "body_composition",
+            "BodyCompositionFeature",
+        )
 
 _SORTED_ALIASES = sorted(_ALIAS_TO_CANONICAL.keys(), key=len, reverse=True)
 
 
 def _normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", text.lower().strip())
+
+
+def _has_phenotype_context(text: str) -> bool:
+    norm = _normalize_text(text)
+    return any(term in norm for term in RADIOMICS_CONTEXT_TERMS | BODYCOMP_CONTEXT_TERMS)
+
+
+def _is_ambiguous_alias_match_valid(sentence_norm: str, *, start: int, end: int, alias: str) -> bool:
+    window_start = max(0, start - 40)
+    window_end = min(len(sentence_norm), end + 40)
+    window = sentence_norm[window_start:window_end]
+
+    if alias == "mean":
+        if re.search(r"\bmean\s+(?:age|follow-?up|survival|years?|months?|days?|hours?)\b", window):
+            return False
+        if not re.search(
+            r"\b("
+            r"mean intensity|mean adc|mean attenuation|mean suv|suvmean|"
+            r"mean positive pixel|mean gray|mean grey|histogram mean|"
+            r"first[- ]order mean|mean dose|mean signal|mean ct"
+            r")\b",
+            window,
+        ):
+            return False
+        return True
+
+    return _has_phenotype_context(window) or _has_phenotype_context(sentence_norm)
 
 
 def split_sentences(text: str) -> list[str]:
@@ -130,18 +319,82 @@ def _detect_disease(sentence: str, title: str) -> str | None:
     return None
 
 
-def _exact_alias_matches(sentence: str) -> list[tuple[int, int, str, str, str]]:
+def _detect_claim_hint(sentence: str, title: str) -> str | None:
+    norm = _normalize_text(f"{title} {sentence}")
+    if any(term in norm for term in {"predict", "predictive", "prediction"}):
+        return "predictive"
+    if any(term in norm for term in {"prognosis", "prognostic", "survival", "outcome"}):
+        return "prognostic"
+    if any(term in norm for term in {"diagnosis", "diagnostic", "detect", "detection"}):
+        return "diagnostic"
+    if any(term in norm for term in {"associate", "associated", "correlat", "linked", "relationship"}):
+        return "association"
+    return None
+
+
+def _detect_microbe(sentence: str) -> str | None:
+    for match in MICROBE_BINOMIAL_PATTERN.finditer(sentence):
+        candidate = _normalize_text(match.group(1))
+        words = candidate.split()
+        if (
+            words
+            and words[0] in MICROBE_GENUS_TERMS
+            and words[-1] not in MICROBE_STOPWORDS
+        ):
+            return candidate
+
     norm = _normalize_text(sentence)
-    matches: list[tuple[int, int, str, str, str]] = []
+    for genus in sorted(MICROBE_GENUS_TERMS):
+        if re.search(rf"\b{re.escape(genus)}\b", norm):
+            return genus
+    return None
+
+
+def _detect_microbial_signature(sentence: str) -> str | None:
+    norm = _normalize_text(sentence)
+    for term in sorted(MICROBIAL_SIGNATURE_TERMS, key=len, reverse=True):
+        if term in norm:
+            return term
+    return None
+
+
+def _detect_subject_node(sentence: str) -> tuple[str | None, str | None]:
+    microbe = _detect_microbe(sentence)
+    if microbe:
+        return "Microbe", microbe
+
+    signature = _detect_microbial_signature(sentence)
+    if signature:
+        return "MicrobialSignature", signature
+    return None, None
+
+
+def _exact_alias_matches(sentence: str) -> list[tuple[int, int, str, str, str, str, str]]:
+    norm = _normalize_text(sentence)
+    matches: list[tuple[int, int, str, str, str, str, str]] = []
     for alias in _SORTED_ALIASES:
         pattern = rf"\b{re.escape(alias)}\b"
         for hit in re.finditer(pattern, norm):
-            canonical, ibsi_id = _ALIAS_TO_CANONICAL[alias]
-            matches.append((hit.start(), hit.end(), alias, canonical, ibsi_id))
+            if alias in AMBIGUOUS_ALIASES and not _is_ambiguous_alias_match_valid(
+                norm, start=hit.start(), end=hit.end(), alias=alias
+            ):
+                continue
+            canonical, ontology_id, feature_family, node_type = _ALIAS_TO_CANONICAL[alias]
+            matches.append(
+                (
+                    hit.start(),
+                    hit.end(),
+                    alias,
+                    canonical,
+                    ontology_id,
+                    feature_family,
+                    node_type,
+                )
+            )
 
     # Dedupe overlaps by preferring longer spans first.
     matches.sort(key=lambda x: (x[0], -(x[1] - x[0])))
-    kept: list[tuple[int, int, str, str, str]] = []
+    kept: list[tuple[int, int, str, str, str, str, str]] = []
     occupied: list[tuple[int, int]] = []
     for candidate in matches:
         start, end = candidate[0], candidate[1]
@@ -153,28 +406,44 @@ def _exact_alias_matches(sentence: str) -> list[tuple[int, int, str, str, str]]:
     return kept
 
 
-def _fuzzy_alias_match(sentence: str) -> list[tuple[int, int, str, str, str]]:
+def _fuzzy_alias_match(sentence: str) -> list[tuple[int, int, str, str, str, str, str]]:
     norm = _normalize_text(sentence)
+    if not _has_phenotype_context(norm):
+        return []
     tokens = re.findall(r"[a-z0-9/\-]+", norm)
     if not tokens:
         return []
 
     alias_keys = list(_ALIAS_TO_CANONICAL.keys())
-    best: tuple[int, int, str, str, str] | None = None
+    best: tuple[int, int, str, str, str, str, str] | None = None
 
-    for n in range(4, 0, -1):
+    for n in range(4, 1, -1):
         for i in range(0, len(tokens) - n + 1):
             phrase = " ".join(tokens[i : i + n])
-            close = difflib.get_close_matches(phrase, alias_keys, n=1, cutoff=0.90)
+            if len(phrase) < 6:
+                continue
+            close = difflib.get_close_matches(phrase, alias_keys, n=1, cutoff=0.92)
             if not close:
                 continue
             alias = close[0]
-            canonical, ibsi_id = _ALIAS_TO_CANONICAL[alias]
+            canonical, ontology_id, feature_family, node_type = _ALIAS_TO_CANONICAL[alias]
             start = norm.find(phrase)
             if start < 0:
                 continue
             end = start + len(phrase)
-            best = (start, end, phrase, canonical, ibsi_id)
+            if alias in AMBIGUOUS_ALIASES and not _is_ambiguous_alias_match_valid(
+                norm, start=start, end=end, alias=alias
+            ):
+                continue
+            best = (
+                start,
+                end,
+                phrase,
+                canonical,
+                ontology_id,
+                feature_family,
+                node_type,
+            )
             break
         if best:
             break
@@ -185,13 +454,12 @@ def _fuzzy_alias_match(sentence: str) -> list[tuple[int, int, str, str, str]]:
 def extract_mentions_from_paper(paper: dict[str, Any]) -> tuple[list[RadiomicMention], list[dict[str, Any]]]:
     pmid = str(paper.get("pmid") or "")
     title = str(paper.get("title") or "")
-    abstract = str(paper.get("abstract") or "")
-    full_text = f"{title}. {abstract}".strip()
+    content, source_text = paper_text(paper)
 
     mentions: list[RadiomicMention] = []
     mapping_logs: list[dict[str, Any]] = []
 
-    for sent_idx, sentence in enumerate(split_sentences(full_text)):
+    for sent_idx, sentence in enumerate(split_sentences(content)):
         exact = _exact_alias_matches(sentence)
         matches = exact if exact else _fuzzy_alias_match(sentence)
         if not matches:
@@ -200,14 +468,17 @@ def extract_mentions_from_paper(paper: dict[str, Any]) -> tuple[list[RadiomicMen
         modality = _detect_modality(sentence)
         body_location = _detect_body_location(sentence)
         disease = _detect_disease(sentence, title)
+        claim_hint = _detect_claim_hint(sentence, title)
+        subject_node_type, subject_node = _detect_subject_node(sentence)
 
-        for start, end, raw, canonical, ibsi_id in matches:
+        for start, end, raw, canonical, ontology_id, feature_family, node_type in matches:
             mapping_method = "exact" if exact else "fuzzy"
             confidence = 0.45
             confidence += 0.15 if mapping_method == "exact" else 0.05
             confidence += 0.15 if modality else 0.0
             confidence += 0.15 if body_location else 0.0
             confidence += 0.10 if disease else 0.0
+            confidence += 0.05 if subject_node else 0.0
             confidence = float(min(1.0, confidence))
 
             mention_id = hashlib.sha1(
@@ -222,13 +493,19 @@ def extract_mentions_from_paper(paper: dict[str, Any]) -> tuple[list[RadiomicMen
                 span_end=end,
                 raw_feature=raw,
                 canonical_feature=canonical,
-                ibsi_id=ibsi_id,
+                ibsi_id=ontology_id,
                 confidence=confidence,
                 mapping_method=mapping_method,
                 evidence=f"PMID {pmid} sentence {sent_idx}",
+                feature_family=feature_family,
+                node_type=node_type,
+                ontology_namespace="IBSI" if feature_family == "radiomic" else "BODYCOMP",
                 modality=modality,
                 body_location=body_location,
                 disease=disease,
+                claim_hint=claim_hint,
+                subject_node_type=subject_node_type,
+                subject_node=subject_node,
             )
             mentions.append(mention)
             mapping_logs.append(
@@ -237,8 +514,13 @@ def extract_mentions_from_paper(paper: dict[str, Any]) -> tuple[list[RadiomicMen
                     "pmid": pmid,
                     "raw_feature": raw,
                     "canonical_feature": canonical,
-                    "ibsi_id": ibsi_id,
+                    "ibsi_id": ontology_id,
                     "mapping_method": mapping_method,
+                    "feature_family": feature_family,
+                    "node_type": node_type,
+                    "subject_node_type": subject_node_type,
+                    "subject_node": subject_node,
+                    "source_text": source_text,
                 }
             )
 

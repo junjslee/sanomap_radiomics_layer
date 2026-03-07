@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BridgeHypothesis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "hypothesis_id",
+    "pmid",
+    "microbe_or_signature",
+    "microbe_or_signature_type",
+    "phenotype",
+    "phenotype_node_type",
+    "disease",
+    "evidence_fragments",
+    "bridge_reason",
+    "confidence",
+    "not_for_graph_ingestion"
+  ],
+  "properties": {
+    "hypothesis_id": {"type": "string"},
+    "pmid": {"type": "string"},
+    "microbe_or_signature": {"type": "string"},
+    "microbe_or_signature_type": {
+      "type": "string",
+      "enum": ["Microbe", "MicrobialSignature"]
+    },
+    "phenotype": {"type": "string"},
+    "phenotype_node_type": {
+      "type": "string",
+      "enum": ["RadiomicFeature", "BodyCompositionFeature"]
+    },
+    "disease": {"type": "string"},
+    "evidence_fragments": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "bridge_reason": {"type": "string"},
+    "confidence": {"type": "number"},
+    "not_for_graph_ingestion": {"type": "boolean"}
+  }
+}

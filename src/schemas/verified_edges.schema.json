@@ -7,11 +7,17 @@
     "edge_id",
     "pmid",
     "radiomic_feature",
+    "subject_node_type",
+    "subject_node",
+    "object_node_type",
+    "object_node",
+    "graph_rel_type",
     "relation_type",
     "evidence_type",
     "confidence",
     "evidence",
-    "verification_passed"
+    "verification_passed",
+    "assertion_level"
   ],
   "properties": {
     "edge_id": {"type": "string"},
@@ -19,6 +25,20 @@
     "microbe": {"type": ["string", "null"]},
     "radiomic_feature": {"type": "string"},
     "disease": {"type": ["string", "null"]},
+    "subject_node_type": {
+      "type": "string",
+      "enum": ["Microbe", "MicrobialSignature", "RadiomicFeature", "BodyCompositionFeature"]
+    },
+    "subject_node": {"type": "string"},
+    "object_node_type": {
+      "type": "string",
+      "enum": ["RadiomicFeature", "BodyCompositionFeature", "Disease"]
+    },
+    "object_node": {"type": "string"},
+    "graph_rel_type": {
+      "type": "string",
+      "enum": ["CORRELATES_WITH", "ASSOCIATED_WITH"]
+    },
     "relation_type": {"type": "string"},
     "r_value": {"type": ["number", "null"]},
     "evidence_type": {"type": "string"},
@@ -32,6 +52,18 @@
     "quartile": {"type": ["string", "null"]},
     "issn": {"type": ["string", "null"]},
     "evidence": {"type": "string"},
-    "verification_passed": {"type": "boolean"}
+    "verification_passed": {"type": "boolean"},
+    "feature_family": {
+      "type": ["string", "null"],
+      "enum": ["radiomic", "body_composition", null]
+    },
+    "claim_hint": {
+      "type": ["string", "null"],
+      "enum": ["association", "predictive", "diagnostic", "prognostic", null]
+    },
+    "assertion_level": {
+      "type": "string",
+      "enum": ["direct_evidence"]
+    }
   }
 }
