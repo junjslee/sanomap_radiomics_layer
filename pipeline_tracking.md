@@ -2,6 +2,9 @@
 
 Last updated: 2026-03-07 (America/Chicago)
 
+Primary operational handoff file:
+- `docs/NEXT_STEPS.md`
+
 ## 1) Locked Direction
 The repository is now locked to a hybrid two-tier design:
 - strict `RadiomicFeature` core

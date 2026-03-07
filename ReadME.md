@@ -3,6 +3,8 @@
 ## What This Pipeline Does
 This repository implements a MINERVA-style extraction pipeline that extends the graph with a radiomics-first imaging phenotype layer.
 
+Operational handoff for the next agent run lives in `docs/NEXT_STEPS.md`.
+
 Direct evidence edges emitted by the current pipeline are:
 - `(Microbe)-[:CORRELATES_WITH]->(RadiomicFeature)`
 - `(Microbe)-[:CORRELATES_WITH]->(BodyCompositionFeature)`
