@@ -4,6 +4,7 @@
 This file is the vendor-neutral operating manual for agents working in this repository.
 
 ## Required Memory Files
+- `docs/AGENT_SYSTEM.md`
 - `CLAUDE.md`
 - `docs/REQUIREMENTS.md`
 - `docs/PLAN.md`

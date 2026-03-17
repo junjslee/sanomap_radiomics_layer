@@ -6,6 +6,7 @@ It is not auto-generated. The active agent is expected to update it whenever the
 
 Read this together with:
 - `AGENTS.md`
+- `docs/AGENT_SYSTEM.md`
 - `CLAUDE.md`
 - `docs/AGENT_PROTOCOLS.md`
 - `docs/REQUIREMENTS.md`
@@ -19,6 +20,7 @@ Read this together with:
 ## Repo Runtime Status
 - Shared project truth lives in:
   - `AGENTS.md`
+  - `docs/AGENT_SYSTEM.md`
   - `docs/*.md`
   - `pipeline_tracking.md`
 - Repo-local Claude runtime:
@@ -28,6 +30,7 @@ Read this together with:
   - `.codex/config.toml`
   - requires the repo or worktree path to be trusted by Codex before project config is applied
 - Cursor is an editor surface only.
+- Optional Claude-only plugins such as `claude-mem` are not canonical project memory and are not required for normal repo operation.
 
 ## Primary Goal
 Finish the radiomics-first imaging phenotype extension to a level that is methodologically close to upstream MINERVA, while keeping the current graph semantics and direct-evidence policy.

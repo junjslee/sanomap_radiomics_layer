@@ -6,6 +6,7 @@ Shared project truth lives in `AGENTS.md`, `docs/*.md`, and `pipeline_tracking.m
 ## Read Order
 Read these before planning or implementation work:
 - `AGENTS.md`
+- `docs/AGENT_SYSTEM.md`
 - `CLAUDE.md` for Claude sessions only
 - `docs/REQUIREMENTS.md`
 - `docs/PLAN.md`

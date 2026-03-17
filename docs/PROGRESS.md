@@ -23,6 +23,9 @@
   - project `.codex/config.toml`
   - project Claude hook scripts in `.claude/hooks/`
   - shared docs remain the source of truth for both Claude and Codex
+- Added explicit system-architecture docs:
+  - global `agent-os` architecture in `~/agent-os/docs/AGENT_OS_ARCHITECTURE.md`
+  - repo application map in `docs/AGENT_SYSTEM.md`
 
 ## In Progress
 - Converting the repo from ad hoc markdown notes into a reusable dual-tool agent operating system.
@@ -44,6 +47,7 @@
 - Shared project truth lives in `AGENTS.md`, `docs/*.md`, and `pipeline_tracking.md`, not in tool-specific settings files.
 - Claude and Codex both have repo-local runtimes for this project; Cursor remains an editor surface only.
 - Local helper work and `agent-os` commands should run in Conda `base`.
+- Optional Claude-only plugins such as `claude-mem` may be added later as accelerators, but they are not canonical project memory and do not replace shared docs.
 - Standard worktree lanes are now:
   - `research/query-*`
   - `fix/entity-cleanup-*`

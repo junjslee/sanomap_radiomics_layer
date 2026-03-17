@@ -8,6 +8,7 @@ Operational handoff for the next agent run lives in `docs/NEXT_STEPS.md`.
 ## Repo Operating Surface
 Shared project truth lives in:
 - `AGENTS.md`
+- `docs/AGENT_SYSTEM.md`
 - `docs/REQUIREMENTS.md`
 - `docs/PLAN.md`
 - `docs/PROGRESS.md`
