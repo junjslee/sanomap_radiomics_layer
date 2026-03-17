@@ -1,6 +1,6 @@
 # Pipeline Tracking
 
-Last updated: 2026-03-07 (America/Chicago)
+Last updated: 2026-03-17 (America/Chicago)
 
 Primary operational handoff file:
 - `docs/NEXT_STEPS.md`
@@ -89,10 +89,10 @@ Interpretation:
 - `radiomics_disease_strict` dropped some generic imaging-biomarker noise while aligning better with `ASSOCIATED_WITH`
 - `bodycomp_disease` stayed conservative because fully broadening association language inflated counts too aggressively
 
-Sample-paper audit on 2026-03-06:
-- `sample_papers_of_radiomics/radiomics_2.pdf` maps to PMID `37173744` and is present in `artifacts/papers_microbe_radiomics_strict.jsonl`
-- `sample_papers_of_radiomics/radiomics_1.pdf` maps to PMID `34472211` and is present in `artifacts/papers_microbe_bodycomp.jsonl`; it is not a strict radiomics paper and should be treated as body-composition/imaging-phenotype evidence
-- reference inspection from `radiomics_2.pdf` identified PMID `28704452` (`Influence of lung CT changes in chronic obstructive pulmonary disease (COPD) on the human lung microbiome`) as directly adjacent imaging+microbiome literature that is not captured by the strict radiomics profile because it does not use explicit radiomics wording
+Local sample-paper audit on 2026-03-06:
+- one local radiomics sample maps to PMID `37173744` and is present in `artifacts/papers_microbe_radiomics_strict.jsonl`
+- one local imaging/body-composition sample maps to PMID `34472211` and is present in `artifacts/papers_microbe_bodycomp.jsonl`; it is not a strict radiomics paper and should be treated as body-composition/imaging-phenotype evidence
+- reference inspection from the local radiomics sample identified PMID `28704452` (`Influence of lung CT changes in chronic obstructive pulmonary disease (COPD) on the human lung microbiome`) as directly adjacent imaging+microbiome literature that is not captured by the strict radiomics profile because it does not use explicit radiomics wording
 
 Implication:
 - the `microbe_radiomics_strict` corpus is a precision-oriented direct-radiomics set, not the full universe of imaging-plus-microbiome papers

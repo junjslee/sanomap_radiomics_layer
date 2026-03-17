@@ -5,6 +5,27 @@ This repository implements a MINERVA-style extraction pipeline that extends the 
 
 Operational handoff for the next agent run lives in `docs/NEXT_STEPS.md`.
 
+## Repo Operating Surface
+Shared project truth lives in:
+- `AGENTS.md`
+- `docs/REQUIREMENTS.md`
+- `docs/PLAN.md`
+- `docs/PROGRESS.md`
+- `docs/RUN_CONTEXT.md`
+- `docs/NEXT_STEPS.md`
+- `pipeline_tracking.md`
+
+Repo-local agent runtime files are:
+- `.claude/settings.json`
+- `.claude/hooks/`
+- `.codex/config.toml`
+
+Local-only operator files are not committed:
+- `sample_papers/`
+- `.claude/settings.local.json`
+- home-directory auth or trust settings
+- `.env*`, `secrets/`, and private keys
+
 Direct evidence edges emitted by the current pipeline are:
 - `(Microbe)-[:CORRELATES_WITH]->(RadiomicFeature)`
 - `(Microbe)-[:CORRELATES_WITH]->(BodyCompositionFeature)`
