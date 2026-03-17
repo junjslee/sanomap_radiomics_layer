@@ -65,6 +65,8 @@ class TestVerifyHeatmap(unittest.TestCase):
             self.assertTrue(out["pass_fail"])
             self.assertEqual(out["reason_code"], "verified")
             self.assertIn("distance_metric", out)
+            self.assertGreaterEqual(out["legend_bbox"][0], 130)
+            self.assertLess(out["min_abs_error"], 0.08)
         finally:
             path.unlink(missing_ok=True)
 

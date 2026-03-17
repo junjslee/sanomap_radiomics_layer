@@ -79,6 +79,8 @@ Read this file at the start of implementation work.
 - Some model weights and checkpoints used in or associated with the upstream MINERVA paper are not yet available in this workspace.
 - Because of that, this repository currently uses default substitute models to get a proof-of-concept end-to-end pipeline running first.
 - This is intentional. The immediate goal is pipeline completion and evidence flow validation, not final model parity.
+- Professor-mediated review is the current likely path if any upstream or private checkpoints become available for inspection or reruns.
+- If that handoff happens, document the model ids, access assumptions, and execution steps in repo docs, but do not commit restricted weights or private access material into Git.
 
 ## Current Substitute Model Policy
 - Relation extraction targets `BioMistral/BioMistral-7B` when model-backed text generation is available.
@@ -92,6 +94,10 @@ Read this file at the start of implementation work.
 - For merged proof-of-concept relation extraction runs in this workspace, `BioMistral/BioMistral-7B` text generation is not a practical default execution path.
 - Model-backed merged relation production is non-local by default.
 - When that constraint matters, record explicitly whether the run used the intended text-generation backend or the `heuristic` backend.
+- The 2026-03-17 local merged rebuild also ran in an offline/no-network environment for Hugging Face model fetches:
+  - `d4data/biomedical-ner-all` could not be downloaded
+  - `src/text_ner_minerva.py` therefore reported `microbe_model_available = false`
+  - the local rebuild used regex fallback for microbe extraction, so recall should not be compared directly to a cached-model or remote run
 
 ## Interim Candidate Models
 - If microbe NER quality is the priority, evaluate `pruas/BENT-PubMedBERT-NER-Organism`.

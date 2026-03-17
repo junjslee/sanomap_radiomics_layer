@@ -14,10 +14,9 @@ if __package__ is None or __package__ == "":
 from src.artifact_utils import read_jsonl, write_jsonl, write_manifest
 from src.paper_text_utils import paper_text
 from src.schema_utils import SchemaValidationError, load_schema, validate_record
+from src.span_cleanup import GENERIC_MICROBE_TERMS, clean_disease_span, clean_subject_span
 from src.types import EntitySentenceRecord, RelationInputRecord, to_dict
 
-GENERIC_MICROBE_TERMS = {"bacteria", "bacterias", "probiotic", "probiotics", "microbiome", "microbiota"}
-GENERIC_DISEASE_TERMS = {"disease", "diseases"}
 NON_MICROBE_FIRST_TOKENS = {
     "a",
     "an",
@@ -501,7 +500,7 @@ def _apply_umls_and_filters(
     allowed_tuis: set[str] | None,
     entity_type: str,
 ) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
+    dedup: dict[str, dict[str, Any]] = {}
     for row in rows:
         text = _normalize_text(str(row.get("text") or ""))
         if not text:
@@ -516,20 +515,26 @@ def _apply_umls_and_filters(
             payload["tui"] = normalized.get("tui")
             payload["umls_similarity"] = normalized.get("similarity")
             payload["official_name"] = normalized.get("official_name")
-            out.append(payload)
+
+        if entity_type == "microbe":
+            if normalized is None and not _is_microbe_like(text):
+                continue
+            cleaned_span, reason = clean_subject_span(payload["text"], subject_node_type="Microbe")
+        elif entity_type == "disease":
+            cleaned_span, reason = clean_disease_span(payload["text"])
+        else:
             continue
 
-        # Fallback lexical filtering.
-        lower = text.lower()
-        if entity_type == "microbe":
-            if lower in GENERIC_MICROBE_TERMS or not _is_microbe_like(text):
-                continue
-        elif entity_type == "disease":
-            if lower in GENERIC_DISEASE_TERMS:
-                continue
+        if reason is not None or cleaned_span is None:
+            continue
 
-        out.append(payload)
-    return out
+        payload["text"] = cleaned_span.canonical
+        key = cleaned_span.canonical
+        prev = dedup.get(key)
+        if prev is None or float(payload.get("score") or 0.0) > float(prev.get("score") or 0.0):
+            dedup[key] = payload
+
+    return list(dedup.values())
 
 
 def _paper_text(paper: dict[str, Any]) -> tuple[str, str]:
@@ -630,13 +635,9 @@ def build_entity_and_relation_rows(
                 )
 
                 for disease in diseases:
-                    disease_text = _normalize_text(str(disease.get("text") or "")).lower()
-                    if disease_text in GENERIC_DISEASE_TERMS:
-                        continue
+                    disease_text = str(disease.get("text") or "")
                     for microbe in microbes:
-                        microbe_text = _normalize_text(str(microbe.get("text") or "")).lower()
-                        if microbe_text in GENERIC_MICROBE_TERMS:
-                            continue
+                        microbe_text = str(microbe.get("text") or "")
 
                         row_id = _stable_id(record_id, disease_text, microbe_text)
                         relation_rows.append(

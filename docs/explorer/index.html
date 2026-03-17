@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Relation Explorer</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --panel: #111827;
+        --accent: #38bdf8;
+        --accent-soft: #b3ecff;
+        --text: #f8fafc;
+        --border: rgba(255, 255, 255, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: 'Avenir Next', 'Trebuchet MS', 'Segoe UI', sans-serif;
+        background: radial-gradient(circle at top, #0f172a 0%, #020617 45%);
+        color: var(--text);
+        min-height: 100vh;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      header {
+        text-align: center;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: clamp(1.5rem, 2vw + 1rem, 2.4rem);
+        letter-spacing: 0.03em;
+      }
+
+      header p {
+        margin: 0.5rem auto 0;
+        max-width: 640px;
+        color: rgba(248, 250, 252, 0.72);
+      }
+
+      .panel {
+        background: rgba(15, 23, 42, 0.88);
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        box-shadow: 0 20px 40px rgba(2, 6, 23, 0.65);
+      }
+
+      .file-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+      }
+
+      .file-row label {
+        font-size: 0.9rem;
+        color: rgba(248, 250, 252, 0.72);
+      }
+
+      .file-row input[type='file'] {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px dashed var(--border);
+        padding: 0.6rem 1rem;
+        border-radius: 999px;
+        color: inherit;
+        cursor: pointer;
+      }
+
+      .filters {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.75rem;
+        margin-top: 1rem;
+      }
+
+      .filters input {
+        width: 100%;
+        background: rgba(248, 250, 252, 0.04);
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        padding: 0.7rem 0.9rem;
+        color: var(--text);
+        font-size: 0.95rem;
+      }
+
+      .filters button {
+        background: linear-gradient(135deg, var(--accent), #0ea5e9);
+        border: none;
+        color: var(--panel);
+        border-radius: 0.75rem;
+        padding: 0.75rem 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 150ms ease;
+      }
+
+      .filters button:active {
+        transform: scale(0.97);
+      }
+
+      .stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-top: 1rem;
+        justify-content: center;
+      }
+
+      .stat {
+        flex: 1;
+        min-width: 180px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--border);
+        border-radius: 0.85rem;
+        padding: 1rem;
+        text-align: center;
+      }
+
+      .stat strong {
+        display: block;
+        font-size: 1.8rem;
+      }
+
+      .stat span {
+        font-size: 0.85rem;
+        color: rgba(248, 250, 252, 0.72);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+        font-size: 0.9rem;
+      }
+
+      tbody tr:nth-child(even) {
+        background: rgba(248, 250, 252, 0.04);
+      }
+
+      th,
+      td {
+        padding: 0.6rem 0.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        text-align: left;
+      }
+
+      th {
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(248, 250, 252, 0.72);
+      }
+
+      tbody td {
+        color: rgba(248, 250, 252, 0.92);
+      }
+
+      .hint {
+        font-size: 0.85rem;
+        color: rgba(248, 250, 252, 0.65);
+        text-align: center;
+        margin-top: 0.5rem;
+      }
+
+      @media (max-width: 640px) {
+        body {
+          padding: 1rem;
+        }
+
+        th,
+        td {
+          padding: 0.5rem 0.3rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Relation Explorer</h1>
+      <p>
+        Load any JSONL output from `relation_aggregated` or similar artifacts, then
+        filter by microbe, disease, feature, or PMID to inspect the accepted relations.
+      </p>
+    </header>
+
+    <section class="panel">
+      <div class="file-row">
+        <label for="fileInput">Choose a relation JSONL artifact</label>
+        <input id="fileInput" type="file" accept=".jsonl,.json" />
+      </div>
+
+      <div class="filters">
+        <input id="filterSubject" type="text" placeholder="Filter by microbe or subject" />
+        <input id="filterDisease" type="text" placeholder="Filter by disease" />
+        <input id="filterFeature" type="text" placeholder="Filter by feature (Radiomic, BodyComposition, etc.)" />
+        <input id="filterPmid" type="text" placeholder="Filter by PMID" />
+        <button id="clearFilters">Clear filters</button>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <strong id="totalCount">0</strong>
+          <span>records loaded</span>
+        </div>
+        <div class="stat">
+          <strong id="matchingCount">0</strong>
+          <span>records matching filters</span>
+        </div>
+      </div>
+
+      <div id="tableWrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>PMID</th>
+              <th>Microbe / Subject</th>
+              <th>Disease</th>
+              <th>Feature</th>
+              <th>Sentence</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="hint">
+      The explorer is static and runs entirely in your browser. Use it alongside the
+      `artifacts/relation_aggregated*.jsonl` outputs or similar files generated by this pipeline.
+    </p>
+
+    <script>
+      const fileInput = document.getElementById('fileInput');
+      const clearFilters = document.getElementById('clearFilters');
+      const resultsBody = document.getElementById('resultsBody');
+      const totalCount = document.getElementById('totalCount');
+      const matchingCount = document.getElementById('matchingCount');
+      const filters = {
+        subject: document.getElementById('filterSubject'),
+        disease: document.getElementById('filterDisease'),
+        feature: document.getElementById('filterFeature'),
+        pmid: document.getElementById('filterPmid'),
+      };
+
+      let records = [];
+
+      function parseJsonl(text) {
+        return text
+          .split(/\\r?\\n/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => {
+            try {
+              return JSON.parse(line);
+            } catch (error) {
+              console.error('Failed to parse JSON line', line, error);
+              return null;
+            }
+          })
+          .filter(Boolean);
+      }
+
+      function normalize(value) {
+        return (value ?? '').toString().trim().toLowerCase();
+      }
+
+      function matches(record, needle, keys) {
+        if (!needle) {
+          return true;
+        }
+        const lowered = normalize(needle);
+        return keys.some((key) => normalize(record[key]).includes(lowered));
+      }
+
+      function featureLabel(record) {
+        return (
+          record.feature_family ||
+          record.feature_title ||
+          record.claim_hint ||
+          record.node_role ||
+          '—'
+        );
+      }
+
+      function renderTable() {
+        const subjectFilter = filters.subject.value;
+        const diseaseFilter = filters.disease.value;
+        const featureFilter = filters.feature.value;
+        const pmidFilter = filters.pmid.value;
+
+        const filtered = records.filter((record) => {
+          return (
+            matches(record, subjectFilter, ['subject_node', 'microbe']) &&
+            matches(record, diseaseFilter, ['disease']) &&
+            matches(record, featureFilter, ['feature_family', 'feature_title', 'claim_hint']) &&
+            matches(record, pmidFilter, ['pmid'])
+          );
+        });
+
+        totalCount.textContent = records.length;
+        matchingCount.textContent = filtered.length;
+
+        resultsBody.innerHTML = filtered
+          .slice(0, 200)
+          .map((record) => {
+            const sentence = record.evidence_sentence || record.sentence_text || '—';
+            return `
+              <tr>
+                <td>${record.pmid ?? record.PMID ?? '—'}</td>
+                <td>${record.subject_node ?? record.microbe ?? '—'}</td>
+                <td>${record.disease ?? '—'}</td>
+                <td>${featureLabel(record)}</td>
+                <td>${sentence}</td>
+              </tr>
+            `.trim();
+          })
+          .join('');
+
+        if (filtered.length > 200) {
+          resultsBody.insertAdjacentHTML(
+            'beforeend',
+            `
+              <tr>
+                <td colspan="5" style="text-align:center; color: rgba(248,250,252,0.65);">
+                  Showing first 200 matches of ${filtered.length}. Refine filters to focus on more specific records.
+                </td>
+              </tr>
+            `.trim()
+          );
+        }
+      }
+
+      filters.subject.addEventListener('input', renderTable);
+      filters.disease.addEventListener('input', renderTable);
+      filters.feature.addEventListener('input', renderTable);
+      filters.pmid.addEventListener('input', renderTable);
+
+      clearFilters.addEventListener('click', () => {
+        filters.subject.value = '';
+        filters.disease.value = '';
+        filters.feature.value = '';
+        filters.pmid.value = '';
+        renderTable();
+      });
+
+      fileInput.addEventListener('change', (event) => {
+        const file = event.target.files?.[0];
+        if (!file) {
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (loadEvent) => {
+          records = parseJsonl(loadEvent.target.result ?? '');
+          renderTable();
+        };
+        reader.readAsText(file);
+      });
+    </script>
+  </body>
+</html>

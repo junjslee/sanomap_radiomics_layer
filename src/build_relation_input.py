@@ -12,18 +12,12 @@ if __package__ is None or __package__ == "":
 
 from src.artifact_utils import read_jsonl, write_jsonl, write_manifest
 from src.schema_utils import SchemaValidationError, load_schema, validate_record
+from src.span_cleanup import clean_relation_pair, normalize_span_text
 from src.types import RelationInputRecord, to_dict
-
-GENERIC_MICROBE_TERMS = {"bacteria", "bacterias", "probiotic", "probiotics"}
-GENERIC_DISEASE_TERMS = {"disease", "diseases"}
 
 
 def _stable_id(*parts: str) -> str:
     return hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()[:16]
-
-
-def _normalize(text: str) -> str:
-    return " ".join(text.strip().lower().split())
 
 
 def _paper_index(papers: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -56,7 +50,7 @@ def _extract_entities(entity: dict[str, Any], key: str) -> list[dict[str, Any]]:
     for row in raw:
         if not isinstance(row, dict):
             continue
-        text = _normalize(str(row.get("text") or ""))
+        text = normalize_span_text(str(row.get("text") or ""))
         if not text:
             continue
         payload = dict(row)
@@ -65,7 +59,7 @@ def _extract_entities(entity: dict[str, Any], key: str) -> list[dict[str, Any]]:
     return out
 
 
-def _filter_reason(
+def _clean_pair(
     *,
     sentence: str,
     subject_node_type: str,
@@ -75,20 +69,20 @@ def _filter_reason(
     max_words: int,
     max_chars: int,
     require_radiomics_context: bool,
-) -> str | None:
-    if not sentence:
-        return "missing_sentence"
-    if len(sentence.split()) >= max_words:
-        return "evidence_too_long_words"
-    if len(sentence) >= max_chars:
-        return "evidence_too_long_chars"
-    if subject_node_type == "Microbe" and subject_node in GENERIC_MICROBE_TERMS:
-        return "generic_microbe_term"
-    if disease in GENERIC_DISEASE_TERMS:
-        return "generic_disease_term"
+) -> tuple[str | None, str | None, str | None]:
+    cleaned_subject, cleaned_disease, reason = clean_relation_pair(
+        sentence=sentence,
+        subject_node_type=subject_node_type,
+        subject_node=subject_node,
+        disease=disease,
+        max_evidence_words=max_words,
+        max_evidence_chars=max_chars,
+    )
+    if reason is not None:
+        return None, None, reason
     if require_radiomics_context and not has_radiomics_context:
-        return "missing_radiomics_context"
-    return None
+        return None, None, "missing_radiomics_context"
+    return cleaned_subject.canonical, cleaned_disease.canonical, None
 
 
 def build_relation_rows(
@@ -130,7 +124,7 @@ def build_relation_rows(
             subject_node = microbe_text
             for disease in diseases:
                 disease_text = str(disease.get("text") or "")
-                reason = _filter_reason(
+                cleaned_subject, cleaned_disease, reason = _clean_pair(
                     sentence=sentence,
                     subject_node_type=subject_node_type,
                     subject_node=subject_node,
@@ -143,6 +137,12 @@ def build_relation_rows(
                 if reason is not None:
                     reason_counts[reason] = reason_counts.get(reason, 0) + 1
                     continue
+                if cleaned_subject is None or cleaned_disease is None:
+                    continue
+
+                microbe_text = cleaned_subject
+                subject_node = cleaned_subject
+                disease_text = cleaned_disease
 
                 row_id = _stable_id(
                     pmid,

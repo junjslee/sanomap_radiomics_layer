@@ -1,6 +1,6 @@
 import unittest
 
-from src.relation_extract_stage import run_relation_extraction
+from src.relation_extract_stage import filter_relation_input_rows, run_relation_extraction
 
 
 class TestRelationExtractStage(unittest.TestCase):
@@ -61,6 +61,54 @@ class TestRelationExtractStage(unittest.TestCase):
         self.assertEqual(predictions[0]["subject_node_type"], "Microbe")
         self.assertEqual(predictions[0]["subject_node"], "lactobacillus")
         self.assertEqual(aggregated[0]["subject_node"], "lactobacillus")
+
+    def test_filter_relation_input_rows_cleans_and_rejects_bad_spans(self) -> None:
+        kept, reasons = filter_relation_input_rows(
+            [
+                {
+                    "pmid": "201",
+                    "microbe": "Escherichia coli abundance",
+                    "subject_node_type": "Microbe",
+                    "subject_node": "Escherichia coli abundance",
+                    "disease": "liver cancer in this cohort",
+                    "sentence": "Escherichia coli abundance was associated with liver cancer in this cohort.",
+                },
+                {
+                    "pmid": "202",
+                    "microbe": "##fidobacteria",
+                    "subject_node_type": "Microbe",
+                    "subject_node": "##fidobacteria",
+                    "disease": "obesity",
+                    "sentence": "##fidobacteria was associated with obesity.",
+                },
+            ]
+        )
+
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(kept[0]["microbe"], "escherichia coli")
+        self.assertEqual(kept[0]["subject_node"], "escherichia coli")
+        self.assertEqual(kept[0]["disease"], "liver cancer")
+        self.assertIn("subject_wordpiece_fragment", reasons)
+
+    def test_filter_relation_input_rows_rejects_clause_like_disease_fragment(self) -> None:
+        kept, reasons = filter_relation_input_rows(
+            [
+                {
+                    "pmid": "203",
+                    "microbe": "Fusobacteria were",
+                    "subject_node_type": "Microbe",
+                    "subject_node": "Fusobacteria were",
+                    "disease": "indicators of body fat distribution and systemic inflammation",
+                    "sentence": (
+                        "Fusobacteria were associated with indicators of body fat distribution "
+                        "and systemic inflammation."
+                    ),
+                }
+            ]
+        )
+
+        self.assertEqual(kept, [])
+        self.assertIn("disease_clause_like", reasons)
 
 
 if __name__ == "__main__":

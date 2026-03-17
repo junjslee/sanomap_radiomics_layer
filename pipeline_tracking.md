@@ -240,6 +240,56 @@ Merged relation extraction pass on 2026-03-07:
     - `42` disease strings are long clause-like phrases of 6+ words rather than clean disease entities
   - do not promote this merged branch directly to graph edge assembly without another cleanup pass on subject/disease span quality
 
+Cleanup-aware local rebuild on 2026-03-17:
+- execution context:
+  - worktree-local ignored outputs in `artifacts/`
+  - read-only merged input corpus from `/Users/junlee/Desktop/sanomap-radiomics-layer/artifacts/papers_microbe_merged_fulltext.jsonl`
+  - `heuristic` relation backend on CPU
+- output metrics:
+  - `src/extract_radiomics_text.py`: `1,129` mentions, unchanged from the previous local baseline
+  - `src/text_ner_minerva.py`: `54` entity sentences and `83` raw relation rows
+  - `src/build_relation_input.py`: `35` final relation-input rows after radiomics-context gating
+  - `src/relation_extract_stage.py`: `35` aggregated relations, `23` accepted aggregated relations
+- important runtime note:
+  - the local environment could not download `d4data/biomedical-ner-all`
+  - `microbe_model_available = false`
+  - this rebuild therefore used regex fallback for microbe extraction and should be treated as a lower-recall local audit, not a final production-quality run
+- accepted aggregated quality delta versus the 2026-03-07 baseline:
+  - subject nodes containing `##`: `14 -> 0`
+  - generic subject terms caught by the shared cleanup helper: `16 -> 0`
+  - disease spans caught by shared cleanup as relation-language: `24 -> 0`
+  - disease spans caught by shared cleanup as clause-like: `15 -> 0`
+  - disease strings of `6+` words: `42 -> 6`
+- residual accepted examples still worth fixing before graph promotion:
+  - subject tail fragments such as `peptostreptococcaceae and`, `fusobacteria is`, and `fusobacteria were`
+  - disease clause-prefix fragments such as `in adults with chronic hiv infection` and `one of the main manifestations of cirrhosis`
+- interpretation:
+  - the shared cleanup helper materially improved accepted relation quality
+  - this historical rerun still left a smaller residual cleanup pass to do before graph promotion
+  - the follow-up local audit should be compared against this point before deciding whether to move on to remote model-backed extraction and edge assembly
+
+Residual-cleanup rerun on 2026-03-17:
+- execution context:
+  - same read-only merged input corpus from `/Users/junlee/Desktop/sanomap-radiomics-layer/artifacts/papers_microbe_merged_fulltext.jsonl`
+  - same CPU-only `heuristic` relation backend
+  - same offline fallback constraint for `d4data/biomedical-ner-all`
+- output metrics:
+  - `src/text_ner_minerva.py`: `38` entity sentences and `60` raw relation rows
+  - `src/build_relation_input.py`: `26` final relation-input rows after radiomics-context gating
+  - `src/relation_extract_stage.py`: `26` aggregated relations, `20` accepted aggregated relations
+- accepted aggregated quality delta versus the 2026-03-07 baseline:
+  - subject nodes containing `##`: `14 -> 0`
+  - generic subject terms caught by the shared cleanup helper: `16 -> 0`
+  - disease spans caught by shared cleanup as relation-language: `23 -> 0`
+  - disease spans caught by shared cleanup as clause-like: `18 -> 0`
+  - disease strings of `6+` words: `42 -> 0`
+  - subject trailing fragments: `7 -> 0`
+  - disease leading-prefix fragments: `7 -> 0`
+- interpretation:
+  - the narrower cleanup pass removed the previously remaining subject-tail and disease-prefix fragment patterns from accepted aggregated outputs in the local heuristic rerun
+  - this is still a lower-recall local audit because microbe extraction fell back to regex
+  - do not treat it as upstream-parity relation quality until the same cleanup result is confirmed on a model-backed GPU or hosted run
+
 ## 3) Why The Scope Changed
 Observed mismatch in the previous baseline:
 - local `microbe_radiomics` corpus contained many body-composition and DXA papers, not only strict radiomics papers

@@ -2,7 +2,7 @@
 
 @AGENTS.md
 @docs/AGENT_PROTOCOLS.md
-@ReadME.md
+@README.md
 @docs/REQUIREMENTS.md
 @docs/PLAN.md
 @docs/PROGRESS.md
