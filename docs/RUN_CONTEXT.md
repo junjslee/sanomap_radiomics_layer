@@ -2,6 +2,79 @@
 
 Read this file at the start of implementation work.
 
+## Runtime Ownership
+- Shared project truth lives in:
+  - `AGENTS.md`
+  - `docs/*.md`
+  - `pipeline_tracking.md`
+- Repo-local runtime files are:
+  - `.claude/settings.json`
+  - `.codex/config.toml`
+- Cursor is an editor surface, not a third repo-local runtime target.
+
+## Publication Boundary
+- This GitHub repository is the supervisor-visible production work surface for the internship.
+- Safe to commit:
+  - shared project docs
+  - reusable repo-local runtime files
+  - code, tests, and research/reference artifacts intended for team review
+- Keep local only:
+  - `sample_papers/`
+  - `.claude/settings.local.json`
+  - user auth state
+  - trust settings in home-directory tool configs
+  - `.env*`
+  - `secrets/`
+  - private keys or machine-specific overrides
+
+## Local Python Runtime Policy
+- Local Python-backed repo automation and `agent-os` helper work run in Conda `base`.
+- Homebrew Python is not the supported runtime for repo-local helper automation.
+- Unless a remote or hosted environment is explicitly documented for a run, local helper commands should assume Conda `base`.
+
+## Execution Profiles
+### `local_mac_base`
+- Hardware:
+  - Apple M2
+  - `8 GB` unified memory
+  - `arm64`
+  - `MPS` available
+- Valid use:
+  - orchestration
+  - smoke tests
+  - text-stage artifact rebuilds
+  - audits and validation
+  - query exploration loops
+  - light model-selection experiments
+- Not valid as the default path for:
+  - final model-backed merged relation production
+  - heavy local relation extraction runs meant to approximate upstream execution
+
+### `remote_gpu_tbd`
+- This is the preferred production profile for real model-backed merged relation extraction.
+- The exact host, scheduler, and access pattern are still undecided.
+- When used, record:
+  - backend
+  - model id
+  - device
+  - runtime
+  - artifact outputs
+  - any environment-specific rate or quota constraints
+
+### `hosted_inference_tbd`
+- This is the fallback production profile if a remote GPU environment is not used.
+- Before relying on it, record:
+  - provider
+  - model id
+  - cost assumptions
+  - rate limits
+  - retry policy
+- Hosted inference is still non-local production; do not treat it as interchangeable with `local_mac_base`.
+
+## API And Rate-Limit Policy
+- No hosted provider or remote quota policy is locked yet.
+- When a hosted or remote execution path is chosen, document its limits here before large runs.
+
 ## Model Availability Note
 - Some model weights and checkpoints used in or associated with the upstream MINERVA paper are not yet available in this workspace.
 - Because of that, this repository currently uses default substitute models to get a proof-of-concept end-to-end pipeline running first.
@@ -15,8 +88,9 @@ Read this file at the start of implementation work.
 - Vision proposal currently uses `Qwen/Qwen2.5-VL-7B-Instruct`.
 
 ## Current Workspace Constraint
-- This workspace is currently CPU-only (`cuda_available = false`).
+- This workspace is currently CPU-only (`cuda_available = false`) for practical relation-production purposes.
 - For merged proof-of-concept relation extraction runs in this workspace, `BioMistral/BioMistral-7B` text generation is not a practical default execution path.
+- Model-backed merged relation production is non-local by default.
 - When that constraint matters, record explicitly whether the run used the intended text-generation backend or the `heuristic` backend.
 
 ## Interim Candidate Models

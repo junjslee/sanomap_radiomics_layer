@@ -1,6 +1,16 @@
 /references
 /artifacts
+/sample_papers
 __pycache__/
 *.pyc
 /plans
 /agent_logs
+.DS_Store
+.env
+.env.*
+/secrets/
+*.pem
+*.key
+
+.claude/settings.local.json
+.codex/config.local.toml

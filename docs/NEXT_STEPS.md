@@ -5,11 +5,29 @@ This file is the operational handoff for the next agent run.
 It is not auto-generated. The active agent is expected to update it whenever the main priority, blocker, execution environment, or next milestone changes.
 
 Read this together with:
+- `AGENTS.md`
+- `CLAUDE.md`
 - `docs/AGENT_PROTOCOLS.md`
+- `docs/REQUIREMENTS.md`
+- `docs/PLAN.md`
+- `docs/PROGRESS.md`
 - `docs/RUN_CONTEXT.md`
 - `docs/RADIOMICS_LAYER_SPECS.md`
 - `pipeline_tracking.md`
 - `ReadME.md`
+
+## Repo Runtime Status
+- Shared project truth lives in:
+  - `AGENTS.md`
+  - `docs/*.md`
+  - `pipeline_tracking.md`
+- Repo-local Claude runtime:
+  - `.claude/settings.json`
+  - `.claude/hooks/`
+- Repo-local Codex runtime:
+  - `.codex/config.toml`
+  - requires the repo or worktree path to be trusted by Codex before project config is applied
+- Cursor is an editor surface only.
 
 ## Primary Goal
 Finish the radiomics-first imaging phenotype extension to a level that is methodologically close to upstream MINERVA, while keeping the current graph semantics and direct-evidence policy.
@@ -96,6 +114,30 @@ The next major milestone is:
   - smoke tests
   - pipeline-flow verification
   - not final merged relation production
+
+## Standard Worktree Lanes
+- `research/query-*`:
+  retrieval audits, query-selection loops, and corpus-composition checks
+- `fix/entity-cleanup-*`:
+  malformed subject and disease span cleanup before edge promotion
+- `ops/remote-run-*`:
+  remote or hosted execution setup and production-style merged runs
+- `docs/handoff-*`:
+  `PROGRESS`, `NEXT_STEPS`, and `pipeline_tracking.md` upkeep
+
+## Allowed Automation
+- Bounded loops are allowed only for:
+  - query exploration and selection
+  - training or model-selection experiments
+- Every loop must define:
+  - objective
+  - candidate set
+  - max iterations
+  - evaluation rubric
+  - artifact outputs
+  - stop condition
+  - human review checkpoint
+- No unattended code-writing, auto-merge, or graph-promotion loops are allowed.
 
 ## GPU Cluster Execution Plan
 Use this order on the GPU cluster unless a concrete blocker appears.
