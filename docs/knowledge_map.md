@@ -5,15 +5,15 @@ This repository builds the microbiome + imaging phenotype portion of the SanoMap
 The following Mermaid diagram makes the current schema explicit:
 
 ```mermaid
-graph LR
-  Microbe -->|CORRELATES_WITH| RadiomicFeature
-  Microbe -->|CORRELATES_WITH| BodyCompositionFeature
-  MicrobialSignature -->|CORRELATES_WITH| RadiomicFeature
-  MicrobialSignature -->|CORRELATES_WITH| BodyCompositionFeature
-  RadiomicFeature -->|ASSOCIATED_WITH| Disease
-  BodyCompositionFeature -->|ASSOCIATED_WITH| Disease
-  BridgeHypothesis[Bridge Hypotheses<br/>(audit-only)]
-  BridgeHypothesis -.-> Disease
+flowchart LR
+  M[Microbe] -->|CORRELATES_WITH| RF[RadiomicFeature]
+  M -->|CORRELATES_WITH| BCF[BodyCompositionFeature]
+  MS[MicrobialSignature] -->|CORRELATES_WITH| RF
+  MS -->|CORRELATES_WITH| BCF
+  RF -->|ASSOCIATED_WITH| D[Disease]
+  BCF -->|ASSOCIATED_WITH| D
+  BH["Bridge Hypotheses (audit-only)"]
+  BH -. audit-only .-> D
 ```
 
 Each edge is grounded in a particular pipeline stage:
