@@ -5,7 +5,7 @@
 
 ## Active Gating Items
 - Run true model-backed merged relation extraction outside `local_mac_base`.
-- Clean malformed subject and disease spans before graph promotion.
+- Confirm the shared cleanup helper still holds on the model-backed merged rerun.
 - Promote to edge assembly only after review confirms graph semantics and span quality.
 
 ## Stages
@@ -28,6 +28,10 @@
    - reject clause-like disease spans
 5. Re-run relation extraction and audit quality deltas.
 6. Promote to `src/assemble_edges.py` and validate graph export artifacts.
+7. Package the project explicitly for the professor-facing rubric:
+   - publish a simple knowledge map
+   - provide a small explorer over extracted relations
+   - include at least one visible visualization or diagram
 
 ## Operational Lanes
 - `research/query-*`:
@@ -40,8 +44,22 @@
   memory upkeep, tracking, and handoff consolidation.
 
 ## Active Stage
-- Stage 3 and Stage 4 are the real gating items.
-- Local CPU-only proof-of-concept plumbing exists; graph-ready merged quality still depends on model-backed extraction plus cleanup.
+- Stage 3 is the main gating item; Stage 4 cleanup is now locally verified and needs confirmation on a model-backed rerun.
+- Local CPU-only proof-of-concept plumbing exists; graph-ready merged quality still depends on model-backed extraction.
+- Shared span cleanup is now implemented locally in:
+  - `src/span_cleanup.py`
+  - `src/text_ner_minerva.py`
+  - `src/build_relation_input.py`
+  - `src/relation_extract_stage.py`
+- Current next step:
+  - keep the professor-facing knowledge map, explorer, proposal source, and README wired into the repo surface
+  - rerun the merged branch on GPU or hosted inference with the shared cleanup helper already in place
+  - confirm accepted aggregated outputs stay free of the old subject-tail and disease-prefix fragment patterns
+  - use the current repo as the explicit topic + knowledge map + explorer + visualization deliverable for professor review while model-backed validation continues
+  - do not promote the current local rebuild to edge assembly until the model-backed rerun is reviewed
+- Local validation status:
+  - `src/verify_heatmap.py` legend detection has been repaired for synthetic legend selection
+  - the local Conda `base` pytest suite is green again
 
 ## Bounded Automation
 - Allowed loop classes:
@@ -59,7 +77,7 @@
 ## Risks And Unknowns
 - GPU-backed execution environment or hosted relation path is still pending.
 - Upstream-associated weights/checkpoints are still unavailable in this workspace.
-- Accepted merged relations still contain malformed subject and disease spans inherited from NER.
+- The local cleanup audit is now clean for the previously observed malformed subject and disease span patterns, but that result still needs confirmation on a model-backed rerun.
 
 ## Verification Plan
 - Compare rebuilt merged text-stage artifact counts against the current local baseline.

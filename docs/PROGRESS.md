@@ -11,6 +11,33 @@
 - `src/text_ner_minerva.py` was optimized with long-sentence chunking, batching, and disease-first filtering.
 - `src/build_relation_input.py` and `src/relation_extract_stage.py` carry `subject_node_type` and `subject_node`.
 - The merged proof-of-concept relation pass completed locally with `--backend heuristic`.
+- The entity-cleanup milestone is now implemented in code:
+  - shared helper added in `src/span_cleanup.py`
+  - wired into `src/text_ner_minerva.py`
+  - wired into `src/build_relation_input.py`
+  - wired into `src/relation_extract_stage.py`
+  - regression tests added for malformed span rejection and cleaned-span carry-through
+- Heatmap verification legend detection was repaired in `src/verify_heatmap.py` so solid heatmap panels are no longer preferred over true gradient legends during synthetic verification.
+- A cleanup-aware local merged rebuild was completed on 2026-03-17 using read-only input artifacts from the main repo and local ignored outputs in this worktree.
+- The residual entity-cleanup pass was completed locally on 2026-03-17:
+  - subject tail fragments like trailing `and` and `were` are now stripped in `src/span_cleanup.py`
+  - disease clause-prefix fragments such as `in adults with ...` and `one of the main manifestations of ...` are now trimmed or rejected in `src/span_cleanup.py`
+  - the merged local rebuild no longer shows the previously observed residual fragment patterns in accepted aggregated outputs
+- A professor-facing packaging layer now exists in the repo:
+  - `docs/knowledge_map.md` publishes the explicit graph schema and Mermaid diagram
+  - `docs/explorer/index.html` provides a static local relation explorer
+  - `README.md` now maps the repo directly to the topic / map / tool / visualization / GitHub rubric in a professor-first format
+  - repo notes should now treat professor review as the likely coordination path for any upstream or private checkpoint handoff
+- Proposal packaging was normalized on 2026-03-17:
+  - the living proposal source now lives at `docs/proposal/proposal_sanomap_minerva_extension.tex`
+  - the obsolete local `rsg_proposal.pdf` copy was removed from the sibling `references/` folder
+  - the root readme casing was normalized from `ReadME.md` to `README.md`
+- A strict BNER provenance check was completed on 2026-03-17 against the local MINERVA paper reference set plus the public candidate repo:
+  - `references/minerva_mgh_lmic.pdf` explicitly says MINERVA used `BNER2.0`, cites ref `[30]`, and reused the original authors' public GitHub splits
+  - the public repo `https://github.com/lixusheng1/bacterial_NER` exists and contains checked-in `train_set.iob`, `dev_set.iob`, and `test_set.iob`
+  - the checked-in `test_set.iob` contains `2,043` `B-bacteria` tags, which matches MINERVA's reported test-set bacterial entity count
+  - the checked-in public splits do not match MINERVA's reported full-corpus totals (`23,174` sentences and `12,480` entities), so exact release parity is still unconfirmed
+  - operational conclusion: treat `lixusheng1/bacterial_NER` as the strongest public candidate lineage for MINERVA's microbial NER data, but do not describe it as the exact confirmed `BNER2.0` release yet
 - A reusable cross-agent operating scaffold is now installed for this repo:
   - `AGENTS.md`
   - `CLAUDE.md`
@@ -27,7 +54,7 @@
 ## In Progress
 - Converting the repo from ad hoc markdown notes into a reusable dual-tool agent operating system.
 - Preparing for the real GPU-backed or hosted merged relation run.
-- Designing the cleanup pass for malformed subject and disease spans before edge promotion.
+- Preserving the upstream-parity roadmap while the professor-facing repo surface is now substantially packaged.
 
 ## Decisions
 - The repo direction is locked to a hybrid imaging phenotype scope:
@@ -44,6 +71,7 @@
 - Shared project truth lives in `AGENTS.md`, `docs/*.md`, and `pipeline_tracking.md`, not in tool-specific settings files.
 - Claude and Codex both have repo-local runtimes for this project; Cursor remains an editor surface only.
 - Local helper work and `agent-os` commands should run in Conda `base`.
+- If upstream-associated checkpoints become available through the professor or supervisor path, document the expected model ids and run instructions in the repo, but do not commit private or restricted weights into Git.
 - Standard worktree lanes are now:
   - `research/query-*`
   - `fix/entity-cleanup-*`
@@ -58,7 +86,7 @@
   - `70` accepted sentence-level relations
   - `138` within-paper aggregated relations
   - `60` accepted aggregated relations
-- Current accepted aggregated warning profile:
+- Historical accepted aggregated warning profile:
   - `14` subject nodes with `##` fragments
   - `20` generic subject phrases
   - `42` clause-like disease spans
@@ -74,8 +102,57 @@
 - Verified that `claude agents --setting-sources project` loads successfully, so the project-local Claude settings file is parseable even though this machine is not currently logged in for a full end-to-end Claude hook run.
 - Tightened repo publication boundaries so supervisor-visible Git history keeps shared runtime files and research artifacts, while local-only state stays ignored.
 - Updated the boundary again so `sample_papers/` stays local-only while shared markdown memory and repo runtime files remain commit-safe.
+- Local validation for the entity-cleanup milestone:
+  - `python3 -m unittest tests.test_span_cleanup tests.test_text_ner_minerva tests.test_build_relation_input tests.test_relation_extract_stage`
+  - `python3 -m unittest tests.test_types_and_schemas`
+- Local pytest validation in Conda `base`:
+  - installed `pytest` into Conda `base`
+  - `conda run -n base python -m pytest tests/test_span_cleanup.py tests/test_text_ner_minerva.py tests/test_build_relation_input.py tests/test_relation_extract_stage.py tests/test_types_and_schemas.py -q`
+  - `conda run -n base python -m pytest tests/test_verify_heatmap.py tests/test_verify_heatmap_batch.py -q`
+  - `conda run -n base python -m pytest -q`
+  - current result: `71 passed`
+- Cleanup-aware local merged rebuild on 2026-03-17:
+  - `conda run -n base python src/extract_radiomics_text.py --papers /Users/junlee/Desktop/sanomap-radiomics-layer/artifacts/papers_microbe_merged_fulltext.jsonl --output artifacts/text_mentions_microbe_merged.jsonl --mapping-log artifacts/text_mapping_log_microbe_merged.jsonl --validate-schema`
+  - `conda run -n base python src/text_ner_minerva.py --papers /Users/junlee/Desktop/sanomap-radiomics-layer/artifacts/papers_microbe_merged_fulltext.jsonl --entity-output artifacts/entity_sentences_microbe_merged.jsonl --relation-output artifacts/relation_input_from_ner_microbe_merged.jsonl --disease-ner-mode bc5cdr --microbe-ner-model-id d4data/biomedical-ner-all --umls-linker off --ner-batch-size 8 --validate-schema`
+  - `conda run -n base python src/build_relation_input.py --entity-sentences artifacts/entity_sentences_microbe_merged.jsonl --text-mentions artifacts/text_mentions_microbe_merged.jsonl --papers /Users/junlee/Desktop/sanomap-radiomics-layer/artifacts/papers_microbe_merged_fulltext.jsonl --output artifacts/relation_input_microbe_merged.jsonl --validate-schema`
+  - `conda run -n base python src/relation_extract_stage.py --input artifacts/relation_input_microbe_merged.jsonl --output-predictions artifacts/relation_predictions_microbe_merged.jsonl --output-aggregated artifacts/relation_aggregated_microbe_merged.jsonl --output-strengths artifacts/relation_strengths_microbe_merged.jsonl --backend heuristic --model-family biomistral_7b --device cpu --validate-schema`
+  - output metrics:
+    - text mentions: `1,129`
+    - entity sentences: `54`
+    - raw NER relation rows: `83`
+    - final relation input rows after radiomics-context gating: `35`
+    - accepted aggregated relations: `23`
+  - accepted aggregated quality delta versus the old local baseline:
+    - subject wordpiece artifacts: `14 -> 0`
+    - generic subject terms flagged by shared cleanup: `16 -> 0`
+    - disease relation-language spans flagged by shared cleanup: `24 -> 0`
+    - disease clause-like spans flagged by shared cleanup: `15 -> 0`
+    - disease strings with `6+` words: `42 -> 6`
+  - residual examples still present in accepted outputs:
+    - subject tails such as `peptostreptococcaceae and`, `fusobacteria is`, and `fusobacteria were`
+    - disease clause prefixes such as `in adults with chronic hiv infection` and `one of the main manifestations of cirrhosis`
+- Residual-cleanup rerun on 2026-03-17:
+  - `conda run -n base python src/text_ner_minerva.py --papers /Users/junlee/Desktop/sanomap-radiomics-layer/artifacts/papers_microbe_merged_fulltext.jsonl --entity-output artifacts/entity_sentences_microbe_merged.jsonl --relation-output artifacts/relation_input_from_ner_microbe_merged.jsonl --disease-ner-mode bc5cdr --microbe-ner-model-id d4data/biomedical-ner-all --umls-linker off --ner-batch-size 8 --validate-schema`
+  - `conda run -n base python src/build_relation_input.py --entity-sentences artifacts/entity_sentences_microbe_merged.jsonl --text-mentions artifacts/text_mentions_microbe_merged.jsonl --papers /Users/junlee/Desktop/sanomap-radiomics-layer/artifacts/papers_microbe_merged_fulltext.jsonl --output artifacts/relation_input_microbe_merged.jsonl --validate-schema`
+  - `conda run -n base python src/relation_extract_stage.py --input artifacts/relation_input_microbe_merged.jsonl --output-predictions artifacts/relation_predictions_microbe_merged.jsonl --output-aggregated artifacts/relation_aggregated_microbe_merged.jsonl --output-strengths artifacts/relation_strengths_microbe_merged.jsonl --backend heuristic --model-family biomistral_7b --device cpu --validate-schema`
+  - output metrics:
+    - entity sentences: `38`
+    - raw NER relation rows: `60`
+    - final relation input rows after radiomics-context gating: `26`
+    - accepted aggregated relations: `20`
+  - accepted aggregated quality delta versus the old local baseline:
+    - subject wordpiece artifacts: `14 -> 0`
+    - generic subject terms flagged by shared cleanup: `16 -> 0`
+    - disease relation-language spans flagged by shared cleanup: `23 -> 0`
+    - disease clause-like spans flagged by shared cleanup: `18 -> 0`
+    - disease strings with `6+` words: `42 -> 0`
+    - subject trailing fragments: `7 -> 0`
+    - disease leading-prefix fragments: `7 -> 0`
+  - residual audit outcome:
+    - no previously observed subject-tail or disease-prefix fragment patterns remained in accepted aggregated outputs under the local heuristic rerun
 
 ## Blockers
-- No real GPU-backed merged relation run has been executed yet.
-- Upstream-associated model assets remain unavailable.
-- Entity cleanup is still the main quality blocker before edge assembly on the merged branch.
+- No real GPU-backed or hosted merged relation run has been executed yet.
+- Public upstream-associated model assets remain unavailable in this workspace, even though professor-mediated access may later unblock review or handoff of those checkpoints.
+- The local 2026-03-17 rebuild could not load `d4data/biomedical-ner-all` in the offline environment, so microbe NER fell back to regex and recall is depressed.
+- The public `bacterial_NER` repo is now verified as the strongest public BNER candidate, but its checked-in corpus totals do not yet prove exact equivalence to MINERVA's `BNER2.0` release.

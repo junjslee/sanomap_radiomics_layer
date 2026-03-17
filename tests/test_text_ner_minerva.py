@@ -36,6 +36,9 @@ class DummyDiseaseExtractor:
     def __init__(self) -> None:
         self.calls = 0
 
+    def extract(self, sentence: str):
+        return self.extract_many([sentence])[0]
+
     def extract_many(self, sentences: list[str]):
         self.calls += 1
         out = []
@@ -48,6 +51,122 @@ class DummyDiseaseExtractor:
                             "start": 0,
                             "end": 12,
                             "score": 1.0,
+                            "label": "DISEASE",
+                            "extractor": "dummy",
+                        }
+                    ]
+                )
+            else:
+                out.append([])
+        return out
+
+
+class CleanupDummyMicrobeExtractor:
+    model_id = "dummy/microbe-cleanup"
+
+    def extract(self, sentence: str):
+        return self.extract_many([sentence])[0]
+
+    def extract_many(self, sentences: list[str]):
+        out = []
+        for sentence in sentences:
+            if "escherichia coli abundance" in sentence.lower():
+                out.append(
+                    [
+                        {
+                            "text": "Escherichia coli abundance",
+                            "start": 0,
+                            "end": 27,
+                            "score": 0.9,
+                            "label": "MICROBE",
+                            "extractor": "dummy",
+                        },
+                        {
+                            "text": "bacterial presence",
+                            "start": 29,
+                            "end": 47,
+                            "score": 0.7,
+                            "label": "MICROBE",
+                            "extractor": "dummy",
+                        },
+                    ]
+                )
+            else:
+                out.append([])
+        return out
+
+
+class CleanupDummyDiseaseExtractor:
+    effective_mode = "dummy-cleanup"
+
+    def extract(self, sentence: str):
+        return self.extract_many([sentence])[0]
+
+    def extract_many(self, sentences: list[str]):
+        out = []
+        for sentence in sentences:
+            if "liver cancer" in sentence.lower():
+                out.append(
+                    [
+                        {
+                            "text": "liver cancer in this cohort",
+                            "start": 52,
+                            "end": 80,
+                            "score": 0.95,
+                            "label": "DISEASE",
+                            "extractor": "dummy",
+                        }
+                    ]
+                )
+            else:
+                out.append([])
+        return out
+
+
+class PrefixCleanupDummyMicrobeExtractor:
+    model_id = "dummy/microbe-prefix-cleanup"
+
+    def extract(self, sentence: str):
+        return self.extract_many([sentence])[0]
+
+    def extract_many(self, sentences: list[str]):
+        out = []
+        for sentence in sentences:
+            if "fusobacteria were" in sentence.lower():
+                out.append(
+                    [
+                        {
+                            "text": "Fusobacteria were",
+                            "start": 0,
+                            "end": 17,
+                            "score": 0.9,
+                            "label": "MICROBE",
+                            "extractor": "dummy",
+                        }
+                    ]
+                )
+            else:
+                out.append([])
+        return out
+
+
+class PrefixCleanupDummyDiseaseExtractor:
+    effective_mode = "dummy-prefix-cleanup"
+
+    def extract(self, sentence: str):
+        return self.extract_many([sentence])[0]
+
+    def extract_many(self, sentences: list[str]):
+        out = []
+        for sentence in sentences:
+            if "chronic hiv infection" in sentence.lower():
+                out.append(
+                    [
+                        {
+                            "text": "in adults with chronic HIV infection",
+                            "start": 30,
+                            "end": 66,
+                            "score": 0.95,
                             "label": "DISEASE",
                             "extractor": "dummy",
                         }
@@ -80,18 +199,14 @@ class TestTextNerMinerva(unittest.TestCase):
             }
         ]
 
-        disease_extractor = DiseaseExtractor(
-            mode="bc5cdr",
-            base_model="allenai/scibert_scivocab_uncased",
-            checkpoint=None,
-        )
+        disease_extractor = DummyDiseaseExtractor()
         microbe_extractor = DummyMicrobeExtractor()
         normalizer = UMLSNormalizer(enabled=False)
 
         entity_rows, relation_rows, metrics = build_entity_and_relation_rows(
             papers=papers,
-            disease_extractor=disease_extractor,
-            microbe_extractor=microbe_extractor,
+            disease_extractor=disease_extractor,  # type: ignore[arg-type]
+            microbe_extractor=microbe_extractor,  # type: ignore[arg-type]
             normalizer=normalizer,
         )
 
@@ -117,18 +232,14 @@ class TestTextNerMinerva(unittest.TestCase):
                 }
             ]
 
-            disease_extractor = DiseaseExtractor(
-                mode="bc5cdr",
-                base_model="allenai/scibert_scivocab_uncased",
-                checkpoint=None,
-            )
+            disease_extractor = DummyDiseaseExtractor()
             microbe_extractor = DummyMicrobeExtractor()
             normalizer = UMLSNormalizer(enabled=False)
 
             entity_rows, relation_rows, _ = build_entity_and_relation_rows(
                 papers=papers,
-                disease_extractor=disease_extractor,
-                microbe_extractor=microbe_extractor,
+                disease_extractor=disease_extractor,  # type: ignore[arg-type]
+                microbe_extractor=microbe_extractor,  # type: ignore[arg-type]
                 normalizer=normalizer,
             )
 
@@ -171,6 +282,56 @@ class TestTextNerMinerva(unittest.TestCase):
         self.assertEqual(microbe_extractor.calls, 1)
         self.assertEqual(metrics["microbe_sentences_evaluated"], 1)
         self.assertGreaterEqual(metrics["microbe_sentences_skipped_no_disease"], 1)
+
+    def test_build_entity_and_relation_rows_applies_shared_span_cleanup(self) -> None:
+        papers = [
+            {
+                "pmid": "126",
+                "title": "Cleanup test",
+                "abstract": "Escherichia coli abundance was associated with liver cancer in this cohort.",
+            }
+        ]
+
+        entity_rows, relation_rows, _ = build_entity_and_relation_rows(
+            papers=papers,
+            disease_extractor=CleanupDummyDiseaseExtractor(),  # type: ignore[arg-type]
+            microbe_extractor=CleanupDummyMicrobeExtractor(),  # type: ignore[arg-type]
+            normalizer=UMLSNormalizer(enabled=False),
+            ner_batch_size=8,
+        )
+
+        self.assertEqual(len(entity_rows), 1)
+        self.assertEqual(len(entity_rows[0].microbes), 1)
+        self.assertEqual(len(entity_rows[0].diseases), 1)
+        self.assertEqual(entity_rows[0].microbes[0]["text"], "escherichia coli")
+        self.assertEqual(entity_rows[0].diseases[0]["text"], "liver cancer")
+        self.assertEqual(len(relation_rows), 1)
+        self.assertEqual(relation_rows[0].microbe, "escherichia coli")
+        self.assertEqual(relation_rows[0].disease, "liver cancer")
+
+    def test_build_entity_and_relation_rows_trims_population_prefix_fragments(self) -> None:
+        papers = [
+            {
+                "pmid": "127",
+                "title": "Prefix cleanup test",
+                "abstract": "Fusobacteria were linked to in adults with chronic HIV infection.",
+            }
+        ]
+
+        entity_rows, relation_rows, _ = build_entity_and_relation_rows(
+            papers=papers,
+            disease_extractor=PrefixCleanupDummyDiseaseExtractor(),  # type: ignore[arg-type]
+            microbe_extractor=PrefixCleanupDummyMicrobeExtractor(),  # type: ignore[arg-type]
+            normalizer=UMLSNormalizer(enabled=False),
+            ner_batch_size=8,
+        )
+
+        self.assertEqual(len(entity_rows), 1)
+        self.assertEqual(entity_rows[0].microbes[0]["text"], "fusobacteria")
+        self.assertEqual(entity_rows[0].diseases[0]["text"], "chronic hiv infection")
+        self.assertEqual(len(relation_rows), 1)
+        self.assertEqual(relation_rows[0].microbe, "fusobacteria")
+        self.assertEqual(relation_rows[0].disease, "chronic hiv infection")
 
 
 if __name__ == "__main__":

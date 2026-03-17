@@ -1,0 +1,77 @@
+\documentclass[12pt, letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\geometry{margin=1in} % Mandatory 1-inch margins
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr} % Mandatory for Last Name + Page Number headers
+\usepackage{setspace} % Mandatory for Double Spacing
+
+% Mandatory Double Spacing
+\doublespacing 
+
+% Mandatory Header setup for pages 2-5
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[R]{Lee \thepage} % Last Name and Page Number
+
+% Section formatting
+\titleformat{\section}{\large\bfseries\uppercase}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\bfseries}{}{0em}{}
+
+\begin{document}
+
+% Page 1 Header: Full Name and Project Title (Mandatory)
+\thispagestyle{empty}
+\begin{center}
+    \textbf{JUNSEONG LEE} \\
+    \textbf{PROPOSAL: THE RADIOMICS-MICROBIOME AXIS LAYER} \\
+    Extending SanoMap via Agentic AI
+\end{center}
+
+\section{A statement of the research problem}
+Biomedical data is inherently multimodal. It spans everything from raw cell sequences to clinical imaging. Recent advances in natural language processing (NLP) and methodologies for artificial intelligence (primarily the emergence of transformers and subsequent generative models) have enabled the creation of unified biomedical knowledge graph base by extracting large amounts of data from verified scientific literature. The SanoMap project, specifically through MINERVA (Microbiomes Network for Research and Visualization Atlas) platform, is a prominent example of this, successfully mapping associations between gut microbes and systemic diseases using sophisticated text-mining. 
+
+Building upon this foundational work, an opportunity exists to complement the knowledge base by addressing a critical missing component. Currently, the MINERVA framework effectively maps the endpoints of microbes to diseases, but it does not yet incorporate the intermediary radiomic features that quantify structural tissue changes and specific phenotypes for diagnosis or measurement of the disease stage. Integrating these quantitative imaging phenotypes into such ecosystem is a way that can bridge this gap. Radiomics extracts compact quantitative data from medical scans, providing vital biomarkers for oncology and systemic metabolic conditions (for instance, Sarcopenia, Nonalcoholic Fatty Liver Disease). Clinical studies increasingly demonstrate that microbiome activity influences these specific tissue-level changes, which proves the importance of making radiomic features intermediary biomarkers for disease diagnosis and prognosis.
+
+Additionally, while SOTA text-mining methods accurately capture the statistically significant findings that authors highlight in plain text on the manuscript, comprehensive ground-truth data is often represented in visual formats. For example, forest plots and correlation heatmaps contain correlation matrices detailing both significant and non-significant links between dozens of microbes and radiomic features—data that standard NLP pipelines are not structurally designed to parse and analyze. My objective is to build a Radiomics-Microbiome Axis Layer for SanoMap, and my main research questions are: (1) Can a hybrid AI pipeline (LLMs + VLMs), paired with deterministic verification, reliably extract quantitative correlation coefficients directly from complex medical figures to capture comprehensive correlation matrices?; and (2) Does adding radiomics as an ontological layer increase the clinical completeness of the Neo4j knowledge graph compared to text-only extraction?
+
+\section{A research plan}
+To address this problem, I will develop an agentic workflow that integrates with MINERVA's existing pipeline. To prevent scope drift, extraction will focus majorly on CT radiomics and two defined figure topologies: forest plots and correlation heatmaps.
+
+\subsection{Data Sourcing and Extraction}
+Data will be sourced from the established PubMed Central Open Access (PMCOA) subset. To build a comprehensive ontological layer compatible with SanoMap, the developed agent will utilize a dual-track strategy:
+\begin{itemize}
+    \item \textbf{Text Track:} I plan on reusing MINERVA’s DistilBERT and SciBERT models for microbial and disease extraction to ensure database consistency. For the new \texttt{:RadiomicFeature} nodes, I will develop a dictionary-based named entity recognition (NER) module paired with LLM-assisted standardization. This will map diverse terminology (e.g., "GLCM entropy" vs. "Haralick entropy") to the standardized Image Biomarker Standardization Initiative (IBSI) ontology, establishing a hierarchical classification system for imaging phenotypes help us see the full chain of events, just like MINERVA does when mapping out diseases.
+    \item \textbf{Vision Track:} I will utilize VLMs (e.g., OSS models like Qwen2.5-VL or proprietary models such as Gemini 3.1 Pro) to classify figure types and extract structural data. To prevent VLM hallucination, I plan on implementing a verification layer: the VLM will propose an extracted r-value from a heatmap, which I will then cross-check deterministically against the image's color-scale legend or geometric grid logic. If a prediction is uncertain or mathematically not plausible, the script will reject it.
+\end{itemize}
+
+\subsection{Integration as Knowledge Graphs}
+The output will be structured as a Neo4j graph extension. I will improve MINERVA's existing Microbe-Disease links by injecting the radiomics, forming: 
+\[\texttt{(Microbe)-[:CORRELATES\_WITH]->(RadiomicFeature)-[:PREDICTS]->(Disease)}
+\]
+pathways. To resolve inter-paper conflicts, I will baseline my model against MINERVA’s established heuristic—incorporating the impact factor of the journal in which the work was published—while evaluating secondary metrics based on statistical evidence strength, such as Confidence Intervals (CI) or sample size. 
+
+\subsection{Research Timeline and Success Metrics}
+\textbf{Pre-Summer (Spring 2026):} Conduct a deep review of the MINERVA codebase and architecture. Explore existing literature relating to radiomics, gut microbes, and diseases. Follow recent methodologies of agentic AI framework and gain understanding of NER models and knowledge graphs.
+\begin{itemize}
+    \item \textbf{Weeks 1-2:} Finalize the ontological layer mapping and multimodal extraction plan, and execute the query strategy to isolate high-yield radiogenomic papers.
+    \item \textbf{Summer Weeks 3-6:} Prompt engineering, fine-tuning, and iterative testing of the VLM vision track and deterministic verification scripts.
+    \item \textbf{Weeks 7-10:} Large-scale data extraction and programmatic ingestion into Neo4j. 
+    \item \textbf{Weeks 11-12:} Validation of extracted relationships. \textit{Success Metric:} Achieve over 90\% extraction precision on a manually curated gold-standard set of 100 microbe-radiomic edges.
+\end{itemize}
+\textbf{Weekly Reporting:} I will report directly to Professor Synho Do at weekly lab meetings, structuring updates strictly around: (1) Problem, (2) Solution, (3) Why it works/doesn't, and (4) Next Steps.
+
+\subsection{Importance to Professional Development}
+Born as twins and a premature baby with underdeveloped eyes, heart, and lungs, I spent my first critical months in an incubator. My personal history naturally evolved into a deep fascination with how technologies that supplemented to create diverse medical tools and protect lives. It is no coincidence that my research focus has gravitated toward the medical domain and the protection of the vulnerables. As I advance in academics, my motivation to contribute to this specific field is rooted. This project bridges my training at UIUC with my dedication to healthcare. Developing autonomous AI agents directly contributes to my professional goal of building transparent, explainable AI systems that reliably assist clinicians. 
+
+\section{A detailed budget}
+I am requesting \$2,000 to cover living expenses during my academic break for my 12-week on-site residency at Massachusetts General Hospital in Boston, MA. 
+\begin{itemize}
+    \item \textbf{Housing:} \$1,550. This covers approximately one month of my three-month rental agreement for a apartment room in Brookline, Boston. 
+    \item \textbf{Subsistence (Transportation and Food):} \$450. While the true cost of groceries in Boston is higher, this \$450 represents the remainder of the \$2,000 maximum grant limit. It will act as a critical supplemental subsidy (\$37.50 per week) to offset my out-of-pocket expenses for the 12-week duration.
+\end{itemize}
+These funds are strictly necessary for my participation, as the research internship at MGH is an unpaid position located in a high-cost city, and as an international student, my off-campus employment options are legally restricted.
+
+\end{document}

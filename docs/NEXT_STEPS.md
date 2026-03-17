@@ -14,7 +14,7 @@ Read this together with:
 - `docs/RUN_CONTEXT.md`
 - `docs/RADIOMICS_LAYER_SPECS.md`
 - `pipeline_tracking.md`
-- `ReadME.md`
+- `README.md`
 
 ## Repo Runtime Status
 - Shared project truth lives in:
@@ -34,7 +34,8 @@ Finish the radiomics-first imaging phenotype extension to a level that is method
 
 The next major milestone is:
 - produce graph-ready merged relation outputs on a GPU-backed run
-- remove obvious entity-span junk before edge assembly
+- rebuild merged text and relation artifacts with the shared cleanup helper
+- confirm the cleanup materially removes obvious entity-span junk before edge assembly
 - then continue to final edge assembly and downstream graph export
 
 ## Current Baseline
@@ -71,6 +72,17 @@ The next major milestone is:
   - within-paper aggregation
   - strength scores
 - `src/assemble_edges.py` supports the hybrid graph schema and bridge hypothesis policy
+- Shared span cleanup is now implemented in `src/span_cleanup.py` and wired into:
+  - `src/text_ner_minerva.py`
+  - `src/build_relation_input.py`
+  - `src/relation_extract_stage.py`
+- `src/verify_heatmap.py` legend detection has been repaired and the local Conda `base` pytest suite is currently green.
+- Professor-facing deliverables now exist in the repo:
+  - `docs/knowledge_map.md`
+  - `docs/explorer/index.html`
+  - `docs/explorer/README.md`
+  - `README.md`
+  - `docs/proposal/proposal_sanomap_minerva_extension.tex`
 
 ## What Is Not Yet Upstream-Parity
 ### Model-backed merged relation extraction
@@ -79,11 +91,15 @@ The next major milestone is:
 - It is not the final model-backed relation extraction result.
 
 ### Entity quality
-- Accepted merged relation outputs still contain malformed spans:
-  - token-fragment subjects like `##fidobacteria`
-  - generic subjects like `bacterial species`
-  - clause-like disease spans rather than clean disease entities
-- This is the main quality blocker before graph-ready edge assembly on the merged branch.
+- The code-level cleanup pass has now been rebuilt locally against the merged corpus twice.
+- The second 2026-03-17 local audit removed the previously observed residual fragment patterns from accepted aggregated outputs:
+  - token-fragment subjects like `##fidobacteria`: removed
+  - generic subjects like `bacterial species`: removed
+  - subject tail fragments like `fusobacteria were`: removed
+  - disease clause-prefix fragments like `in adults with chronic hiv infection`: removed
+  - disease relation-language and clause-like spans flagged by the shared cleanup helper: removed
+- Local accepted aggregated count after the narrower cleanup rerun: `20`
+- This means local span cleanup looks acceptable for the audited heuristic run, but it still needs confirmation on the real model-backed merged run.
 
 ### Upstream-style completeness
 - Upstream-equivalent hosted or GPU-backed LLM classification has not yet been executed on the merged branch.
@@ -98,10 +114,19 @@ The next major milestone is:
 ### Model assets
 - Upstream-associated checkpoints/weights not currently present in this workspace
 - Until those are available, this repo uses substitute defaults
+- Professor review is now the most likely coordination path for any upstream or private checkpoint handoff, so keep the repo notes explicit about expected models, integration points, and rerun steps.
+- If checkpoint access is granted later, record the model ids and execution instructions in the repo, but keep any restricted weights outside Git history.
+- BNER provenance status is now partially verified:
+  - `references/minerva_mgh_lmic.pdf` says MINERVA used `BNER2.0` from the original authors' public GitHub splits
+  - `https://github.com/lixusheng1/bacterial_NER` is the strongest public candidate and its checked-in `test_set.iob` matches MINERVA's reported `2,043` test-set bacterial entities
+  - but the checked-in public splits do not match MINERVA's reported full-corpus totals, so do not claim exact `BNER2.0` release parity yet
+  - next verification step is to inspect ref `[30]` or its archival materials directly, or confirm via professor/upstream contact
 
 ### Important distinction
 - Local PoC plumbing is real and useful
 - Model-backed relation quality is still pending proper GPU or hosted execution
+- The repo already has enough visible material for professor review of the assignment rubric.
+- The remaining work is about stronger model-backed validation and graph-ready promotion, not about inventing the first visible deliverable.
 
 ## Local Environment Constraints
 - Local development machine observed during the last run:
@@ -114,6 +139,7 @@ The next major milestone is:
   - smoke tests
   - pipeline-flow verification
   - not final merged relation production
+- The 2026-03-17 local rebuild also had no usable Hugging Face network path for `d4data/biomedical-ner-all`, so microbe extraction fell back to regex and recall dropped materially.
 
 ## Standard Worktree Lanes
 - `research/query-*`:
@@ -147,7 +173,7 @@ Use this order on the GPU cluster unless a concrete blocker appears.
 2. Recreate or sync required corpora and artifacts if they are not copied over.
 3. Prefer the merged full-text corpus as the text-stage input:
    - `artifacts/papers_microbe_merged_fulltext.jsonl`
-4. Rerun:
+4. Rerun with the new shared cleanup helper already wired in:
    - `src/extract_radiomics_text.py`
    - `src/text_ner_minerva.py`
    - `src/build_relation_input.py`
@@ -167,35 +193,31 @@ Use this order on the GPU cluster unless a concrete blocker appears.
 5. Save all output artifacts and update `pipeline_tracking.md`.
 
 ### Phase 3: Clean entity spans before graph promotion
-Implement a cleanup pass before trusting merged relation outputs.
+Use the existing shared cleanup helper before trusting merged relation outputs.
 
-Minimum cleanup rules:
+Current implementation:
+- `src/span_cleanup.py`
+- called from `src/text_ner_minerva.py`
+- called from `src/build_relation_input.py`
+- called from `src/relation_extract_stage.py`
+
+Current cleanup behavior:
 - reject subject nodes containing `##`
-- reject overly generic subject phrases:
-  - `bacterial`
-  - `bacterial species`
-  - `microbial`
-  - `microbial density`
-  - `bacterial presence`
-  - similar generic placeholders
-- reject disease strings that are clearly clause-like rather than entity-like
+- reject overly generic microbe phrases such as `bacterial`, `bacterial species`, `microbial`, and similar placeholders
+- trim context tails from spans such as `obesity markers` or `liver cancer in this cohort`
+- reject disease strings that still look clause-like after cleanup
 - reject disease strings that are mostly relation language instead of disease concepts
-- prefer normalized disease spans when possible
-
-This cleanup can happen in one of two places:
-- directly after NER
-- or immediately before relation aggregation/edge assembly
-
-Preferred choice:
-- clean earlier, before aggregation, so the downstream artifacts are cleaner throughout
 
 ### Phase 4: Rerun relation extraction after cleanup
 1. Rerun `src/relation_extract_stage.py`
 2. Re-audit accepted outputs
 3. Confirm improvement against the last known warning profile:
-   - fewer `##` fragments
-   - fewer generic subject phrases
-   - fewer clause-like disease spans
+  - fewer `##` fragments
+  - fewer generic subject phrases
+  - fewer clause-like disease spans
+4. On the next model-backed rerun, confirm the local cleanup result still holds for:
+   - subject trailing stopwords and verb fragments
+   - disease strings with leading clause prefixes such as `in ...` or `of ...`
 
 ### Phase 5: Promote to edge assembly
 Only after cleanup and model-backed relation extraction look acceptable:
@@ -255,6 +277,18 @@ python3 src/assemble_edges.py \
   --validate-schema
 ```
 
+## Current Local Validation Snapshot
+- Conda `base` now has `pytest` installed for this repo.
+- Current full-suite result:
+  - `conda run -n base python -m pytest -q`
+  - `71 passed`
+- Current residual-cleanup rerun metrics:
+  - entity sentences: `38`
+  - raw NER relation rows: `60`
+  - final relation input rows: `26`
+  - accepted aggregated relations: `20`
+- The next work item is no longer another local cleanup pass; it is confirmation on a model-backed GPU or hosted rerun.
+
 ## Current Baseline Metrics To Compare Against
 These are useful as rough reference points, not absolute targets.
 
@@ -299,7 +333,8 @@ Do not change these without a clear documented reason:
 
 ## Documentation Requirements For The Next Agent
 After each substantive pass:
-- update `ReadME.md`
+- update `README.md`
+- keep `docs/proposal/proposal_sanomap_minerva_extension.tex` as the editable proposal source of truth
 - update `pipeline_tracking.md`
 - update this file if the next operational priority changes
 - state clearly:

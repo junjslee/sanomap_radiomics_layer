@@ -14,7 +14,7 @@ Read these before planning or implementation work:
 - `docs/NEXT_STEPS.md`
 - `docs/RADIOMICS_LAYER_SPECS.md`
 - `pipeline_tracking.md`
-- `ReadME.md`
+- `README.md`
 
 ## Standard Flow
 1. Explore:

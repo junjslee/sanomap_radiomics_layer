@@ -18,9 +18,7 @@ from src.relation_fidelity import (
     self_consistency_predict,
 )
 from src.schema_utils import SchemaValidationError, load_schema, validate_record
-
-GENERIC_MICROBE_TERMS = {"bacteria", "bacterias", "probiotic", "probiotics"}
-GENERIC_DISEASE_TERMS = {"disease", "diseases"}
+from src.span_cleanup import clean_relation_pair
 
 
 def _prediction_id(
@@ -43,28 +41,38 @@ def _default_temperatures(num_samples: int) -> list[float]:
     return [round(start + i * step, 3) for i in range(num_samples)]
 
 
-def _row_filter_reason(
+def _clean_relation_input_row(
     row: dict[str, Any],
     *,
     max_evidence_words: int,
     max_evidence_chars: int,
-) -> str | None:
+) -> tuple[dict[str, Any] | None, str | None]:
     sentence = str(row.get("sentence") or "").strip()
     subject_node_type = str(row.get("subject_node_type") or "Microbe").strip()
-    subject_node = str(row.get("subject_node") or row.get("microbe") or "").strip().lower()
-    disease = str(row.get("disease") or "").strip().lower()
+    subject_node = str(row.get("subject_node") or row.get("microbe") or "")
+    disease = str(row.get("disease") or "")
 
-    if not sentence:
-        return "missing_sentence"
-    if len(sentence.split()) >= max_evidence_words:
-        return "evidence_too_long_words"
-    if len(sentence) >= max_evidence_chars:
-        return "evidence_too_long_chars"
-    if subject_node_type == "Microbe" and subject_node in GENERIC_MICROBE_TERMS:
-        return "generic_microbe_term"
-    if disease in GENERIC_DISEASE_TERMS:
-        return "generic_disease_term"
-    return None
+    cleaned_subject, cleaned_disease, reason = clean_relation_pair(
+        sentence=sentence,
+        subject_node_type=subject_node_type or "Microbe",
+        subject_node=subject_node,
+        disease=disease,
+        max_evidence_words=max_evidence_words,
+        max_evidence_chars=max_evidence_chars,
+    )
+    if reason is not None:
+        return None, reason
+    if cleaned_subject is None or cleaned_disease is None:
+        return None, "missing_cleaned_spans"
+
+    cleaned_row = dict(row)
+    cleaned_row["sentence"] = sentence
+    cleaned_row["subject_node_type"] = subject_node_type or "Microbe"
+    cleaned_row["subject_node"] = cleaned_subject.canonical
+    cleaned_row["disease"] = cleaned_disease.canonical
+    if cleaned_row.get("microbe") or cleaned_row["subject_node_type"] == "Microbe":
+        cleaned_row["microbe"] = cleaned_subject.canonical
+    return cleaned_row, None
 
 
 def filter_relation_input_rows(
@@ -76,7 +84,7 @@ def filter_relation_input_rows(
     reason_counts: dict[str, int] = {}
     kept: list[dict[str, Any]] = []
     for row in rows:
-        reason = _row_filter_reason(
+        cleaned_row, reason = _clean_relation_input_row(
             row,
             max_evidence_words=max_evidence_words,
             max_evidence_chars=max_evidence_chars,
@@ -84,7 +92,9 @@ def filter_relation_input_rows(
         if reason is not None:
             reason_counts[reason] = reason_counts.get(reason, 0) + 1
             continue
-        kept.append(row)
+        if cleaned_row is None:
+            continue
+        kept.append(cleaned_row)
     return kept, reason_counts
 
 

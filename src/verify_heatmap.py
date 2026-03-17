@@ -120,7 +120,7 @@ def _color_progression_score(
     crop_rgb: "np.ndarray",
     crop_mask: "np.ndarray",
     orientation: str,
-) -> float:
+) -> tuple[float, float, float, float]:
     if orientation == "vertical":
         length = crop_rgb.shape[0]
         vectors = []
@@ -139,11 +139,13 @@ def _color_progression_score(
             vectors.append(np.median(crop_rgb[line_mask, i, :], axis=0))
 
     if len(vectors) < 8:
-        return -1.0
+        return -1.0, 0.0, 0.0, 1.0
 
     profile = np.array(vectors, dtype=float)
     diffs = np.linalg.norm(np.diff(profile, axis=0), axis=1)
     progression = float(np.mean(diffs) / 255.0)
+    endpoint_delta = float(np.linalg.norm(profile[-1, :] - profile[0, :]) / 255.0)
+    active_fraction = float((diffs > 1.0).mean())
 
     if orientation == "vertical":
         cross_std = np.std(crop_rgb, axis=1).mean()
@@ -151,7 +153,7 @@ def _color_progression_score(
         cross_std = np.std(crop_rgb, axis=0).mean()
 
     uniformity_penalty = float(cross_std / 255.0)
-    return progression - 0.15 * uniformity_penalty
+    return progression, endpoint_delta, active_fraction, uniformity_penalty
 
 
 def _detect_legend(
@@ -190,10 +192,28 @@ def _detect_legend(
 
         tight_rgb = rgb[ty : ty + th, tx : tx + tw, :]
         tight_mask = mask_all[ty : ty + th, tx : tx + tw]
-        progression = _color_progression_score(tight_rgb, tight_mask, orientation)
+        progression, endpoint_delta, active_fraction, uniformity_penalty = _color_progression_score(
+            tight_rgb,
+            tight_mask,
+            orientation,
+        )
+        if progression < 0:
+            continue
+        if endpoint_delta < 0.2:
+            continue
+        if active_fraction < 0.25:
+            continue
         geom_bonus = 0.1 if (orientation == "vertical" and th > tw * 2) or (orientation == "horizontal" and tw > th * 2) else 0.0
 
-        score = progression + colorful_fraction + edge_bonus + geom_bonus
+        score = (
+            1.2 * endpoint_delta
+            + 0.5 * active_fraction
+            + 0.3 * progression
+            - 0.25 * uniformity_penalty
+            + 0.05 * colorful_fraction
+            + edge_bonus
+            + geom_bonus
+        )
         if score > best_score:
             best_score = score
             best_bbox = (tx, ty, tw, th)
