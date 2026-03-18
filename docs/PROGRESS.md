@@ -43,6 +43,18 @@
   - wired hosted backend arguments through `src/relation_extract_stage.py`
   - added mocked HTTP regression coverage for hosted response parsing and hosted relation extraction flow
   - design intent is Hugging Face first, while keeping Ollama or another OpenAI-compatible provider viable later through the same interface
+- The first real hosted relation smoke run completed on 2026-03-18:
+  - sourced the sibling local `.env` file successfully for provider credentials
+  - `BioMistral/BioMistral-7B` failed on Hugging Face router with `model_not_supported` for the current enabled providers
+  - reran with `deepseek-ai/DeepSeek-V3-0324` and completed a 3-row smoke run successfully
+  - backend/auth/transport are now confirmed beyond mocked tests, but the production hosted model policy is still not locked
+- A bounded 10-row hosted comparison pilot was attempted on 2026-03-18:
+  - pilot input: `/tmp/relation_input_microbe_merged.hosted_pilot10.jsonl`
+  - `deepseek-ai/DeepSeek-V3-0324` completed successfully on Hugging Face router
+  - `meta-llama/Llama-3.1-8B-Instruct` failed under auto-routing because HF selected Cerebras and that provider blocked this environment at Cloudflare
+  - `Qwen/Qwen2.5-7B-Instruct` failed under auto-routing because HF selected Together and that provider blocked this environment at Cloudflare
+  - explicit provider override via `meta-llama/Llama-3.1-8B-Instruct:novita` reached a routable provider, but the account then returned `402` because included HF Inference Providers credits were depleted
+  - operational conclusion: the hosted relation backend works, DeepSeek is the only confirmed usable HF-router baseline so far, and further HF-provider experiments now require new credits or a different provider account
 - A reusable cross-agent operating scaffold is now installed for this repo:
   - `AGENTS.md`
   - `CLAUDE.md`
@@ -60,7 +72,8 @@
 - Converting the repo from ad hoc markdown notes into a reusable dual-tool agent operating system.
 - Preparing for the real GPU-backed or hosted merged relation run.
 - Preserving the upstream-parity roadmap while the professor-facing repo surface is now substantially packaged.
-- Preparing for the first real hosted relation smoke test now that the generic hosted backend exists locally.
+- Selecting the supported hosted model and next pilot size now that the first real smoke run succeeded.
+- Replanning the hosted execution path around current provider blocks and exhausted HF included credits.
 
 ## Decisions
 - The repo direction is locked to a hybrid imaging phenotype scope:
@@ -122,6 +135,35 @@
   - `conda run -n base python -m pytest tests/test_model_backends.py tests/test_relation_extract_stage.py -q`
   - `conda run -n base python -m pytest -q`
   - current result: `75 passed`
+- Hosted provider smoke validation on 2026-03-18:
+  - first attempt: `BioMistral/BioMistral-7B` via Hugging Face router
+  - outcome: HTTP `400` `model_not_supported`
+  - second attempt: `deepseek-ai/DeepSeek-V3-0324` via Hugging Face router
+  - smoke-run metrics:
+    - `input_rows`: `3`
+    - `predictions_out`: `3`
+    - `accepted_sentence_relations`: `3`
+    - `accepted_aggregated_relations`: `3`
+- Hosted 10-row pilot on 2026-03-18:
+  - successful run:
+    - `deepseek-ai/DeepSeek-V3-0324`
+    - metrics:
+      - `input_rows`: `10`
+      - `predictions_out`: `10`
+      - `accepted_sentence_relations`: `9`
+      - `accepted_aggregated_relations`: `9`
+  - local comparison baseline:
+    - `heuristic`
+    - metrics:
+      - `input_rows`: `10`
+      - `predictions_out`: `10`
+      - `accepted_sentence_relations`: `8`
+      - `accepted_aggregated_relations`: `8`
+  - row-level differences versus heuristic included:
+    - `blautia` + `and metabolic syndrome`: DeepSeek `negative`, heuristic `positive`
+    - `proteobacteria phylum` + `in cirrhosis`: DeepSeek `positive`, heuristic `unrelated`
+    - `lactobacillus acidophilus` + `reduces inflammation`: DeepSeek `unrelated`, heuristic `positive`
+    - `nasopharynx bacterial` + `lungs airway inflammation`: DeepSeek `positive`, heuristic `unrelated`
 - Cleanup-aware local merged rebuild on 2026-03-17:
   - `conda run -n base python src/extract_radiomics_text.py --papers /Users/junlee/Desktop/sanomap-radiomics-layer/artifacts/papers_microbe_merged_fulltext.jsonl --output artifacts/text_mentions_microbe_merged.jsonl --mapping-log artifacts/text_mapping_log_microbe_merged.jsonl --validate-schema`
   - `conda run -n base python src/text_ner_minerva.py --papers /Users/junlee/Desktop/sanomap-radiomics-layer/artifacts/papers_microbe_merged_fulltext.jsonl --entity-output artifacts/entity_sentences_microbe_merged.jsonl --relation-output artifacts/relation_input_from_ner_microbe_merged.jsonl --disease-ner-mode bc5cdr --microbe-ner-model-id d4data/biomedical-ner-all --umls-linker off --ner-batch-size 8 --validate-schema`

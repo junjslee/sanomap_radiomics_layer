@@ -250,6 +250,19 @@ Hosted relation backend implementation on 2026-03-17:
 - local verification is complete through mocked HTTP tests and the full local pytest suite (`75 passed`)
 - a real hosted smoke run is still pending, so no provider-backed merged relation artifacts have been recorded yet
 
+Hosted pilot status on 2026-03-18:
+- real provider-backed smoke run is no longer pending:
+  - `deepseek-ai/DeepSeek-V3-0324` completed a 3-row Hugging Face router smoke run successfully
+- bounded 10-row comparison pilot status:
+  - `deepseek-ai/DeepSeek-V3-0324`: completed successfully with `9/10` accepted aggregated relations
+  - `meta-llama/Llama-3.1-8B-Instruct`: auto-routed to Cerebras and failed with Cloudflare `1010`
+  - `Qwen/Qwen2.5-7B-Instruct`: auto-routed to Together and failed with Cloudflare `1010`
+  - `meta-llama/Llama-3.1-8B-Instruct:novita`: explicit provider routing reached HF router successfully but failed with `402` because included HF credits were exhausted
+- current operational conclusion:
+  - HF router auth and transport are proven
+  - provider routing and quota, not repo code, are now the main blockers
+  - `deepseek-ai/DeepSeek-V3-0324` is the only confirmed usable hosted baseline in the current account/environment
+
 Cleanup-aware local rebuild on 2026-03-17:
 - execution context:
   - worktree-local ignored outputs in `artifacts/`

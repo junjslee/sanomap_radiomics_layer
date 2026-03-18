@@ -74,6 +74,15 @@ Read this file at the start of implementation work.
 - Hugging Face router is the first intended hosted target:
   - `https://router.huggingface.co/v1`
 - Keep provider credentials in local environment variables only.
+- First hosted smoke result on 2026-03-18:
+  - sourcing the sibling local `.env` file succeeded
+  - Hugging Face router returned `model_not_supported` for `BioMistral/BioMistral-7B` on the current account/provider setup
+  - `deepseek-ai/DeepSeek-V3-0324` completed a 3-row smoke run successfully through the same backend path
+- Provider-routing findings from the 2026-03-18 pilot:
+  - HF router auto-routed `meta-llama/Llama-3.1-8B-Instruct` to Cerebras in this environment, and Cerebras returned Cloudflare `1010` access denied
+  - HF router auto-routed `Qwen/Qwen2.5-7B-Instruct` to Together in this environment, and Together returned Cloudflare `1010` access denied
+  - HF router accepted explicit provider suffixes in model ids, but `meta-llama/Llama-3.1-8B-Instruct:novita` then failed with `402` because included HF credits were exhausted
+  - `deepseek-ai/DeepSeek-V3-0324` remains the only confirmed HF-router model/provider path that actually completed in this environment
 
 ## API And Rate-Limit Policy
 - No hosted provider or remote quota policy is locked yet.
@@ -82,6 +91,8 @@ Read this file at the start of implementation work.
   - base URL: `RELATION_API_BASE_URL` or `OPENAI_BASE_URL`
   - API key: `RELATION_API_KEY`, `HUGGINGFACE_API_KEY`, `HF_TOKEN`, or `OPENAI_API_KEY`
 - The relation backend is intentionally generic enough that Ollama or another OpenAI-compatible provider can later reuse the same interface.
+- For the current Hugging Face account, treat model availability as an account/provider capability question rather than a code-path question.
+- Treat HF included credits as effectively exhausted for further model-comparison work unless the account is upgraded, topped up, or replaced by a direct provider key.
 
 ## Model Availability Note
 - Some model weights and checkpoints used in or associated with the upstream MINERVA paper are not yet available in this workspace.

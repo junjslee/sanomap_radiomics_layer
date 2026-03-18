@@ -121,7 +121,15 @@ The next major milestone is:
 ### Infrastructure
 - GPU-backed execution environment for real model-backed relation extraction
 - or a hosted inference path for the relation classifier
-- The hosted relation code path now exists; the next blocker is a real provider-backed smoke run plus documented quota assumptions.
+- The hosted relation code path now exists and real provider-backed smoke/pilot runs have started.
+- Current Hugging Face router status:
+  - `deepseek-ai/DeepSeek-V3-0324` completed both a 3-row smoke run and a 10-row pilot
+  - auto-routed `meta-llama/Llama-3.1-8B-Instruct` failed at Cerebras Cloudflare in this environment
+  - auto-routed `Qwen/Qwen2.5-7B-Instruct` failed at Together Cloudflare in this environment
+  - explicit `meta-llama/Llama-3.1-8B-Instruct:novita` then failed with HF `402` because included credits were exhausted
+- The next infrastructure decision is now:
+  - replenish HF credits and continue on the router
+  - or switch to a direct provider key while keeping the same `openai_compatible` backend
 
 ### Model assets
 - Upstream-associated checkpoints/weights not currently present in this workspace
@@ -293,10 +301,17 @@ python3 src/relation_extract_stage.py \
   --output-aggregated artifacts/relation_aggregated_microbe_merged.hosted_smoke.jsonl \
   --output-strengths artifacts/relation_strengths_microbe_merged.hosted_smoke.jsonl \
   --backend openai_compatible \
-  --model-id BioMistral/BioMistral-7B \
+  --model-id deepseek-ai/DeepSeek-V3-0324 \
   --num-samples 1 \
   --allow-majority-consistency \
   --validate-schema
+```
+
+### Provider override note
+If HF auto-routing selects a blocked provider, append the provider suffix directly to the model id.
+Example:
+```bash
+--model-id meta-llama/Llama-3.1-8B-Instruct:novita
 ```
 
 ### Edge assembly after quality cleanup
@@ -317,7 +332,14 @@ python3 src/assemble_edges.py \
   - final relation input rows: `26`
   - accepted aggregated relations: `20`
 - The next work item is no longer another local cleanup pass; it is confirmation on a model-backed GPU or hosted rerun.
-- The immediate next work item is a tiny hosted relation smoke test using the new `openai_compatible` backend, then a documented provider-backed merged rerun plan.
+- Current hosted pilot snapshot:
+  - DeepSeek 10-row pilot: `10` predictions, `9` accepted sentence relations, `9` accepted aggregated relations
+  - heuristic baseline on the same 10 rows: `10` predictions, `8` accepted sentence relations, `8` accepted aggregated relations
+- The immediate next work item is no longer another HF-router comparison from this account.
+- The next real action is one of:
+  - replenish HF credits and resume comparisons
+  - move to a direct provider key with the same backend
+  - treat DeepSeek as the current hosted baseline and only scale if quota is available
 
 ## Current Baseline Metrics To Compare Against
 These are useful as rough reference points, not absolute targets.

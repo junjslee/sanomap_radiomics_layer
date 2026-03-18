@@ -58,9 +58,13 @@
   - `src/relation_extract_stage.py`
 - Current next step:
   - keep the professor-facing knowledge map, explorer, proposal source, and README wired into the repo surface
-  - extend `src/model_backends.py` and `src/relation_extract_stage.py` with a hosted chat backend
-  - add local unit coverage for response parsing, URL construction, and backend selection
-  - document the Hugging Face-first provider assumptions in `docs/RUN_CONTEXT.md`
+  - keep the new hosted backend and local tests in place
+  - use the successful DeepSeek HF-router path as the current hosted baseline
+  - do not assume `BioMistral/BioMistral-7B` is usable on the current HF account
+  - do not assume HF auto-routing will avoid blocked providers in this environment
+  - resolve the next quota/provider decision before any larger hosted rerun:
+    - replenish HF credits
+    - or switch to a direct provider key with the same backend
   - rerun the merged branch on GPU or hosted inference with the shared cleanup helper already in place
   - confirm accepted aggregated outputs stay free of the old subject-tail and disease-prefix fragment patterns
   - use the current repo as the explicit topic + knowledge map + explorer + visualization deliverable for professor review while model-backed validation continues
