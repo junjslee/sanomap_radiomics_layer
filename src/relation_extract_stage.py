@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -112,12 +113,16 @@ def run_relation_extraction(
     max_evidence_words: int = 500,
     max_evidence_chars: int = 5000,
     filtered_reason_counts: dict[str, int] | None = None,
+    api_base_url: str | None = None,
+    api_key: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     backend = build_backend(
         backend=backend_name,
         model_family=model_family,
         model_id=model_id,
         device=device,
+        api_base_url=api_base_url,
+        api_key=api_key,
     )
 
     rows = input_rows
@@ -192,10 +197,28 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output-strengths", default="artifacts/relation_strengths.jsonl")
     parser.add_argument("--manifest-dir", default="artifacts/manifests")
 
-    parser.add_argument("--backend", default="hf_textgen", choices=["heuristic", "hf_textgen"])
+    parser.add_argument("--backend", default="hf_textgen", choices=["heuristic", "hf_textgen", "openai_compatible"])
     parser.add_argument("--model-family", default="biomistral_7b")
     parser.add_argument("--model-id", default=None)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument(
+        "--api-base-url",
+        default=(
+            os.environ.get("RELATION_API_BASE_URL")
+            or os.environ.get("OPENAI_BASE_URL")
+            or ""
+        ),
+    )
+    parser.add_argument(
+        "--api-key",
+        default=(
+            os.environ.get("RELATION_API_KEY")
+            or os.environ.get("HUGGINGFACE_API_KEY")
+            or os.environ.get("HF_TOKEN")
+            or os.environ.get("OPENAI_API_KEY")
+            or ""
+        ),
+    )
 
     parser.add_argument("--num-samples", type=int, default=7)
     parser.add_argument("--temperatures", default=None, help="Comma-separated temperatures.")
@@ -225,6 +248,8 @@ def main(argv: list[str] | None = None) -> int:
         model_family=args.model_family,
         model_id=args.model_id,
         device=args.device,
+        api_base_url=(args.api_base_url or None),
+        api_key=(args.api_key or None),
         temperatures=temperatures,
         max_new_tokens=args.max_new_tokens,
         require_complete_consistency=not args.allow_majority_consistency,
@@ -286,6 +311,8 @@ def main(argv: list[str] | None = None) -> int:
             "model_family": args.model_family,
             "model_id": args.model_id,
             "device": args.device,
+            "api_base_url": args.api_base_url or None,
+            "api_key_used": bool(args.api_key),
             "temperatures": temperatures,
             "max_new_tokens": args.max_new_tokens,
             "require_complete_consistency": not args.allow_majority_consistency,

@@ -240,6 +240,16 @@ Merged relation extraction pass on 2026-03-07:
     - `42` disease strings are long clause-like phrases of 6+ words rather than clean disease entities
   - do not promote this merged branch directly to graph edge assembly without another cleanup pass on subject/disease span quality
 
+Hosted relation backend implementation on 2026-03-17:
+- `src/model_backends.py` now includes an `openai_compatible` backend that uses chat-completions-style HTTP calls
+- `src/relation_extract_stage.py` now accepts:
+  - `--backend openai_compatible`
+  - `--api-base-url`
+  - `--api-key`
+- current intent is Hugging Face first through `https://router.huggingface.co/v1`, while preserving compatibility with Ollama or another OpenAI-compatible provider later
+- local verification is complete through mocked HTTP tests and the full local pytest suite (`75 passed`)
+- a real hosted smoke run is still pending, so no provider-backed merged relation artifacts have been recorded yet
+
 Cleanup-aware local rebuild on 2026-03-17:
 - execution context:
   - worktree-local ignored outputs in `artifacts/`

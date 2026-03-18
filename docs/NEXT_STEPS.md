@@ -43,6 +43,7 @@ The next major milestone is:
 
 ## Current Baseline
 - Last pushed baseline before this handoff: commit `a8e4341`
+- Active implementation lane: `ops/remote-run-hf-hosted`
 - Current repo direction is locked:
   - hybrid imaging phenotype scope
   - strict `RadiomicFeature` core
@@ -74,6 +75,13 @@ The next major milestone is:
   - predictions
   - within-paper aggregation
   - strength scores
+- `src/model_backends.py` now supports:
+  - `heuristic`
+  - `hf_textgen`
+  - `openai_compatible`
+- `src/relation_extract_stage.py` now accepts hosted backend inputs through:
+  - `--api-base-url`
+  - `--api-key`
 - `src/assemble_edges.py` supports the hybrid graph schema and bridge hypothesis policy
 - Shared span cleanup is now implemented in `src/span_cleanup.py` and wired into:
   - `src/text_ner_minerva.py`
@@ -113,6 +121,7 @@ The next major milestone is:
 ### Infrastructure
 - GPU-backed execution environment for real model-backed relation extraction
 - or a hosted inference path for the relation classifier
+- The hosted relation code path now exists; the next blocker is a real provider-backed smoke run plus documented quota assumptions.
 
 ### Model assets
 - Upstream-associated checkpoints/weights not currently present in this workspace
@@ -273,6 +282,23 @@ python3 src/relation_extract_stage.py \
   --validate-schema
 ```
 
+### Hosted smoke test via Hugging Face router
+Use a tiny subset first and keep provider credentials local.
+```bash
+RELATION_API_BASE_URL="https://router.huggingface.co/v1" \
+RELATION_API_KEY="$HF_TOKEN" \
+python3 src/relation_extract_stage.py \
+  --input artifacts/relation_input_microbe_merged.jsonl \
+  --output-predictions artifacts/relation_predictions_microbe_merged.hosted_smoke.jsonl \
+  --output-aggregated artifacts/relation_aggregated_microbe_merged.hosted_smoke.jsonl \
+  --output-strengths artifacts/relation_strengths_microbe_merged.hosted_smoke.jsonl \
+  --backend openai_compatible \
+  --model-id BioMistral/BioMistral-7B \
+  --num-samples 1 \
+  --allow-majority-consistency \
+  --validate-schema
+```
+
 ### Edge assembly after quality cleanup
 ```bash
 python3 src/assemble_edges.py \
@@ -284,13 +310,14 @@ python3 src/assemble_edges.py \
 - Conda `base` now has `pytest` installed for this repo.
 - Current full-suite result:
   - `conda run -n base python -m pytest -q`
-  - `71 passed`
+  - `75 passed`
 - Current residual-cleanup rerun metrics:
   - entity sentences: `38`
   - raw NER relation rows: `60`
   - final relation input rows: `26`
   - accepted aggregated relations: `20`
 - The next work item is no longer another local cleanup pass; it is confirmation on a model-backed GPU or hosted rerun.
+- The immediate next work item is a tiny hosted relation smoke test using the new `openai_compatible` backend, then a documented provider-backed merged rerun plan.
 
 ## Current Baseline Metrics To Compare Against
 These are useful as rough reference points, not absolute targets.

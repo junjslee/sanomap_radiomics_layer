@@ -38,6 +38,11 @@
   - the checked-in `test_set.iob` contains `2,043` `B-bacteria` tags, which matches MINERVA's reported test-set bacterial entity count
   - the checked-in public splits do not match MINERVA's reported full-corpus totals (`23,174` sentences and `12,480` entities), so exact release parity is still unconfirmed
   - operational conclusion: treat `lixusheng1/bacterial_NER` as the strongest public candidate lineage for MINERVA's microbial NER data, but do not describe it as the exact confirmed `BNER2.0` release yet
+- The hosted relation-backend milestone started on 2026-03-17:
+  - added `openai_compatible` relation inference support in `src/model_backends.py`
+  - wired hosted backend arguments through `src/relation_extract_stage.py`
+  - added mocked HTTP regression coverage for hosted response parsing and hosted relation extraction flow
+  - design intent is Hugging Face first, while keeping Ollama or another OpenAI-compatible provider viable later through the same interface
 - A reusable cross-agent operating scaffold is now installed for this repo:
   - `AGENTS.md`
   - `CLAUDE.md`
@@ -55,6 +60,7 @@
 - Converting the repo from ad hoc markdown notes into a reusable dual-tool agent operating system.
 - Preparing for the real GPU-backed or hosted merged relation run.
 - Preserving the upstream-parity roadmap while the professor-facing repo surface is now substantially packaged.
+- Preparing for the first real hosted relation smoke test now that the generic hosted backend exists locally.
 
 ## Decisions
 - The repo direction is locked to a hybrid imaging phenotype scope:
@@ -111,7 +117,11 @@
   - `conda run -n base python -m pytest tests/test_span_cleanup.py tests/test_text_ner_minerva.py tests/test_build_relation_input.py tests/test_relation_extract_stage.py tests/test_types_and_schemas.py -q`
   - `conda run -n base python -m pytest tests/test_verify_heatmap.py tests/test_verify_heatmap_batch.py -q`
   - `conda run -n base python -m pytest -q`
-  - current result: `71 passed`
+  - current result before hosted-backend work: `71 passed`
+- Hosted relation-backend validation on 2026-03-17:
+  - `conda run -n base python -m pytest tests/test_model_backends.py tests/test_relation_extract_stage.py -q`
+  - `conda run -n base python -m pytest -q`
+  - current result: `75 passed`
 - Cleanup-aware local merged rebuild on 2026-03-17:
   - `conda run -n base python src/extract_radiomics_text.py --papers /Users/junlee/Desktop/sanomap-radiomics-layer/artifacts/papers_microbe_merged_fulltext.jsonl --output artifacts/text_mentions_microbe_merged.jsonl --mapping-log artifacts/text_mapping_log_microbe_merged.jsonl --validate-schema`
   - `conda run -n base python src/text_ner_minerva.py --papers /Users/junlee/Desktop/sanomap-radiomics-layer/artifacts/papers_microbe_merged_fulltext.jsonl --entity-output artifacts/entity_sentences_microbe_merged.jsonl --relation-output artifacts/relation_input_from_ner_microbe_merged.jsonl --disease-ner-mode bc5cdr --microbe-ner-model-id d4data/biomedical-ner-all --umls-linker off --ner-batch-size 8 --validate-schema`

@@ -70,10 +70,18 @@ Read this file at the start of implementation work.
   - rate limits
   - retry policy
 - Hosted inference is still non-local production; do not treat it as interchangeable with `local_mac_base`.
+- The relation stage can now use `--backend openai_compatible` against providers that expose a chat-completions-compatible API.
+- Hugging Face router is the first intended hosted target:
+  - `https://router.huggingface.co/v1`
+- Keep provider credentials in local environment variables only.
 
 ## API And Rate-Limit Policy
 - No hosted provider or remote quota policy is locked yet.
 - When a hosted or remote execution path is chosen, document its limits here before large runs.
+- Current relation-stage environment variable support:
+  - base URL: `RELATION_API_BASE_URL` or `OPENAI_BASE_URL`
+  - API key: `RELATION_API_KEY`, `HUGGINGFACE_API_KEY`, `HF_TOKEN`, or `OPENAI_API_KEY`
+- The relation backend is intentionally generic enough that Ollama or another OpenAI-compatible provider can later reuse the same interface.
 
 ## Model Availability Note
 - Some model weights and checkpoints used in or associated with the upstream MINERVA paper are not yet available in this workspace.

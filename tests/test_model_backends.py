@@ -1,16 +1,54 @@
 import unittest
+from unittest import mock
 
 from src.model_backends import (
     NEGATIVE,
     POSITIVE,
     UNRELATED,
+    OpenAICompatibleRelationBackend,
     build_minerva_prompt_messages,
+    build_openai_completion_url,
+    extract_openai_message_text,
     format_prompt_for_model,
     normalize_relation_label,
 )
 
 
 class TestModelBackends(unittest.TestCase):
+    def test_build_openai_completion_url_appends_chat_completions(self) -> None:
+        self.assertEqual(
+            build_openai_completion_url("https://router.huggingface.co/v1"),
+            "https://router.huggingface.co/v1/chat/completions",
+        )
+        self.assertEqual(
+            build_openai_completion_url("http://localhost:11434/v1/chat/completions"),
+            "http://localhost:11434/v1/chat/completions",
+        )
+
+    def test_extract_openai_message_text_handles_string_and_list_content(self) -> None:
+        self.assertEqual(
+            extract_openai_message_text(
+                {"choices": [{"message": {"content": "positive"}}]}
+            ),
+            "positive",
+        )
+        self.assertEqual(
+            extract_openai_message_text(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": [
+                                    {"type": "text", "text": "negative"},
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ),
+            "negative",
+        )
+
     def test_normalize_relation_label_handles_alternative_tokens(self) -> None:
         self.assertEqual(normalize_relation_label("a"), POSITIVE)
         self.assertEqual(normalize_relation_label("B"), NEGATIVE)
@@ -36,6 +74,37 @@ class TestModelBackends(unittest.TestCase):
         self.assertIn("[INST]", prompt)
         self.assertIn("sys", prompt)
         self.assertIn("usr", prompt)
+
+    def test_openai_compatible_backend_predicts_from_mocked_response(self) -> None:
+        backend = OpenAICompatibleRelationBackend(
+            model_id="BioMistral/BioMistral-7B",
+            api_base_url="https://router.huggingface.co/v1",
+            api_key="test-token",
+        )
+
+        class FakeResponse:
+            def __enter__(self) -> "FakeResponse":
+                return self
+
+            def __exit__(self, exc_type, exc, tb) -> None:
+                return None
+
+            def read(self) -> bytes:
+                return b'{"choices":[{"message":{"content":"positive"}}]}'
+
+        with mock.patch("src.model_backends.urlrequest.urlopen", return_value=FakeResponse()) as mocked_urlopen:
+            label = backend.predict_relation(
+                sentence="Lactobacillus increased in obesity.",
+                microbe="Lactobacillus",
+                disease="obesity",
+                temperature=0.3,
+                max_new_tokens=6,
+            )
+
+        self.assertEqual(label, POSITIVE)
+        request = mocked_urlopen.call_args.args[0]
+        self.assertEqual(request.full_url, "https://router.huggingface.co/v1/chat/completions")
+        self.assertEqual(request.get_header("Authorization"), "Bearer test-token")
 
 
 if __name__ == "__main__":

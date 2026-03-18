@@ -45,6 +45,11 @@
 
 ## Active Stage
 - Stage 3 is the main gating item; Stage 4 cleanup is now locally verified and needs confirmation on a model-backed rerun.
+- Active implementation lane: `ops/remote-run-hf-hosted`
+- Immediate sub-goal:
+  - add a hosted relation backend that can call Hugging Face first through an OpenAI-compatible chat-completions API shape
+  - keep the backend generic enough that Ollama or other OpenAI-compatible providers can be used later without another relation-stage redesign
+  - verify the backend locally with mocked HTTP tests before any real hosted smoke run
 - Local CPU-only proof-of-concept plumbing exists; graph-ready merged quality still depends on model-backed extraction.
 - Shared span cleanup is now implemented locally in:
   - `src/span_cleanup.py`
@@ -53,6 +58,9 @@
   - `src/relation_extract_stage.py`
 - Current next step:
   - keep the professor-facing knowledge map, explorer, proposal source, and README wired into the repo surface
+  - extend `src/model_backends.py` and `src/relation_extract_stage.py` with a hosted chat backend
+  - add local unit coverage for response parsing, URL construction, and backend selection
+  - document the Hugging Face-first provider assumptions in `docs/RUN_CONTEXT.md`
   - rerun the merged branch on GPU or hosted inference with the shared cleanup helper already in place
   - confirm accepted aggregated outputs stay free of the old subject-tail and disease-prefix fragment patterns
   - use the current repo as the explicit topic + knowledge map + explorer + visualization deliverable for professor review while model-backed validation continues

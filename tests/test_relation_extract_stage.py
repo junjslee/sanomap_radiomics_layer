@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 from src.relation_extract_stage import filter_relation_input_rows, run_relation_extraction
 
@@ -109,6 +110,48 @@ class TestRelationExtractStage(unittest.TestCase):
 
         self.assertEqual(kept, [])
         self.assertIn("disease_clause_like", reasons)
+
+    def test_run_with_openai_compatible_backend(self) -> None:
+        input_rows = [
+            {
+                "pmid": "301",
+                "microbe": "lactobacillus",
+                "subject_node_type": "Microbe",
+                "subject_node": "lactobacillus",
+                "disease": "obesity",
+                "sentence": "Lactobacillus reduced obesity markers and showed protective effects.",
+            }
+        ]
+
+        class FakeResponse:
+            def __enter__(self) -> "FakeResponse":
+                return self
+
+            def __exit__(self, exc_type, exc, tb) -> None:
+                return None
+
+            def read(self) -> bytes:
+                return b'{"choices":[{"message":{"content":"negative"}}]}'
+
+        with mock.patch("src.model_backends.urlrequest.urlopen", return_value=FakeResponse()):
+            predictions, aggregated, strengths = run_relation_extraction(
+                input_rows=input_rows,
+                backend_name="openai_compatible",
+                model_family="biomistral_7b",
+                model_id=None,
+                device="cpu",
+                api_base_url="https://router.huggingface.co/v1",
+                api_key="token",
+                temperatures=[0.3],
+                max_new_tokens=8,
+                require_complete_consistency=True,
+            )
+
+        self.assertEqual(len(predictions), 1)
+        self.assertEqual(predictions[0]["final_label"], "negative")
+        self.assertEqual(predictions[0]["model_backend"], "openai_compatible")
+        self.assertEqual(len(aggregated), 1)
+        self.assertEqual(len(strengths), 1)
 
 
 if __name__ == "__main__":
