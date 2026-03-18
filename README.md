@@ -59,6 +59,21 @@ How can we connect microbiome findings to imaging-derived phenotypes and then to
 - local static explorer in `docs/explorer/index.html`
 - explicit graph diagram in `docs/knowledge_map.md`
 
+## Current Snapshot
+
+- Retrieval lanes:
+  `8` strict microbe-radiomics papers, `15` adjacent imaging papers, and `99` microbe-body-composition papers
+- Current merged microbiome-side corpus:
+  `120` papers
+- Current merged phenotype extraction output:
+  `1,129` text mentions
+- Current committed merged relation artifacts:
+  `148` sentence-level predictions and `138` within-paper aggregated relations
+- Latest local cleanup-aware rerun:
+  `20` accepted aggregated relations after stricter span cleanup
+- Validation:
+  `71` pytest checks passing locally
+
 ## Current Status
 
 - The local proof-of-concept pipeline is operational end to end.
