@@ -90,9 +90,16 @@ Read this file at the start of implementation work.
 - Current relation-stage environment variable support:
   - base URL: `RELATION_API_BASE_URL` or `OPENAI_BASE_URL`
   - API key: `RELATION_API_KEY`, `HUGGINGFACE_API_KEY`, `HF_TOKEN`, or `OPENAI_API_KEY`
+- Gemini-specific relation-stage support now exists:
+  - base URL override: `GEMINI_API_BASE_URL`
+  - API key override: `GEMINI_API_KEY`
+  - if the model id starts with `gemini-`, the relation stage now defaults to Google's official OpenAI-compatible base URL:
+    - `https://generativelanguage.googleapis.com/v1beta/openai`
 - The relation backend is intentionally generic enough that Ollama or another OpenAI-compatible provider can later reuse the same interface.
 - For the current Hugging Face account, treat model availability as an account/provider capability question rather than a code-path question.
 - Treat HF included credits as effectively exhausted for further model-comparison work unless the account is upgraded, topped up, or replaced by a direct provider key.
+- Gemini-provider guardrail:
+  - if a `gemini-*` model is accidentally pointed at a non-Google base URL, the backend now fails fast with a provider-mismatch error instead of sending the request to the wrong provider
 
 ## Model Availability Note
 - Some model weights and checkpoints used in or associated with the upstream MINERVA paper are not yet available in this workspace.

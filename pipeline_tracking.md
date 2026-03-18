@@ -263,6 +263,21 @@ Hosted pilot status on 2026-03-18:
   - provider routing and quota, not repo code, are now the main blockers
   - `deepseek-ai/DeepSeek-V3-0324` is the only confirmed usable hosted baseline in the current account/environment
 
+Gemini direct-path fix on 2026-03-18:
+- official Gemini OpenAI-compatible docs were verified before patching:
+  - base URL: `https://generativelanguage.googleapis.com/v1beta/openai`
+  - model ids such as `gemini-2.5-flash` and `gemini-2.5-flash-lite`
+- `src/relation_extract_stage.py` now resolves `gemini-*` model ids through Gemini-specific env settings instead of inheriting the generic HF router base URL
+- `src/model_backends.py` now fails fast if a `gemini-*` model id is pointed at a non-Google base URL
+- Gemini 10-row pilot status:
+  - `gemini-2.5-flash-lite`: completed successfully
+  - accepted aggregated relations: `6/10`
+  - rough estimated run cost: about `$0.0004`
+- current operational conclusion:
+  - Gemini direct is now a real low-cost hosted option in this repo
+  - DeepSeek remains the stronger accepted-rate baseline on the current 10-row pilot
+  - Gemini is the cheaper and more conservative direct path
+
 Cleanup-aware local rebuild on 2026-03-17:
 - execution context:
   - worktree-local ignored outputs in `artifacts/`

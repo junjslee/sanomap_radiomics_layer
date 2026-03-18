@@ -130,6 +130,7 @@ The next major milestone is:
 - The next infrastructure decision is now:
   - replenish HF credits and continue on the router
   - or switch to a direct provider key while keeping the same `openai_compatible` backend
+  - or use Gemini directly, which now works through the same backend without inheriting the stale HF base URL
 
 ### Model assets
 - Upstream-associated checkpoints/weights not currently present in this workspace
@@ -314,6 +315,18 @@ Example:
 --model-id meta-llama/Llama-3.1-8B-Instruct:novita
 ```
 
+### Gemini direct note
+Gemini now has a working path through the same `openai_compatible` backend.
+Recommended local env:
+```bash
+GEMINI_API_KEY="your_gemini_key"
+```
+Optional explicit override:
+```bash
+GEMINI_API_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai"
+```
+For `gemini-*` model ids, the relation stage now defaults to the official Google OpenAI-compatible base URL automatically.
+
 ### Edge assembly after quality cleanup
 ```bash
 python3 src/assemble_edges.py \
@@ -335,11 +348,14 @@ python3 src/assemble_edges.py \
 - Current hosted pilot snapshot:
   - DeepSeek 10-row pilot: `10` predictions, `9` accepted sentence relations, `9` accepted aggregated relations
   - heuristic baseline on the same 10 rows: `10` predictions, `8` accepted sentence relations, `8` accepted aggregated relations
+- Current Gemini pilot snapshot:
+  - Gemini 2.5 Flash-Lite 10-row pilot: `10` predictions, `6` accepted sentence relations, `6` accepted aggregated relations
+  - rough estimated run cost: about `$0.0004`
 - The immediate next work item is no longer another HF-router comparison from this account.
 - The next real action is one of:
-  - replenish HF credits and resume comparisons
-  - move to a direct provider key with the same backend
-  - treat DeepSeek as the current hosted baseline and only scale if quota is available
+  - treat Gemini Flash-Lite as the current low-cost direct baseline and run a larger pilot
+  - replenish HF credits and resume deeper HF comparisons
+  - keep DeepSeek as the stronger hosted baseline if quota is available elsewhere
 
 ## Current Baseline Metrics To Compare Against
 These are useful as rough reference points, not absolute targets.

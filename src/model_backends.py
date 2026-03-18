@@ -10,6 +10,7 @@ from urllib import request as urlrequest
 POSITIVE = "positive"
 NEGATIVE = "negative"
 UNRELATED = "unrelated"
+GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
 
 
 MODEL_FAMILY_MAP: dict[str, str] = {
@@ -79,6 +80,19 @@ def _format_chat_prompt(*, system: str, user: str, model_family: str) -> str:
 
 def format_prompt_for_model(*, system: str, user: str, model_family: str) -> str:
     return _format_chat_prompt(system=system, user=user, model_family=model_family)
+
+
+def is_gemini_model_id(model_id: str | None) -> bool:
+    if not model_id:
+        return False
+    base_model_id = model_id.split(":", 1)[0].strip().lower()
+    return base_model_id.startswith("gemini-")
+
+
+def is_gemini_openai_base_url(base_url: str | None) -> bool:
+    if not base_url:
+        return False
+    return "generativelanguage.googleapis.com" in base_url.lower()
 
 
 def build_openai_completion_url(base_url: str) -> str:
@@ -165,6 +179,13 @@ class OpenAICompatibleRelationBackend(BaseRelationBackend):
     api_base_url: str
     api_key: str | None = None
     backend_name: str = "openai_compatible"
+
+    def __post_init__(self) -> None:
+        if is_gemini_model_id(self.model_id) and not is_gemini_openai_base_url(self.api_base_url):
+            raise RuntimeError(
+                "gemini models require api_base_url "
+                f"{GEMINI_OPENAI_BASE_URL}"
+            )
 
     def predict_relation(
         self,
@@ -382,6 +403,9 @@ __all__ = [
     "MINERVA_TEMPLATE_EVIDENCE",
     "build_minerva_prompt_messages",
     "format_prompt_for_model",
+    "GEMINI_OPENAI_BASE_URL",
+    "is_gemini_model_id",
+    "is_gemini_openai_base_url",
     "build_openai_completion_url",
     "extract_openai_message_text",
     "BaseRelationBackend",

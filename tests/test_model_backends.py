@@ -2,6 +2,7 @@ import unittest
 from unittest import mock
 
 from src.model_backends import (
+    GEMINI_OPENAI_BASE_URL,
     NEGATIVE,
     POSITIVE,
     UNRELATED,
@@ -105,6 +106,21 @@ class TestModelBackends(unittest.TestCase):
         request = mocked_urlopen.call_args.args[0]
         self.assertEqual(request.full_url, "https://router.huggingface.co/v1/chat/completions")
         self.assertEqual(request.get_header("Authorization"), "Bearer test-token")
+
+    def test_openai_compatible_backend_rejects_gemini_model_with_non_gemini_base_url(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "gemini models require api_base_url"):
+            OpenAICompatibleRelationBackend(
+                model_id="gemini-2.5-flash-lite",
+                api_base_url="https://router.huggingface.co/v1",
+                api_key="token",
+            )
+
+        backend = OpenAICompatibleRelationBackend(
+            model_id="gemini-2.5-flash-lite",
+            api_base_url=GEMINI_OPENAI_BASE_URL,
+            api_key="token",
+        )
+        self.assertEqual(backend.api_base_url, GEMINI_OPENAI_BASE_URL)
 
 
 if __name__ == "__main__":

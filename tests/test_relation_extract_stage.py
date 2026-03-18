@@ -1,7 +1,7 @@
 import unittest
 from unittest import mock
 
-from src.relation_extract_stage import filter_relation_input_rows, run_relation_extraction
+from src.relation_extract_stage import filter_relation_input_rows, resolve_api_settings, run_relation_extraction
 
 
 class TestRelationExtractStage(unittest.TestCase):
@@ -152,6 +152,35 @@ class TestRelationExtractStage(unittest.TestCase):
         self.assertEqual(predictions[0]["model_backend"], "openai_compatible")
         self.assertEqual(len(aggregated), 1)
         self.assertEqual(len(strengths), 1)
+
+    def test_resolve_api_settings_uses_gemini_specific_defaults(self) -> None:
+        api_base_url, api_key = resolve_api_settings(
+            model_id="gemini-2.5-flash-lite",
+            cli_api_base_url=None,
+            cli_api_key=None,
+            environ={
+                "RELATION_API_BASE_URL": "https://router.huggingface.co/v1",
+                "HF_TOKEN": "hf_old_token",
+                "GEMINI_API_KEY": "gemini_paid_key",
+            },
+        )
+
+        self.assertEqual(api_base_url, "https://generativelanguage.googleapis.com/v1beta/openai")
+        self.assertEqual(api_key, "gemini_paid_key")
+
+    def test_resolve_api_settings_keeps_generic_env_for_non_gemini_models(self) -> None:
+        api_base_url, api_key = resolve_api_settings(
+            model_id="deepseek-ai/DeepSeek-V3-0324",
+            cli_api_base_url=None,
+            cli_api_key=None,
+            environ={
+                "RELATION_API_BASE_URL": "https://router.huggingface.co/v1",
+                "HF_TOKEN": "hf_live_token",
+            },
+        )
+
+        self.assertEqual(api_base_url, "https://router.huggingface.co/v1")
+        self.assertEqual(api_key, "hf_live_token")
 
 
 if __name__ == "__main__":

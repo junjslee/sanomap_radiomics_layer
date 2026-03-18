@@ -55,6 +55,24 @@
   - `Qwen/Qwen2.5-7B-Instruct` failed under auto-routing because HF selected Together and that provider blocked this environment at Cloudflare
   - explicit provider override via `meta-llama/Llama-3.1-8B-Instruct:novita` reached a routable provider, but the account then returned `402` because included HF Inference Providers credits were depleted
   - operational conclusion: the hosted relation backend works, DeepSeek is the only confirmed usable HF-router baseline so far, and further HF-provider experiments now require new credits or a different provider account
+- Gemini/OpenAI-compatible provider fix on 2026-03-18:
+  - verified Google's official OpenAI-compatible base URL and model naming from Gemini docs
+  - patched `src/relation_extract_stage.py` so `gemini-*` model ids use Gemini-specific env resolution instead of inheriting the stale Hugging Face base URL
+  - patched `src/model_backends.py` so `gemini-*` model ids fail fast if they are pointed at a non-Google base URL
+  - added regression tests for Gemini env resolution and provider-mismatch detection
+- Gemini 10-row pilot on 2026-03-18:
+  - model: `gemini-2.5-flash-lite`
+  - rough estimated cost before run: about `$0.0004`
+  - metrics:
+    - `input_rows`: `10`
+    - `predictions_out`: `10`
+    - `accepted_sentence_relations`: `6`
+    - `accepted_aggregated_relations`: `6`
+  - qualitative takeaway:
+    - Gemini was more conservative than DeepSeek on the same pilot set
+    - Gemini matched DeepSeek on the clearly negative `faecalibacterium prausnitzii` + `diabetes` row
+    - Gemini also matched DeepSeek in rejecting `lactobacillus acidophilus` + `reduces inflammation` as `unrelated`
+    - Gemini was less willing than DeepSeek to assert relations for noisier rows like `phascolarctobacterium` + `chronic hiv infection`
 - A reusable cross-agent operating scaffold is now installed for this repo:
   - `AGENTS.md`
   - `CLAUDE.md`
@@ -74,6 +92,7 @@
 - Preserving the upstream-parity roadmap while the professor-facing repo surface is now substantially packaged.
 - Selecting the supported hosted model and next pilot size now that the first real smoke run succeeded.
 - Replanning the hosted execution path around current provider blocks and exhausted HF included credits.
+- Replanning the hosted execution path with Gemini now added as a working low-cost direct baseline.
 
 ## Decisions
 - The repo direction is locked to a hybrid imaging phenotype scope:
@@ -164,6 +183,10 @@
     - `proteobacteria phylum` + `in cirrhosis`: DeepSeek `positive`, heuristic `unrelated`
     - `lactobacillus acidophilus` + `reduces inflammation`: DeepSeek `unrelated`, heuristic `positive`
     - `nasopharynx bacterial` + `lungs airway inflammation`: DeepSeek `positive`, heuristic `unrelated`
+- Gemini provider-fix validation on 2026-03-18:
+  - `conda run -n base python -m pytest tests/test_model_backends.py tests/test_relation_extract_stage.py -q`
+  - `conda run -n base python -m pytest -q`
+  - current full-suite result: `78 passed`
 - Cleanup-aware local merged rebuild on 2026-03-17:
   - `conda run -n base python src/extract_radiomics_text.py --papers /Users/junlee/Desktop/sanomap-radiomics-layer/artifacts/papers_microbe_merged_fulltext.jsonl --output artifacts/text_mentions_microbe_merged.jsonl --mapping-log artifacts/text_mapping_log_microbe_merged.jsonl --validate-schema`
   - `conda run -n base python src/text_ner_minerva.py --papers /Users/junlee/Desktop/sanomap-radiomics-layer/artifacts/papers_microbe_merged_fulltext.jsonl --entity-output artifacts/entity_sentences_microbe_merged.jsonl --relation-output artifacts/relation_input_from_ner_microbe_merged.jsonl --disease-ner-mode bc5cdr --microbe-ner-model-id d4data/biomedical-ner-all --umls-linker off --ner-batch-size 8 --validate-schema`
