@@ -27,6 +27,7 @@ class TestTypesAndSchemas(unittest.TestCase):
             "vision_proposals.schema.json",
             "verified_edges.schema.json",
             "bridge_hypotheses.schema.json",
+            "phenotype_axis_candidates.schema.json",
             "entity_sentences.schema.json",
             "relation_input.schema.json",
             "relation_augmented.schema.json",

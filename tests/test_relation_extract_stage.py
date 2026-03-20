@@ -111,6 +111,43 @@ class TestRelationExtractStage(unittest.TestCase):
         self.assertEqual(kept, [])
         self.assertIn("disease_clause_like", reasons)
 
+    def test_filter_relation_input_rows_trims_subject_taxonomy_and_disease_prefix(self) -> None:
+        kept, reasons = filter_relation_input_rows(
+            [
+                {
+                    "pmid": "204",
+                    "microbe": "Proteobacteria phylum",
+                    "subject_node_type": "Microbe",
+                    "subject_node": "Proteobacteria phylum",
+                    "disease": "and metabolic syndrome",
+                    "sentence": "Proteobacteria phylum was reported in obesity and metabolic syndrome.",
+                }
+            ]
+        )
+
+        self.assertEqual(reasons, {})
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(kept[0]["microbe"], "proteobacteria")
+        self.assertEqual(kept[0]["subject_node"], "proteobacteria")
+        self.assertEqual(kept[0]["disease"], "metabolic syndrome")
+
+    def test_filter_relation_input_rows_rejects_verb_led_disease_fragment(self) -> None:
+        kept, reasons = filter_relation_input_rows(
+            [
+                {
+                    "pmid": "205",
+                    "microbe": "Clostridium symbiosum",
+                    "subject_node_type": "Microbe",
+                    "subject_node": "Clostridium symbiosum",
+                    "disease": "reduces inflammation",
+                    "sentence": "Clostridium symbiosum reduces inflammation in a mechanistic summary row.",
+                }
+            ]
+        )
+
+        self.assertEqual(kept, [])
+        self.assertIn("disease_relation_language", reasons)
+
     def test_run_with_openai_compatible_backend(self) -> None:
         input_rows = [
             {

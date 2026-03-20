@@ -1,7 +1,7 @@
 # Progress
 
 ## Last Updated
-- 2026-03-17 America/Chicago
+- 2026-03-19 America/Chicago
 
 ## Completed
 - Query profiles were split and refined for strict radiomics, adjacent imaging, and body-composition retrieval.
@@ -38,6 +38,59 @@
   - the checked-in `test_set.iob` contains `2,043` `B-bacteria` tags, which matches MINERVA's reported test-set bacterial entity count
   - the checked-in public splits do not match MINERVA's reported full-corpus totals (`23,174` sentences and `12,480` entities), so exact release parity is still unconfirmed
   - operational conclusion: treat `lixusheng1/bacterial_NER` as the strongest public candidate lineage for MINERVA's microbial NER data, but do not describe it as the exact confirmed `BNER2.0` release yet
+- Live retrieval optimization was run on 2026-03-18 against PubMed:
+  - `microbe_radiomics_strict` baseline live count remained `8`
+  - a broadened strict variant using extra microbiome synonyms plus imaging-biomarker language raised live count to `16` but clearly worsened sampled title relevance, so the strict lane was not widened
+  - the current `microbe_bodycomp` baseline remained the strongest default body-composition lane:
+    - live count `99`
+    - first `30` fetched papers: `11` mention-positive papers and `61` body-composition mentions under the current extractor
+  - no-modality body-composition variants inflated live count to `955` and `1324` but degraded sampled relevance materially
+  - a new optional recall-only profile was added in `src/harvest_pubmed.py`:
+    - `microbe_bodycomp_clinical_recall`
+    - live count `584`
+    - first `30` fetched papers: `8` mention-positive papers and `46` body-composition mentions
+  - the new recall lane was then harvested locally:
+    - `artifacts/papers_microbe_bodycomp_clinical_recall.jsonl`: `584` papers, `583` with abstract, `403` with PMCID
+    - `artifacts/text_mentions_microbe_bodycomp_clinical_recall.jsonl`: `748` title/abstract phenotype mentions
+    - apples-to-apples baseline comparison on title/abstract extraction:
+      - current `microbe_bodycomp`: `99` papers -> `162` mentions
+      - new `microbe_bodycomp_clinical_recall`: `584` papers -> `748` mentions
+  - separate merged-harvest audit artifacts were then produced:
+    - `artifacts/papers_microbe_harvest_baseline_dedup.jsonl`: `120` unique PMIDs
+    - `artifacts/papers_microbe_harvest_expanded_dedup.jsonl`: `640` unique PMIDs
+    - added PMIDs in the expanded harvest: `520`
+    - extractor comparison on those merged-harvest corpora:
+      - baseline harvest: `31` PMIDs with mentions and `162` mentions
+      - expanded harvest: `176` PMIDs with mentions and `777` mentions
+    - the expansion remains body-composition-heavy, led by `sarcopenia`, `visceral_adipose_tissue`, `subcutaneous_adipose_tissue`, and `skeletal_muscle_index`
+  - decision:
+    - keep `microbe_radiomics_strict` unchanged as the explicit-radiomics precision lane
+    - keep `microbe_bodycomp` unchanged as the default high-yield body-composition lane
+    - use `microbe_bodycomp_clinical_recall` only as an explicit optional recall expansion, not as the new default
+- Operational handoff snapshot on 2026-03-18:
+  - what changed:
+    - the phenotype-axis text-edge pass is now assembly-normalized and reduced to `17` cleaner phenotype-to-disease edges
+    - retrieval was re-benchmarked live against PubMed
+    - a new optional recall lane was added: `microbe_bodycomp_clinical_recall`
+    - separate expanded-harvest artifacts were created so recall can be audited without changing the default baseline
+  - what was verified:
+    - full test suite is green at `99 passed`
+    - default harvested microbe-side corpus: `120` PMIDs -> `31` PMIDs with mentions -> `162` mentions
+    - expanded harvested corpus with recall lane: `640` PMIDs -> `176` PMIDs with mentions -> `777` mentions
+    - strict-radiomics broadening was tested and rejected as noisier
+  - blockers:
+    - the gain is materially useful for body-composition coverage, but strict-radiomics and adjacent-imaging yield are still weak
+    - the new recall lane has not yet been pushed through PMC full-text download or the full merged downstream stack
+    - a formal false-negative audit of dropped phenotype->disease targets is still missing
+  - exact next actions:
+    - run `src/download_pmc_fulltext.py` on `artifacts/papers_microbe_bodycomp_clinical_recall.jsonl`
+    - merge the default microbe-side harvest with the recall lane after full-text attachment
+    - rerun `src/extract_radiomics_text.py`, `src/text_ner_minerva.py`, and `src/build_relation_input.py` on that expanded full-text corpus
+    - compare expanded-vs-baseline yields for:
+      - PMIDs with phenotype mentions
+      - direct text subject-to-phenotype candidates
+      - phenotype-to-disease edges
+    - then improve adjacent-imaging / strict-radiomics extractor vocabulary instead of broadening strict queries further
 - The hosted relation-backend milestone started on 2026-03-17:
   - added `openai_compatible` relation inference support in `src/model_backends.py`
   - wired hosted backend arguments through `src/relation_extract_stage.py`
@@ -73,6 +126,89 @@
     - Gemini matched DeepSeek on the clearly negative `faecalibacterium prausnitzii` + `diabetes` row
     - Gemini also matched DeepSeek in rejecting `lactobacillus acidophilus` + `reduces inflammation` as `unrelated`
     - Gemini was less willing than DeepSeek to assert relations for noisier rows like `phascolarctobacterium` + `chronic hiv infection`
+- Gemini full current-local relation run on 2026-03-18:
+  - input artifact: `artifacts/relation_input_microbe_merged.jsonl`
+  - model: `gemini-2.5-flash-lite`
+  - default relation-stage self-consistency settings were used (`7` samples, full-consistency acceptance)
+  - metrics:
+    - `input_rows`: `26`
+    - `predictions_out`: `26`
+    - `accepted_sentence_relations`: `14`
+    - `accepted_aggregated_relations`: `14`
+    - `full_consistency_rate`: `0.8462`
+  - important audit result:
+    - model-backed acceptance exposed cleanup gaps that the heuristic run had masked
+    - accepted disease strings still included leading clause fragments:
+      - `and ...`: `5`
+      - `in ...`: `3`
+      - `reduces ...`: `1`
+    - accepted examples still included rows such as:
+      - `propionibacteriaceae` + `and metabolic syndrome`
+      - `proteobacteria phylum` + `in cirrhosis`
+      - `clostridium symbiosum` + `reduces inflammation`
+  - operational conclusion:
+    - Gemini direct is now the first low-cost real model-backed full local relation run
+    - but the shared cleanup helper is not yet strong enough for graph-ready promotion under a model-backed classifier
+- Cleanup refinement after the first full Gemini run on 2026-03-18:
+  - tightened `src/span_cleanup.py` so disease spans now strip leading conjunction and preposition fragments such as `and ...` and `in ...`
+  - expanded disease relation-language rejection to cover verb-led and generic relation phrases such as `reduces inflammation` and `pro-inflammatory or disease`
+  - expanded subject cleanup to strip noisy taxonomy/context tails such as `phylum`, `class`, `families`, and `bearing`
+  - local filter audit on `artifacts/relation_input_microbe_merged.jsonl` now shows:
+    - kept rows: `19/26`
+    - filtered reasons: `{'disease_relation_language': 7}`
+    - surviving leading `and ...`, `in ...`, and `reduces ...` disease spans in kept rows: `0`
+    - surviving subject strings `proteobacteria bearing`, `proteobacteria phylum`, `clostridia class`, and `peptostreptococcaceae families` in kept rows: `0`
+  - this was a local pre-inference audit only; the paid Gemini rerun has not been repeated yet
+- Hosted transient-retry hardening on 2026-03-18:
+  - `src/model_backends.py` now retries transient hosted errors (`429`, `500`, `502`, `503`, `504`, and transient URL errors) with bounded backoff in `OpenAICompatibleRelationBackend`
+  - regression coverage was added in `tests/test_model_backends.py` for a `503` then success path
+- Gemini rerun after cleanup refinement on 2026-03-18:
+  - input artifact: `artifacts/relation_input_microbe_merged.jsonl`
+  - model: `gemini-2.5-flash-lite`
+  - metrics:
+    - `input_rows`: `26`
+    - `rows_after_filters`: `19`
+    - `filtered_out_rows`: `7`
+    - `predictions_out`: `19`
+    - `accepted_sentence_relations`: `10`
+    - `accepted_aggregated_relations`: `8`
+    - `full_consistency_rate`: `0.7895`
+  - accepted-output audit:
+    - previous cleanup leak classes are now removed from accepted aggregated rows:
+      - leading `and ...`: `0`
+      - leading `in ...`: `0`
+      - leading `reduces ...`: `0`
+      - `pro-inflammatory or disease`: `0`
+      - subject tails `proteobacteria phylum`, `proteobacteria bearing`, `clostridia class`, `peptostreptococcaceae families`: `0`
+    - accepted rows now include cleaner pairs such as:
+      - `propionibacteriaceae` + `metabolic syndrome`
+      - `proteobacteria` + `cirrhosis`
+      - `clostridia` + `cirrhosis`
+      - `coprococcus` + `polycystic ovary syndrome`
+  - operational conclusion:
+    - the entity-cleanup refinement succeeded for the specific malformed-prefix and subject-tail patterns exposed by the first Gemini run
+    - residual review risk is now narrower and semantic rather than malformed-span oriented, especially broad accepted disease concepts like `inflammation`
+- Phenotype-axis PoC assembly on 2026-03-18:
+  - `src/assemble_edges.py` now cleans text-derived disease spans before emitting phenotype-to-disease edges
+  - `src/assemble_edges.py` now emits a new audit-only artifact:
+    - `phenotype_axis_candidates*.jsonl`
+  - added `PhenotypeAxisCandidate` in `src/types.py`
+  - added `src/schemas/phenotype_axis_candidates.schema.json`
+  - updated the static explorer so it can browse:
+    - `verified_edges*.jsonl`
+    - `bridge_hypotheses*.jsonl`
+    - `phenotype_axis_candidates*.jsonl`
+  - local assembly run on the current merged artifacts now produces:
+    - `17` text-derived phenotype-to-disease edges after assembly-only semantic normalization
+    - `61` audit-only direct text subject-to-phenotype candidates
+    - `143` audit-only bridge hypotheses
+  - a follow-up assembly-specific semantic filter and normalization pass was added in `src/assemble_edges.py` so clause-like disease strings are less likely to become graph-ready text edges without reducing upstream NER/relation recall
+  - local audit result:
+    - the phenotype axis is now explicit and inspectable as a PoC artifact
+    - before the filter pass, the text edge artifact had `39` edges with `32` unique disease-side strings
+    - after the filter pass, the text edge artifact has `17` edges with `9` unique disease-side targets
+    - the obvious graph-invalid disease-side patterns now audit to `0` in the current edge artifact for scaffold starters, clause/verb fragments, phenotype leakage, and bare `inflammation`
+    - the remaining open policy question is whether qualified outcome targets such as `systemic inflammation` and `low-grade chronic inflammation` should remain graph-eligible
 - A reusable cross-agent operating scaffold is now installed for this repo:
   - `AGENTS.md`
   - `CLAUDE.md`
@@ -86,13 +222,65 @@
   - project Claude hook scripts in `.claude/hooks/`
   - shared docs remain the source of truth for both Claude and Codex
 
+- Expanded microbe-side corpus build on 2026-03-19 using recall lane:
+  - downloaded PMC full text for `584` recall papers: `400` with full text
+  - merged baseline + recall into `640` unique papers
+  - reran text stages on expanded corpus:
+    - `5,721` phenotype mentions
+    - `119` entity sentences
+    - `143` raw NER rows
+    - `67` relation-input rows after radiomics-context gating
+  - `d4data/biomedical-ner-all` successfully downloaded and used with MPS device (`microbe_model_available = true`)
+- MPS acceleration added to `src/text_ner_minerva.py` on 2026-03-19:
+  - `MicrobeExtractor` now detects Apple Silicon MPS via `torch.backends.mps.is_available()` and sets `device="mps"`
+- NER strategy confirmed on 2026-03-19:
+  - local `d4data/biomedical-ner-all` with MPS is the correct approach for microbe NER
+  - HF Inference Providers and Serverless API now share one credit pool (unified July 2025) — not a free separate tier
+  - PubTator3 (free NCBI REST API) is the viable fallback if local model is unavailable
+  - Gemini LLM NER rejected: F1 too low for microbial entities; span boundaries are approximate
+- Dual-layer span cleanup (Option C) implemented on 2026-03-19:
+  - pre-Gemini layer (`src/span_cleanup.py`):
+    - added `"as"` to `SUBJECT_TRAILING_FRAGMENT_TOKENS`
+    - extended `DISEASE_RELATION_LANGUAGE_TOKENS` with finite causal verbs
+    - extended `_is_generic_microbe_term`: length guard `3 → 5`, hyphenated-compound detection
+    - added trailing numeric suffix stripping in `clean_subject_span`
+    - tightened disease length threshold: `> 8` tokens → `>= 8` tokens
+  - post-assembly layer (`src/assemble_edges.py`):
+    - article prefix stripping in `_clean_text_disease`
+    - new gerund, subordinating-conjunction, population-prefix, and participle-fragment prefix patterns
+    - new causal-verb and population-negative substring patterns
+  - pre-Gemini audit on 67 expanded rows: `16` filtered (`12 generic_microbe_term`, `4 disease_relation_language`)
+  - full test suite: `99 passed`
+- Gemini v1 run on `67` expanded rows completed on 2026-03-19:
+  - accepted aggregated relations: `31`
+  - full consistency rate: `0.8955`
+  - significant span leakage observed → triggered Option C implementation
+- Gemini v2 run on `51` cleaned expanded rows completed on 2026-03-19:
+  - accepted aggregated relations: `22`
+  - post-assembly filter rejected `13` of those `22`, leaving `9` clean graph-ready pairs
+  - output: `artifacts/relation_aggregated_microbe_expanded.gemini25_flash_lite.v2.jsonl`
+- Edge assembly v2 on expanded corpus completed on 2026-03-19:
+  - `213` phenotype-to-disease text edges (from `extract_radiomics_text.py` co-mentions, not Gemini output — separate pipeline)
+  - `233` axis candidates
+  - `232` bridge hypotheses
+  - `9` clean microbe-disease graph-ready pairs:
+    - `proteobacteria` → `cirrhosis`
+    - `catenibacterium` → `cardiovascular disease`
+    - `peptostreptococcus stomatis` → `cirrhosis`
+    - `ruminococcus` → `cirrhosis`
+    - `bifidobacterium bifidum` → `obesity`
+    - `bifidobacterium lactis` → `obesity`
+    - `catenibacterium` → `body cell mass deficiency in cirrhosis`
+    - `dysosmobacter` → `obesity`
+    - `lactobacillus-containing probiotic` → `systemic inflammation`
+  - two borderline cases requiring explicit policy decision before graph promotion:
+    - `catenibacterium` + `body cell mass deficiency in cirrhosis` (qualifier vs co-disease)
+    - `lactobacillus-containing probiotic` + `systemic inflammation` (broad inflammation target)
+
 ## In Progress
-- Converting the repo from ad hoc markdown notes into a reusable dual-tool agent operating system.
-- Preparing for the real GPU-backed or hosted merged relation run.
-- Preserving the upstream-parity roadmap while the professor-facing repo surface is now substantially packaged.
-- Selecting the supported hosted model and next pilot size now that the first real smoke run succeeded.
-- Replanning the hosted execution path around current provider blocks and exhausted HF included credits.
-- Replanning the hosted execution path with Gemini now added as a working low-cost direct baseline.
+- Determining whether the phenotype extraction disease quality issue (the `213` text edge disease strings from `extract_radiomics_text.py`) needs a separate cleanup pass — this is a different pipeline from the Gemini microbe-disease path.
+- Explicit policy decision on whether `systemic inflammation` and `body cell mass deficiency in cirrhosis` are graph-eligible disease nodes.
+- Formal false-negative audit of dropped phenotype→disease targets still missing.
 
 ## Decisions
 - The repo direction is locked to a hybrid imaging phenotype scope:
@@ -154,6 +342,29 @@
   - `conda run -n base python -m pytest tests/test_model_backends.py tests/test_relation_extract_stage.py -q`
   - `conda run -n base python -m pytest -q`
   - current result: `75 passed`
+- Cleanup-refinement validation on 2026-03-18:
+  - `conda run -n base python -m pytest tests/test_span_cleanup.py tests/test_build_relation_input.py tests/test_relation_extract_stage.py -q`
+  - result: `26 passed`
+  - local filter audit on `artifacts/relation_input_microbe_merged.jsonl` confirmed the previously observed `and ...`, `in ...`, `reduces ...`, `proteobacteria phylum`, `proteobacteria bearing`, `clostridia class`, and `peptostreptococcaceae families` patterns are no longer present in kept rows
+- Current full-suite validation after cleanup refinement:
+  - `conda run -n base python -m pytest -q`
+  - current result: `85 passed`
+- Retry-hardening validation on 2026-03-18:
+  - `conda run -n base python -m pytest tests/test_model_backends.py tests/test_relation_extract_stage.py tests/test_span_cleanup.py tests/test_build_relation_input.py -q`
+  - result: `34 passed`
+- Current full-suite validation after retry hardening:
+  - `conda run -n base python -m pytest -q`
+  - current result: `86 passed`
+- Phenotype-axis PoC validation on 2026-03-18:
+  - `conda run -n base python -m pytest tests/test_assemble_edges.py tests/test_types_and_schemas.py -q`
+  - result: `8 passed`
+  - `python3 -m compileall src tests`
+  - passed
+  - local assembly command:
+    - `conda run -n base python src/assemble_edges.py --text-mentions artifacts/text_mentions_microbe_merged.jsonl --relation-aggregated artifacts/relation_aggregated_microbe_merged.gemini25_flash_lite.jsonl --papers /Users/junlee/Desktop/sanomap-radiomics-layer/artifacts/papers_microbe_merged_fulltext.jsonl --output-jsonl artifacts/verified_edges_microbe_merged.gemini25_flash_lite.jsonl --output-csv artifacts/verified_edges_microbe_merged.gemini25_flash_lite.csv --output-neo4j-csv artifacts/neo4j_relationships_microbe_merged.gemini25_flash_lite.csv --output-bridge-hypotheses artifacts/bridge_hypotheses_microbe_merged.gemini25_flash_lite.jsonl --output-axis-candidates artifacts/phenotype_axis_candidates_microbe_merged.jsonl --manifest-dir artifacts/manifests_assemble_edges_gemini25_flash_lite --validate-schema`
+- Current full-suite validation after phenotype-axis PoC work:
+  - `conda run -n base python -m pytest -q`
+  - current result: `98 passed`
 - Hosted provider smoke validation on 2026-03-18:
   - first attempt: `BioMistral/BioMistral-7B` via Hugging Face router
   - outcome: HTTP `400` `model_not_supported`
@@ -228,7 +439,9 @@
     - no previously observed subject-tail or disease-prefix fragment patterns remained in accepted aggregated outputs under the local heuristic rerun
 
 ## Blockers
-- No real GPU-backed or hosted merged relation run has been executed yet.
 - Public upstream-associated model assets remain unavailable in this workspace, even though professor-mediated access may later unblock review or handoff of those checkpoints.
 - The local 2026-03-17 rebuild could not load `d4data/biomedical-ner-all` in the offline environment, so microbe NER fell back to regex and recall is depressed.
 - The public `bacterial_NER` repo is now verified as the strongest public BNER candidate, but its checked-in corpus totals do not yet prove exact equivalence to MINERVA's `BNER2.0` release.
+- Gemini direct now provides a real low-cost model-backed relation path, but the first full 26-row run surfaced accepted spans such as `and metabolic syndrome`, `in cirrhosis`, and `reduces inflammation`, so the cleanup milestone is reopened for model-backed acceptance.
+- The malformed-prefix and subject-tail cleanup regressions are fixed for the current Gemini rerun, but broad accepted disease concepts such as `inflammation` may still need a separate semantic filtering or normalization decision before graph promotion.
+- The phenotype axis is now explicit in local assembled artifacts, but text-derived phenotype-to-disease edges still need semantic filtering before they should be treated as graph-ready by default.

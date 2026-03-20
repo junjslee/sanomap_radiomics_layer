@@ -31,6 +31,37 @@ class TestSpanCleanup(unittest.TestCase):
         self.assertIsNotNone(cleaned)
         self.assertEqual(cleaned.canonical, "fusobacteria")
 
+    def test_clean_subject_span_strips_taxonomy_and_context_tail(self) -> None:
+        cleaned, reason = clean_subject_span("Proteobacteria phylum", subject_node_type="Microbe")
+
+        self.assertIsNone(reason)
+        self.assertIsNotNone(cleaned)
+        self.assertEqual(cleaned.canonical, "proteobacteria")
+
+        cleaned, reason = clean_subject_span("Peptostreptococcaceae families", subject_node_type="Microbe")
+
+        self.assertIsNone(reason)
+        self.assertIsNotNone(cleaned)
+        self.assertEqual(cleaned.canonical, "peptostreptococcaceae")
+
+        cleaned, reason = clean_subject_span("Proteobacteria bearing", subject_node_type="Microbe")
+
+        self.assertIsNone(reason)
+        self.assertIsNotNone(cleaned)
+        self.assertEqual(cleaned.canonical, "proteobacteria")
+
+        cleaned, reason = clean_subject_span("Phascolarctobacterium abundances", subject_node_type="Microbe")
+
+        self.assertIsNone(reason)
+        self.assertIsNotNone(cleaned)
+        self.assertEqual(cleaned.canonical, "phascolarctobacterium")
+
+        cleaned, reason = clean_subject_span("Porphyromonadaceae with", subject_node_type="Microbe")
+
+        self.assertIsNone(reason)
+        self.assertIsNotNone(cleaned)
+        self.assertEqual(cleaned.canonical, "porphyromonadaceae")
+
     def test_clean_disease_span_trims_leading_population_prefix(self) -> None:
         cleaned, reason = clean_disease_span("in adults with chronic HIV infection")
 
@@ -45,8 +76,33 @@ class TestSpanCleanup(unittest.TestCase):
         self.assertIsNotNone(cleaned)
         self.assertEqual(cleaned.canonical, "cirrhosis")
 
+    def test_clean_disease_span_trims_leading_conjunction_or_preposition(self) -> None:
+        cleaned, reason = clean_disease_span("and metabolic syndrome")
+
+        self.assertIsNone(reason)
+        self.assertIsNotNone(cleaned)
+        self.assertEqual(cleaned.canonical, "metabolic syndrome")
+
+        cleaned, reason = clean_disease_span("in cirrhosis")
+
+        self.assertIsNone(reason)
+        self.assertIsNotNone(cleaned)
+        self.assertEqual(cleaned.canonical, "cirrhosis")
+
     def test_clean_disease_span_rejects_clause_like_sentence_fragment(self) -> None:
         cleaned, reason = clean_disease_span("Fusobacteria were more abundant in adults with obesity")
+
+        self.assertIsNone(cleaned)
+        self.assertEqual(reason, "disease_relation_language")
+
+    def test_clean_disease_span_rejects_verb_led_relation_fragment(self) -> None:
+        cleaned, reason = clean_disease_span("reduces inflammation")
+
+        self.assertIsNone(cleaned)
+        self.assertEqual(reason, "disease_relation_language")
+
+    def test_clean_disease_span_rejects_generic_relation_like_disease_phrase(self) -> None:
+        cleaned, reason = clean_disease_span("pro-inflammatory or disease")
 
         self.assertIsNone(cleaned)
         self.assertEqual(reason, "disease_relation_language")

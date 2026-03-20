@@ -386,12 +386,15 @@ class MicrobeExtractor:
         self.available = False
 
         try:
+            import torch  # type: ignore
             from transformers import pipeline  # type: ignore
 
+            _device = "mps" if torch.backends.mps.is_available() else "cpu"
             self._pipe = pipeline(
                 "token-classification",
                 model=model_id,
                 aggregation_strategy="simple",
+                device=_device,
             )
             self.available = True
         except Exception:

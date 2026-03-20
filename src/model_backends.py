@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from typing import Any
 from urllib import error as urlerror
@@ -179,6 +180,8 @@ class OpenAICompatibleRelationBackend(BaseRelationBackend):
     api_base_url: str
     api_key: str | None = None
     backend_name: str = "openai_compatible"
+    max_retries: int = 2
+    retry_backoff_seconds: float = 1.0
 
     def __post_init__(self) -> None:
         if is_gemini_model_id(self.model_id) and not is_gemini_openai_base_url(self.api_base_url):
@@ -221,17 +224,27 @@ class OpenAICompatibleRelationBackend(BaseRelationBackend):
             headers=headers,
             method="POST",
         )
-        try:
-            with urlrequest.urlopen(request, timeout=120) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except urlerror.HTTPError as exc:
+        attempts = self.max_retries + 1
+        for attempt in range(attempts):
             try:
-                detail = exc.read().decode("utf-8", errors="replace")
-            except Exception:
-                detail = str(exc)
-            raise RuntimeError(f"http_error:{exc.code}:{detail}") from exc
-        except urlerror.URLError as exc:
-            raise RuntimeError(f"network_error:{exc.reason}") from exc
+                with urlrequest.urlopen(request, timeout=120) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+                break
+            except urlerror.HTTPError as exc:
+                try:
+                    detail = exc.read().decode("utf-8", errors="replace")
+                except Exception:
+                    detail = str(exc)
+                retryable = exc.code in {429, 500, 502, 503, 504}
+                if retryable and attempt < self.max_retries:
+                    time.sleep(self.retry_backoff_seconds * (attempt + 1))
+                    continue
+                raise RuntimeError(f"http_error:{exc.code}:{detail}") from exc
+            except urlerror.URLError as exc:
+                if attempt < self.max_retries:
+                    time.sleep(self.retry_backoff_seconds * (attempt + 1))
+                    continue
+                raise RuntimeError(f"network_error:{exc.reason}") from exc
 
         text = extract_openai_message_text(payload)
         return normalize_relation_label(text)

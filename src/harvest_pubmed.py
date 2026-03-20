@@ -63,6 +63,13 @@ BODYCOMP_MODALITY_BLOCK = (
     "(dual-energy x-ray absorptiometry[Title/Abstract]) OR (DXA[Title/Abstract]))"
 )
 
+HUMAN_CLINICAL_BLOCK = (
+    "((human*[Title/Abstract]) OR (adult*[Title/Abstract]) OR "
+    "(patient*[Title/Abstract]) OR (patients[Title/Abstract]) OR "
+    "(cohort[Title/Abstract]) OR (clinical[Title/Abstract]) OR "
+    "(women[Title/Abstract]) OR (men[Title/Abstract]))"
+)
+
 IMAGING_PHENOTYPE_ADJACENT_BLOCK = (
     "((imaging phenotype[Title/Abstract]) OR (imaging phenotypes[Title/Abstract]) OR "
     "(quantitative imaging[Title/Abstract]) OR (quantitative CT[Title/Abstract]) OR "
@@ -116,6 +123,14 @@ MICROBE_BODYCOMP_QUERY = (
     f"{NON_PRIMARY_ARTICLE_EXCLUSION_BLOCK}"
 )
 
+MICROBE_BODYCOMP_CLINICAL_RECALL_QUERY = (
+    f"({BODYCOMP_FEATURE_BLOCK} "
+    f"AND {MICROBIOME_BLOCK} "
+    f"AND ({ASSOCIATION_SIGNAL_BLOCK} OR {OUTCOME_SIGNAL_BLOCK}) "
+    f"AND {HUMAN_CLINICAL_BLOCK}) "
+    f"{NON_PRIMARY_ARTICLE_EXCLUSION_BLOCK}"
+)
+
 MICROBE_IMAGING_ADJACENT_QUERY = (
     f"({IMAGING_PHENOTYPE_ADJACENT_BLOCK} "
     f"AND {IMAGING_MODALITY_BLOCK_STRICT} "
@@ -153,6 +168,7 @@ QUERY_PROFILES: dict[str, str] = {
     "microbe_imaging_adjacent": MICROBE_IMAGING_ADJACENT_QUERY,
     "microbe_imaging_phenotype": MICROBE_IMAGING_PHENOTYPE_QUERY,
     "microbe_bodycomp": MICROBE_BODYCOMP_QUERY,
+    "microbe_bodycomp_clinical_recall": MICROBE_BODYCOMP_CLINICAL_RECALL_QUERY,
     "radiomics_disease": RADIOMICS_DISEASE_STRICT_QUERY,
     "radiomics_disease_strict": RADIOMICS_DISEASE_STRICT_QUERY,
     "bodycomp_disease": BODYCOMP_DISEASE_QUERY,

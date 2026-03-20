@@ -87,6 +87,9 @@ Read this file at the start of implementation work.
 ## API And Rate-Limit Policy
 - No hosted provider or remote quota policy is locked yet.
 - When a hosted or remote execution path is chosen, document its limits here before large runs.
+- Operator rule:
+  - before any paid hosted-model run, estimate the run cost in chat and ask exactly:
+    - `acknowledge the cost and proceed? [y/n]`
 - Current relation-stage environment variable support:
   - base URL: `RELATION_API_BASE_URL` or `OPENAI_BASE_URL`
   - API key: `RELATION_API_KEY`, `HUGGINGFACE_API_KEY`, `HF_TOKEN`, or `OPENAI_API_KEY`
@@ -144,7 +147,21 @@ Read this file at the start of implementation work.
 - Use `microbe_imaging_adjacent` for adjacent imaging phenotype papers that do not say `radiomics`.
 - The current merged microbe-side corpus is mostly imaging phenotype/body-composition, not mostly strict radiomics.
 - The main current limitation is that the disease-side queries are more tuned to predictive/prognostic language than to general association language.
-- For proof of concept, keep the current queries stable unless recall becomes a blocker.
+- Live retrieval optimization on 2026-03-18 shows:
+  - broadening `microbe_radiomics_strict` increased live count from `8` to `16` but materially worsened sampled title relevance, so the strict lane should stay unchanged
+  - the current `microbe_bodycomp` baseline remains strong: live count `99`, and the first `30` fetched papers contained `11` mention-positive papers with `61` body-composition mentions under the current extractor
+  - removing the body-comp modality gate inflated live count to `955` or `1324` and degraded sampled relevance materially, so that should not become the default
+  - a new optional `microbe_bodycomp_clinical_recall` profile is now the bounded recall fallback: live count `584`, with `8` mention-positive papers and `46` body-composition mentions in the first `30` fetched papers
+- The optional recall lane has now been materialized locally:
+  - `artifacts/papers_microbe_bodycomp_clinical_recall.jsonl`: `584` papers, `583` with abstract, `403` with PMCID
+  - `artifacts/text_mentions_microbe_bodycomp_clinical_recall.jsonl`: `748` title/abstract phenotype mentions
+  - apples-to-apples baseline comparison on title/abstract extraction:
+    - current `microbe_bodycomp`: `99` papers -> `162` mentions
+    - new `microbe_bodycomp_clinical_recall`: `584` papers -> `748` mentions
+- Separate merged-harvest audit comparison now exists too:
+  - baseline default microbe-side harvest: `120` PMIDs -> `31` PMIDs with mentions -> `162` mentions
+  - expanded microbe-side harvest with recall lane: `640` PMIDs -> `176` PMIDs with mentions -> `777` mentions
+- For proof of concept, keep the current default queries stable and use `microbe_bodycomp_clinical_recall` only as an explicit recall-expansion lane.
 
 ## NER Optimization Snapshot
 - Prefer batching and inference reduction before large model swaps.

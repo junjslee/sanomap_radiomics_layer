@@ -21,7 +21,11 @@ The current direct-evidence graph policy is:
 - `(RadiomicFeature)-[:ASSOCIATED_WITH]->(Disease)`
 - `(BodyCompositionFeature)-[:ASSOCIATED_WITH]->(Disease)`
 
-Bridge matches that only share disease context remain audit-only hypotheses and are not written as asserted graph edges.
+Audit-only lanes that help inspect the extension without asserting new graph facts are:
+- direct text subject-to-phenotype candidates in `phenotype_axis_candidates*.jsonl`
+- bridge matches that only share disease context in `bridge_hypotheses*.jsonl`
+
+These audit artifacts are not written as asserted graph edges.
 
 ## Professor Deliverable Mapping
 
@@ -55,6 +59,7 @@ How can we connect microbiome findings to imaging-derived phenotypes and then to
 - relation-input construction in `src/build_relation_input.py`
 - relation aggregation in `src/relation_extract_stage.py`
 - shared span cleanup in `src/span_cleanup.py`
+- phenotype edge assembly and audit artifacts in `src/assemble_edges.py`
 - deterministic heatmap verification in `src/verify_heatmap.py`
 - local static explorer in `docs/explorer/index.html`
 - explicit graph diagram in `docs/knowledge_map.md`
@@ -67,21 +72,25 @@ How can we connect microbiome findings to imaging-derived phenotypes and then to
   `120` papers
 - Current merged phenotype extraction output:
   `1,129` text mentions
-- Current committed merged relation artifacts:
-  `148` sentence-level predictions and `138` within-paper aggregated relations
-- Latest local cleanup-aware rerun:
-  `20` accepted aggregated relations after stricter span cleanup
+- Current local phenotype-axis assembly PoC on the merged artifact set:
+  `17` text-derived phenotype-to-disease edges after assembly-only semantic normalization,
+  `61` audit-only direct text subject-to-phenotype candidates,
+  and `143` audit-only bridge hypotheses
+- Current graph-ready phenotype-edge snapshot:
+  `6` phenotype subjects linked to `9` disease-side targets, with the obvious clause/measurement leakage removed from the emitted text edges
+- Current hosted microbe-disease validation baseline:
+  cleaned Gemini rerun produced `8` accepted aggregated relations on the current `26`-row local relation set
 - Validation:
-  `71` pytest checks passing locally
+  `98` pytest checks passing locally
 
 ## Current Status
 
 - The local proof-of-concept pipeline is operational end to end.
 - Shared entity cleanup has been implemented and locally audited on the merged corpus.
-- The local pytest suite is currently green at `71 passed`.
+- The local pytest suite is currently green at `98 passed`.
 - The main remaining technical gap is a real hosted or GPU-backed model-backed merged relation run.
 
-So the repo is already suitable for professor review as a topic + map + tool + visualization deliverable. What is still pending is stronger upstream-style validation, not the existence of a visible project artifact.
+So the repo is already suitable for professor review as a topic + map + tool + visualization deliverable. What is still pending is stronger upstream-style validation and final policy judgment on whether qualified outcome targets like `systemic inflammation` should remain graph-eligible, not the existence of a visible project artifact.
 
 ## Prior Work And Boundary
 
@@ -125,7 +134,7 @@ Operationally, this repo treats `lixusheng1/bacterial_NER` as the strongest publ
 8. `src/index_figures.py`, `src/propose_vision_qwen.py`, and `src/verify_heatmap.py`
    support the figure-analysis path
 9. `src/assemble_edges.py`
-   emits graph-ready artifacts after review
+   emits graph-ready phenotype-to-disease edges plus audit-only phenotype-axis artifacts after review
 
 ## Repo Guide
 
@@ -144,9 +153,9 @@ Operationally, this repo treats `lixusheng1/bacterial_NER` as the strongest publ
 
 ## Next Milestones
 
-- finish a hosted or GPU-backed model-backed relation run
-- confirm the shared cleanup helper still holds on that rerun
-- rerun quality audits on accepted aggregated relations
+- review the current phenotype-axis assembly outputs for semantic graph readiness
+- decide whether broad disease targets such as `inflammation` should remain graph-eligible
 - promote only reviewed outputs to edge assembly
+- expand direct subject-to-phenotype evidence beyond audit-only status only after a stronger validation policy exists
 
 Until then, the repo should be described as a validated proof-of-concept extension with a clear professor-facing deliverable and an explicit upstream-alignment roadmap.
