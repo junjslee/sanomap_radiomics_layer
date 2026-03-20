@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -11,7 +12,12 @@ if __package__ is None or __package__ == "":
     sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from src.artifact_utils import read_jsonl, write_jsonl, write_manifest
-from src.model_backends import MODEL_FAMILY_MAP, build_backend
+from src.model_backends import (
+    GEMINI_OPENAI_BASE_URL,
+    MODEL_FAMILY_MAP,
+    build_backend,
+    is_gemini_model_id,
+)
 from src.relation_fidelity import (
     aggregate_within_paper,
     compute_strength_scores,
@@ -39,6 +45,43 @@ def _default_temperatures(num_samples: int) -> list[float]:
     stop = 0.85
     step = (stop - start) / (num_samples - 1)
     return [round(start + i * step, 3) for i in range(num_samples)]
+
+
+def resolve_api_settings(
+    *,
+    model_id: str | None,
+    cli_api_base_url: str | None,
+    cli_api_key: str | None,
+    environ: dict[str, str] | None = None,
+) -> tuple[str | None, str | None]:
+    env = environ if environ is not None else os.environ
+
+    if is_gemini_model_id(model_id):
+        api_base_url = (cli_api_base_url or env.get("GEMINI_API_BASE_URL") or GEMINI_OPENAI_BASE_URL).strip()
+        api_key = (
+            cli_api_key
+            or env.get("GEMINI_API_KEY")
+            or env.get("RELATION_API_KEY")
+            or env.get("OPENAI_API_KEY")
+            or ""
+        ).strip()
+        return api_base_url or None, api_key or None
+
+    api_base_url = (
+        cli_api_base_url
+        or env.get("RELATION_API_BASE_URL")
+        or env.get("OPENAI_BASE_URL")
+        or ""
+    ).strip()
+    api_key = (
+        cli_api_key
+        or env.get("RELATION_API_KEY")
+        or env.get("HUGGINGFACE_API_KEY")
+        or env.get("HF_TOKEN")
+        or env.get("OPENAI_API_KEY")
+        or ""
+    ).strip()
+    return api_base_url or None, api_key or None
 
 
 def _clean_relation_input_row(
@@ -112,12 +155,16 @@ def run_relation_extraction(
     max_evidence_words: int = 500,
     max_evidence_chars: int = 5000,
     filtered_reason_counts: dict[str, int] | None = None,
+    api_base_url: str | None = None,
+    api_key: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     backend = build_backend(
         backend=backend_name,
         model_family=model_family,
         model_id=model_id,
         device=device,
+        api_base_url=api_base_url,
+        api_key=api_key,
     )
 
     rows = input_rows
@@ -192,10 +239,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output-strengths", default="artifacts/relation_strengths.jsonl")
     parser.add_argument("--manifest-dir", default="artifacts/manifests")
 
-    parser.add_argument("--backend", default="hf_textgen", choices=["heuristic", "hf_textgen"])
+    parser.add_argument("--backend", default="hf_textgen", choices=["heuristic", "hf_textgen", "openai_compatible"])
     parser.add_argument("--model-family", default="biomistral_7b")
     parser.add_argument("--model-id", default=None)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument("--api-base-url", default=None)
+    parser.add_argument("--api-key", default=None)
 
     parser.add_argument("--num-samples", type=int, default=7)
     parser.add_argument("--temperatures", default=None, help="Comma-separated temperatures.")
@@ -212,6 +261,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     input_rows = read_jsonl(args.input) if Path(args.input).exists() else []
+    api_base_url, api_key = resolve_api_settings(
+        model_id=args.model_id,
+        cli_api_base_url=args.api_base_url,
+        cli_api_key=args.api_key,
+    )
 
     if args.temperatures:
         temperatures = [float(x.strip()) for x in args.temperatures.split(",") if x.strip()]
@@ -225,6 +279,8 @@ def main(argv: list[str] | None = None) -> int:
         model_family=args.model_family,
         model_id=args.model_id,
         device=args.device,
+        api_base_url=api_base_url,
+        api_key=api_key,
         temperatures=temperatures,
         max_new_tokens=args.max_new_tokens,
         require_complete_consistency=not args.allow_majority_consistency,
@@ -286,6 +342,8 @@ def main(argv: list[str] | None = None) -> int:
             "model_family": args.model_family,
             "model_id": args.model_id,
             "device": args.device,
+            "api_base_url": api_base_url,
+            "api_key_used": bool(api_key),
             "temperatures": temperatures,
             "max_new_tokens": args.max_new_tokens,
             "require_complete_consistency": not args.allow_majority_consistency,

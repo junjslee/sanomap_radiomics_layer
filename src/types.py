@@ -202,6 +202,43 @@ class BridgeHypothesis:
     not_for_graph_ingestion: bool = True
 
 
+@dataclass
+class PhenotypeAxisCandidate:
+    candidate_id: str
+    mention_id: str
+    pmid: str
+    subject_node_type: str
+    subject_node: str
+    phenotype: str
+    phenotype_node_type: str
+    feature_family: str
+    disease_context: Optional[str]
+    evidence: str
+    confidence: float
+    claim_hint: Optional[str] = None
+    not_for_graph_ingestion: bool = True
+
+
+@dataclass
+class MicrobeDiseaseEdge:
+    edge_id: str
+    pmid: str
+    subject_node_type: str
+    subject_node: str
+    object_node_type: str
+    object_node: str
+    graph_rel_type: str
+    relation_direction: str
+    evidence: str
+    confidence: float
+    evidence_type: str
+    assertion_level: str
+    pmcid: Optional[str] = None
+    journal: Optional[str] = None
+    title: Optional[str] = None
+    publication_year: Optional[int] = None
+
+
 RECORD_TYPES: dict[str, Type[Any]] = {
     "paper": PaperRecord,
     "figure": FigureRecord,
@@ -213,6 +250,8 @@ RECORD_TYPES: dict[str, Type[Any]] = {
     "verification_result": VerificationResult,
     "edge_candidate": EdgeCandidate,
     "bridge_hypothesis": BridgeHypothesis,
+    "phenotype_axis_candidate": PhenotypeAxisCandidate,
+    "microbe_disease_edge": MicrobeDiseaseEdge,
 }
 
 T = TypeVar("T")
@@ -245,6 +284,8 @@ __all__ = [
     "VerificationResult",
     "EdgeCandidate",
     "BridgeHypothesis",
+    "PhenotypeAxisCandidate",
+    "MicrobeDiseaseEdge",
     "RECORD_TYPES",
     "to_dict",
     "from_dict",

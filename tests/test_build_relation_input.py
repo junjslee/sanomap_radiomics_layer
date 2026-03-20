@@ -140,6 +140,33 @@ class TestBuildRelationInput(unittest.TestCase):
         self.assertEqual(rows[0].disease, "chronic hiv infection")
         self.assertEqual(metrics["rows_out"], 1)
 
+    def test_cleans_taxonomy_subject_tail_and_conjunction_disease_prefix(self) -> None:
+        entity_sentences = [
+            {
+                "record_id": "r5",
+                "pmid": "556",
+                "sentence": "Proteobacteria phylum was discussed in obesity and metabolic syndrome.",
+                "microbes": [{"text": "Proteobacteria phylum", "cui": "C1"}],
+                "diseases": [{"text": "and metabolic syndrome", "cui": "C2"}],
+            }
+        ]
+        text_mentions = [{"pmid": "556", "canonical_feature": "vat_area"}]
+
+        rows, metrics = build_relation_rows(
+            entity_sentences=entity_sentences,
+            text_mentions=text_mentions,
+            papers=[],
+            max_words=500,
+            max_chars=5000,
+            require_radiomics_context=True,
+        )
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].microbe, "proteobacteria")
+        self.assertEqual(rows[0].subject_node, "proteobacteria")
+        self.assertEqual(rows[0].disease, "metabolic syndrome")
+        self.assertEqual(metrics["rows_out"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,7 @@
 import unittest
+from unittest import mock
 
-from src.relation_extract_stage import filter_relation_input_rows, run_relation_extraction
+from src.relation_extract_stage import filter_relation_input_rows, resolve_api_settings, run_relation_extraction
 
 
 class TestRelationExtractStage(unittest.TestCase):
@@ -109,6 +110,114 @@ class TestRelationExtractStage(unittest.TestCase):
 
         self.assertEqual(kept, [])
         self.assertIn("disease_clause_like", reasons)
+
+    def test_filter_relation_input_rows_trims_subject_taxonomy_and_disease_prefix(self) -> None:
+        kept, reasons = filter_relation_input_rows(
+            [
+                {
+                    "pmid": "204",
+                    "microbe": "Proteobacteria phylum",
+                    "subject_node_type": "Microbe",
+                    "subject_node": "Proteobacteria phylum",
+                    "disease": "and metabolic syndrome",
+                    "sentence": "Proteobacteria phylum was reported in obesity and metabolic syndrome.",
+                }
+            ]
+        )
+
+        self.assertEqual(reasons, {})
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(kept[0]["microbe"], "proteobacteria")
+        self.assertEqual(kept[0]["subject_node"], "proteobacteria")
+        self.assertEqual(kept[0]["disease"], "metabolic syndrome")
+
+    def test_filter_relation_input_rows_rejects_verb_led_disease_fragment(self) -> None:
+        kept, reasons = filter_relation_input_rows(
+            [
+                {
+                    "pmid": "205",
+                    "microbe": "Clostridium symbiosum",
+                    "subject_node_type": "Microbe",
+                    "subject_node": "Clostridium symbiosum",
+                    "disease": "reduces inflammation",
+                    "sentence": "Clostridium symbiosum reduces inflammation in a mechanistic summary row.",
+                }
+            ]
+        )
+
+        self.assertEqual(kept, [])
+        self.assertIn("disease_relation_language", reasons)
+
+    def test_run_with_openai_compatible_backend(self) -> None:
+        input_rows = [
+            {
+                "pmid": "301",
+                "microbe": "lactobacillus",
+                "subject_node_type": "Microbe",
+                "subject_node": "lactobacillus",
+                "disease": "obesity",
+                "sentence": "Lactobacillus reduced obesity markers and showed protective effects.",
+            }
+        ]
+
+        class FakeResponse:
+            def __enter__(self) -> "FakeResponse":
+                return self
+
+            def __exit__(self, exc_type, exc, tb) -> None:
+                return None
+
+            def read(self) -> bytes:
+                return b'{"choices":[{"message":{"content":"negative"}}]}'
+
+        with mock.patch("src.model_backends.urlrequest.urlopen", return_value=FakeResponse()):
+            predictions, aggregated, strengths = run_relation_extraction(
+                input_rows=input_rows,
+                backend_name="openai_compatible",
+                model_family="biomistral_7b",
+                model_id=None,
+                device="cpu",
+                api_base_url="https://router.huggingface.co/v1",
+                api_key="token",
+                temperatures=[0.3],
+                max_new_tokens=8,
+                require_complete_consistency=True,
+            )
+
+        self.assertEqual(len(predictions), 1)
+        self.assertEqual(predictions[0]["final_label"], "negative")
+        self.assertEqual(predictions[0]["model_backend"], "openai_compatible")
+        self.assertEqual(len(aggregated), 1)
+        self.assertEqual(len(strengths), 1)
+
+    def test_resolve_api_settings_uses_gemini_specific_defaults(self) -> None:
+        api_base_url, api_key = resolve_api_settings(
+            model_id="gemini-2.5-flash-lite",
+            cli_api_base_url=None,
+            cli_api_key=None,
+            environ={
+                "RELATION_API_BASE_URL": "https://router.huggingface.co/v1",
+                "HF_TOKEN": "hf_old_token",
+                "GEMINI_API_KEY": "gemini_paid_key",
+            },
+        )
+
+        self.assertEqual(api_base_url, "https://generativelanguage.googleapis.com/v1beta/openai")
+        self.assertEqual(api_key, "gemini_paid_key")
+
+    def test_resolve_api_settings_keeps_generic_env_for_non_gemini_models(self) -> None:
+        api_base_url, api_key = resolve_api_settings(
+            model_id="deepseek-ai/DeepSeek-V3-0324",
+            cli_api_base_url=None,
+            cli_api_key=None,
+            environ={
+                "RELATION_API_BASE_URL": "https://router.huggingface.co/v1",
+                "HF_TOKEN": "hf_live_token",
+            },
+        )
+
+        self.assertEqual(api_base_url, "https://router.huggingface.co/v1")
+        self.assertEqual(api_key, "hf_live_token")
 
 
 if __name__ == "__main__":

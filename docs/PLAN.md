@@ -1,11 +1,11 @@
 # Plan
 
 ## Current Goal
-- Produce graph-ready merged relation outputs for the radiomics-first imaging phenotype branch, then promote them safely to edge assembly.
+- Produce a concrete phenotype-axis PoC for the radiomics-first imaging phenotype branch, then promote only the clean graph-eligible edges safely to edge assembly.
 
 ## Active Gating Items
-- Run true model-backed merged relation extraction outside `local_mac_base`.
-- Confirm the shared cleanup helper still holds on the model-backed merged rerun.
+- Tighten phenotype-edge assembly cleanup so text-derived phenotype-to-disease edges and axis candidates are inspectable.
+- Re-audit the local assembled phenotype-axis outputs for graph-readiness and audit-only boundaries.
 - Promote to edge assembly only after review confirms graph semantics and span quality.
 
 ## Stages
@@ -44,8 +44,14 @@
   memory upkeep, tracking, and handoff consolidation.
 
 ## Active Stage
-- Stage 3 is the main gating item; Stage 4 cleanup is now locally verified and needs confirmation on a model-backed rerun.
-- Local CPU-only proof-of-concept plumbing exists; graph-ready merged quality still depends on model-backed extraction.
+- Stage 6 is the active implementation stage for the actual phenotype-axis extension PoC.
+- Active implementation lane: `ops/remote-run-hf-hosted`
+- Immediate sub-goal:
+  - keep the hosted relation backend stable
+  - keep the explicit phenotype-axis audit artifact in place
+  - clean phenotype-to-disease assembly on the text side
+  - review whether the current assembled disease targets are graph-eligible or still too clause-like
+- Local CPU-only proof-of-concept plumbing exists; the inherited microbe-disease lane is sufficiently validated for now, and the extension axis is now explicit in local assembled artifacts.
 - Shared span cleanup is now implemented locally in:
   - `src/span_cleanup.py`
   - `src/text_ner_minerva.py`
@@ -53,13 +59,20 @@
   - `src/relation_extract_stage.py`
 - Current next step:
   - keep the professor-facing knowledge map, explorer, proposal source, and README wired into the repo surface
-  - rerun the merged branch on GPU or hosted inference with the shared cleanup helper already in place
-  - confirm accepted aggregated outputs stay free of the old subject-tail and disease-prefix fragment patterns
-  - use the current repo as the explicit topic + knowledge map + explorer + visualization deliverable for professor review while model-backed validation continues
-  - do not promote the current local rebuild to edge assembly until the model-backed rerun is reviewed
+  - keep the hosted backend and local tests in place
+  - treat the malformed-prefix cleanup issue on the inherited microbe-disease lane as resolved for now
+  - keep the live retrieval benchmark decisions in place:
+    - `microbe_radiomics_strict` stays unchanged as the precision lane
+    - `microbe_bodycomp` stays unchanged as the default high-yield body-comp lane
+    - `microbe_bodycomp_clinical_recall` is optional recall-only, not default
+  - keep the explicit phenotype-axis outputs from the local assembly run:
+    - `17` text-derived phenotype-to-disease edges after assembly-only semantic normalization
+    - `61` audit-only direct text subject-to-phenotype candidates
+    - `143` audit-only bridge hypotheses
+  - preserve the current assembly-only disease-side filter boundary: clause fragments and phenotype leakage stay out of graph edges, while qualified inflammation outcomes remain an explicit policy question
 - Local validation status:
   - `src/verify_heatmap.py` legend detection has been repaired for synthetic legend selection
-  - the local Conda `base` pytest suite is green again
+  - the local Conda `base` pytest suite is green again (`98 passed`)
 
 ## Bounded Automation
 - Allowed loop classes:
@@ -75,9 +88,10 @@
   - human review checkpoint
 
 ## Risks And Unknowns
-- GPU-backed execution environment or hosted relation path is still pending.
 - Upstream-associated weights/checkpoints are still unavailable in this workspace.
-- The local cleanup audit is now clean for the previously observed malformed subject and disease span patterns, but that result still needs confirmation on a model-backed rerun.
+- The hosted relation path is working, but model-backed acceptance is stricter than the heuristic audit and can surface new malformed accepted spans.
+- The local cleanup audit is now clean for the previously observed conjunction-led, preposition-led, and verb-led disease fragments on the Gemini rerun.
+- The remaining quality risk is semantic breadth on assembled text-derived disease targets such as `inflammation`, plus residual noise in some direct text subject-to-phenotype candidates.
 
 ## Verification Plan
 - Compare rebuilt merged text-stage artifact counts against the current local baseline.
@@ -85,4 +99,12 @@
   - fewer `##` fragments
   - fewer generic subject phrases
   - fewer clause-like disease strings
+  - fewer accepted leading `and ...`, `in ...`, and `reduces ...` disease fragments
+  - explicit review of whether broad concepts such as `inflammation` should remain graph-eligible
+- Audit phenotype-axis outputs for:
+  - graph-eligible phenotype-to-disease edges
+  - audit-only bridge hypotheses
+  - audit-only direct text subject-to-phenotype candidates
+  - cleaned subject and disease spans in assembled outputs
+  - residual clause-like disease examples in assembled text edges
 - Validate edge outputs and confirm bridge hypotheses were not ingested as direct graph edges.

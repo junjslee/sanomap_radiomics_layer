@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import json
+import time
 from dataclasses import dataclass
 from typing import Any
+from urllib import error as urlerror
+from urllib import request as urlrequest
 
 
 POSITIVE = "positive"
 NEGATIVE = "negative"
 UNRELATED = "unrelated"
+GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
 
 
 MODEL_FAMILY_MAP: dict[str, str] = {
@@ -78,6 +83,57 @@ def format_prompt_for_model(*, system: str, user: str, model_family: str) -> str
     return _format_chat_prompt(system=system, user=user, model_family=model_family)
 
 
+def is_gemini_model_id(model_id: str | None) -> bool:
+    if not model_id:
+        return False
+    base_model_id = model_id.split(":", 1)[0].strip().lower()
+    return base_model_id.startswith("gemini-")
+
+
+def is_gemini_openai_base_url(base_url: str | None) -> bool:
+    if not base_url:
+        return False
+    return "generativelanguage.googleapis.com" in base_url.lower()
+
+
+def build_openai_completion_url(base_url: str) -> str:
+    cleaned = base_url.rstrip("/")
+    if cleaned.endswith("/chat/completions"):
+        return cleaned
+    return cleaned + "/chat/completions"
+
+
+def extract_openai_message_text(payload: dict[str, Any]) -> str:
+    choices = payload.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise RuntimeError("missing_choices")
+
+    first_choice = choices[0]
+    if not isinstance(first_choice, dict):
+        raise RuntimeError("invalid_choice_shape")
+
+    message = first_choice.get("message", {})
+    if not isinstance(message, dict):
+        raise RuntimeError("invalid_message_shape")
+
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        text_parts: list[str] = []
+        for item in content:
+            if not isinstance(item, dict):
+                continue
+            if item.get("type") != "text":
+                continue
+            text = item.get("text")
+            if isinstance(text, str):
+                text_parts.append(text)
+        if text_parts:
+            return "\n".join(text_parts)
+    raise RuntimeError("missing_message_content")
+
+
 def normalize_relation_label(text: str) -> str:
     normalized = text.strip().lower()
     first_line = normalized.splitlines()[0].strip() if normalized else ""
@@ -116,6 +172,82 @@ class BaseRelationBackend:
         max_new_tokens: int = 16,
     ) -> str:
         raise NotImplementedError
+
+
+@dataclass
+class OpenAICompatibleRelationBackend(BaseRelationBackend):
+    model_id: str
+    api_base_url: str
+    api_key: str | None = None
+    backend_name: str = "openai_compatible"
+    max_retries: int = 2
+    retry_backoff_seconds: float = 1.0
+
+    def __post_init__(self) -> None:
+        if is_gemini_model_id(self.model_id) and not is_gemini_openai_base_url(self.api_base_url):
+            raise RuntimeError(
+                "gemini models require api_base_url "
+                f"{GEMINI_OPENAI_BASE_URL}"
+            )
+
+    def predict_relation(
+        self,
+        *,
+        sentence: str,
+        microbe: str,
+        disease: str,
+        temperature: float = 0.7,
+        max_new_tokens: int = 16,
+    ) -> str:
+        system, user = _build_minerva_system_user(
+            sentence=sentence,
+            microbe=microbe,
+            disease=disease,
+        )
+        body = {
+            "model": self.model_id,
+            "temperature": temperature,
+            "max_tokens": max_new_tokens,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        }
+
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        request = urlrequest.Request(
+            build_openai_completion_url(self.api_base_url),
+            data=json.dumps(body).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        attempts = self.max_retries + 1
+        for attempt in range(attempts):
+            try:
+                with urlrequest.urlopen(request, timeout=120) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+                break
+            except urlerror.HTTPError as exc:
+                try:
+                    detail = exc.read().decode("utf-8", errors="replace")
+                except Exception:
+                    detail = str(exc)
+                retryable = exc.code in {429, 500, 502, 503, 504}
+                if retryable and attempt < self.max_retries:
+                    time.sleep(self.retry_backoff_seconds * (attempt + 1))
+                    continue
+                raise RuntimeError(f"http_error:{exc.code}:{detail}") from exc
+            except urlerror.URLError as exc:
+                if attempt < self.max_retries:
+                    time.sleep(self.retry_backoff_seconds * (attempt + 1))
+                    continue
+                raise RuntimeError(f"network_error:{exc.reason}") from exc
+
+        text = extract_openai_message_text(payload)
+        return normalize_relation_label(text)
 
 
 class HeuristicRelationBackend(BaseRelationBackend):
@@ -249,6 +381,8 @@ def build_backend(
     model_family: str = "biomistral_7b",
     model_id: str | None = None,
     device: str = "cpu",
+    api_base_url: str | None = None,
+    api_key: str | None = None,
 ) -> BaseRelationBackend:
     if backend == "heuristic":
         return HeuristicRelationBackend()
@@ -259,6 +393,15 @@ def build_backend(
             model_family=model_family,
             prompt_style="minerva_upstream",
             device=device,
+        )
+    if backend == "openai_compatible":
+        if not api_base_url:
+            raise RuntimeError("api_base_url is required for openai_compatible backend")
+        resolved = resolve_model_id(model_family, model_id)
+        return OpenAICompatibleRelationBackend(
+            model_id=resolved,
+            api_base_url=api_base_url,
+            api_key=api_key,
         )
     raise ValueError(f"Unsupported backend: {backend}")
 
@@ -273,7 +416,13 @@ __all__ = [
     "MINERVA_TEMPLATE_EVIDENCE",
     "build_minerva_prompt_messages",
     "format_prompt_for_model",
+    "GEMINI_OPENAI_BASE_URL",
+    "is_gemini_model_id",
+    "is_gemini_openai_base_url",
+    "build_openai_completion_url",
+    "extract_openai_message_text",
     "BaseRelationBackend",
+    "OpenAICompatibleRelationBackend",
     "HeuristicRelationBackend",
     "HuggingFaceTextGenBackend",
     "normalize_relation_label",

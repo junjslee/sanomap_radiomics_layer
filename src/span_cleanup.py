@@ -41,14 +41,26 @@ GENERIC_DISEASE_TERMS = {
 
 MICROBE_TRAILING_CONTEXT_TOKENS = {
     "abundance",
+    "abundances",
+    "bearing",
+    "class",
+    "classes",
     "count",
     "counts",
     "density",
+    "families",
+    "family",
+    "genus",
+    "genera",
     "level",
     "levels",
     "load",
     "loads",
+    "phylum",
+    "phyla",
     "presence",
+    "taxa",
+    "taxon",
 }
 
 DISEASE_TRAILING_CONTEXT_TOKENS = {
@@ -95,6 +107,7 @@ TRAILING_STOP_TOKENS = {
 SUBJECT_TRAILING_FRAGMENT_TOKENS = {
     "and",
     "or",
+    "but",
     "is",
     "are",
     "was",
@@ -102,29 +115,52 @@ SUBJECT_TRAILING_FRAGMENT_TOKENS = {
     "be",
     "been",
     "being",
+    "with",
+    "as",
 }
 
 DISEASE_RELATION_LANGUAGE_TOKENS = {
     "associated",
     "association",
     "abundant",
+    "ameliorate",
+    "ameliorates",
+    "anti-inflammatory",
+    "appears",
+    "cause",
+    "causes",
+    "contribute",
+    "contributes",
     "correlated",
     "correlation",
     "decrease",
     "decreased",
     "elevated",
+    "enhance",
+    "enhanced",
+    "enhances",
     "higher",
     "improved",
     "improvement",
     "increase",
     "increased",
+    "increases",
+    "induce",
+    "induces",
     "link",
     "linked",
     "lower",
     "predictive",
+    "prevent",
+    "prevents",
     "prognostic",
+    "promote",
+    "promotes",
+    "pro-inflammatory",
+    "reduce",
     "reduced",
     "reduction",
+    "reduces",
     "related",
     "relationship",
     "relationships",
@@ -166,11 +202,13 @@ CLAUSE_VERB_TOKENS = SUBJECT_TRAILING_FRAGMENT_TOKENS | {
 }
 
 LEADING_DISEASE_CONTEXT_TOKENS = {
+    "and",
     "among",
     "during",
     "for",
     "in",
     "of",
+    "or",
     "within",
     "with",
 }
@@ -211,6 +249,13 @@ def _strip_trailing_tokens(tokens: list[str], removable: set[str]) -> list[str]:
     return trimmed
 
 
+def _strip_leading_tokens(tokens: list[str], removable: set[str]) -> list[str]:
+    trimmed = list(tokens)
+    while len(trimmed) > 1 and trimmed[0] in removable:
+        trimmed.pop(0)
+    return trimmed
+
+
 def _trim_disease_prefixes(text: str) -> str:
     trimmed = text
     for pattern in LEADING_DISEASE_PREFIX_PATTERNS:
@@ -227,7 +272,12 @@ def _is_generic_microbe_term(text: str) -> bool:
         return True
     if tokens[0] in {"bacterial", "microbial"}:
         return True
-    if len(tokens) <= 3 and tokens[-1] in {"bacteria", "microbes", "microbiome", "microbiota"}:
+    # Extend length guard from 3 to 5 to catch e.g. "certain gram-negative bacteria"
+    if len(tokens) <= 5 and tokens[-1] in {"bacteria", "bacterial", "microbes", "microbiome", "microbiota"}:
+        return True
+    # Catch hyphenated compounds like "bacteria-derived"
+    hyphen_tokens = re.split(r"[-\s]", text)
+    if hyphen_tokens[0] in {"bacteria", "bacterial", "microbial"}:
         return True
     return False
 
@@ -244,6 +294,9 @@ def clean_subject_span(text: Any, *, subject_node_type: str = "Microbe") -> tupl
             tokens,
             MICROBE_TRAILING_CONTEXT_TOKENS | TRAILING_STOP_TOKENS | SUBJECT_TRAILING_FRAGMENT_TOKENS,
         )
+        # Strip trailing pure-digit tokens e.g. "ruminococcus 2" -> "ruminococcus"
+        while tokens and re.fullmatch(r"\d+", tokens[-1]):
+            tokens.pop()
         canonical = " ".join(tokens).strip()
 
     if not canonical:
@@ -263,6 +316,7 @@ def clean_disease_span(text: Any) -> tuple[CleanedSpan | None, str | None]:
 
     canonical = _trim_disease_prefixes(normalized.lower())
     tokens = canonical.split()
+    tokens = _strip_leading_tokens(tokens, LEADING_DISEASE_CONTEXT_TOKENS)
     tokens = _strip_trailing_tokens(tokens, DISEASE_TRAILING_CONTEXT_TOKENS)
     tokens = _strip_trailing_tokens(tokens, TRAILING_STOP_TOKENS)
     canonical = " ".join(tokens).strip()
@@ -286,7 +340,7 @@ def clean_disease_span(text: Any) -> tuple[CleanedSpan | None, str | None]:
         return None, "disease_clause_like"
     if len(tokens) > 5 and token_set & DISEASE_CONTEXT_TOKENS:
         return None, "disease_clause_like"
-    if len(tokens) > 8:
+    if len(tokens) >= 8:
         return None, "disease_clause_like"
 
     return CleanedSpan(text=canonical, canonical=canonical), None

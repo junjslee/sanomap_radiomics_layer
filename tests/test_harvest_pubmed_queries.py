@@ -5,6 +5,7 @@ from src.harvest_pubmed import (
     BODYCOMP_DISEASE_ASSOCIATION_QUERY,
     BODYCOMP_DISEASE_QUERY,
     MICROBE_BODYCOMP_QUERY,
+    MICROBE_BODYCOMP_CLINICAL_RECALL_QUERY,
     MICROBE_IMAGING_ADJACENT_QUERY,
     MICROBE_RADIOMICS_STRICT_QUERY,
     QUERY_PROFILES,
@@ -31,6 +32,13 @@ class TestHarvestPubmedQueries(unittest.TestCase):
         self.assertIn("fat mass[Title/Abstract]", MICROBE_BODYCOMP_QUERY)
         self.assertIn("visceral adiposity[Title/Abstract]", MICROBE_BODYCOMP_QUERY)
 
+    def test_microbe_bodycomp_clinical_recall_adds_human_association_constraints(self) -> None:
+        self.assertIn("human*[Title/Abstract]", MICROBE_BODYCOMP_CLINICAL_RECALL_QUERY)
+        self.assertIn("patient*[Title/Abstract]", MICROBE_BODYCOMP_CLINICAL_RECALL_QUERY)
+        self.assertIn("associat*[Title/Abstract]", MICROBE_BODYCOMP_CLINICAL_RECALL_QUERY)
+        self.assertIn("outcome*[Title/Abstract]", MICROBE_BODYCOMP_CLINICAL_RECALL_QUERY)
+        self.assertNotEqual(MICROBE_BODYCOMP_QUERY, MICROBE_BODYCOMP_CLINICAL_RECALL_QUERY)
+
     def test_microbe_imaging_adjacent_targets_adjacent_imaging_language(self) -> None:
         self.assertIn("CT change*[Title/Abstract]", MICROBE_IMAGING_ADJACENT_QUERY)
         self.assertIn("imaging phenotype[Title/Abstract]", MICROBE_IMAGING_ADJACENT_QUERY)
@@ -48,6 +56,7 @@ class TestHarvestPubmedQueries(unittest.TestCase):
     def test_imaging_adjacent_and_union_profiles_exist(self) -> None:
         self.assertIn("microbe_imaging_adjacent", QUERY_PROFILES)
         self.assertIn("microbe_imaging_phenotype", QUERY_PROFILES)
+        self.assertIn("microbe_bodycomp_clinical_recall", QUERY_PROFILES)
         self.assertIn("CT change*[Title/Abstract]", QUERY_PROFILES["microbe_imaging_phenotype"])
 
     def test_parse_json_body_tolerates_control_characters(self) -> None:

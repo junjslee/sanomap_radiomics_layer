@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MicrobeDiseaseEdge",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "edge_id",
+    "pmid",
+    "subject_node_type",
+    "subject_node",
+    "object_node_type",
+    "object_node",
+    "graph_rel_type",
+    "relation_direction",
+    "evidence",
+    "confidence",
+    "evidence_type",
+    "assertion_level"
+  ],
+  "properties": {
+    "edge_id": {"type": "string"},
+    "pmid": {"type": "string"},
+    "subject_node_type": {
+      "type": "string",
+      "enum": ["Microbe", "MicrobialSignature"]
+    },
+    "subject_node": {"type": "string"},
+    "object_node_type": {
+      "type": "string",
+      "enum": ["Disease"]
+    },
+    "object_node": {"type": "string"},
+    "graph_rel_type": {
+      "type": "string",
+      "enum": ["POSITIVELY_ASSOCIATED_WITH", "NEGATIVELY_ASSOCIATED_WITH"]
+    },
+    "relation_direction": {
+      "type": "string",
+      "enum": ["positive", "negative"]
+    },
+    "evidence": {"type": "string"},
+    "confidence": {"type": "number"},
+    "evidence_type": {"type": "string"},
+    "assertion_level": {"type": "string"},
+    "pmcid": {"type": ["string", "null"]},
+    "journal": {"type": ["string", "null"]},
+    "title": {"type": ["string", "null"]},
+    "publication_year": {"type": ["integer", "null"]}
+  }
+}
