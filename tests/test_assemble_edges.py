@@ -1,6 +1,11 @@
 import unittest
 
-from src.assemble_edges import build_bridge_hypotheses, build_edge_candidates, build_text_axis_candidates
+from src.assemble_edges import (
+    build_bridge_hypotheses,
+    build_edge_candidates,
+    build_microbe_disease_edges,
+    build_text_axis_candidates,
+)
 
 
 class TestAssembleEdges(unittest.TestCase):
@@ -501,6 +506,117 @@ class TestAssembleEdges(unittest.TestCase):
         self.assertEqual(rejected, 0)
         self.assertEqual(len(candidates), 1)
         self.assertIsNone(candidates[0].disease_context)
+
+
+class TestMicrobeDiseaseEdges(unittest.TestCase):
+    def _positive_relation(self) -> dict:
+        return {
+            "pmid": "999",
+            "subject_node_type": "Microbe",
+            "subject_node": "bifidobacterium",
+            "microbe": "bifidobacterium",
+            "disease": "obesity",
+            "final_label": "positive",
+            "accepted": True,
+            "confidence": 0.85,
+            "evidence": "Bifidobacterium was associated with reduced obesity.",
+        }
+
+    def _negative_relation(self) -> dict:
+        return {
+            "pmid": "999",
+            "subject_node_type": "Microbe",
+            "subject_node": "lactobacillus rhamnosus",
+            "microbe": "lactobacillus rhamnosus",
+            "disease": "metabolic syndrome",
+            "final_label": "negative",
+            "accepted": True,
+            "confidence": 0.78,
+            "evidence": "Lactobacillus rhamnosus negatively associated with metabolic syndrome.",
+        }
+
+    def test_positive_relation_emits_positively_associated_with(self) -> None:
+        edges, rejected = build_microbe_disease_edges(
+            [self._positive_relation()],
+            paper_index={},
+            resolver=None,
+        )
+        self.assertEqual(rejected, 0)
+        self.assertEqual(len(edges), 1)
+        self.assertEqual(edges[0].graph_rel_type, "POSITIVELY_ASSOCIATED_WITH")
+        self.assertEqual(edges[0].relation_direction, "positive")
+        self.assertEqual(edges[0].subject_node, "bifidobacterium")
+        self.assertEqual(edges[0].object_node, "obesity")
+        self.assertEqual(edges[0].object_node_type, "Disease")
+        self.assertEqual(edges[0].assertion_level, "direct_evidence")
+
+    def test_negative_relation_emits_negatively_associated_with(self) -> None:
+        edges, rejected = build_microbe_disease_edges(
+            [self._negative_relation()],
+            paper_index={},
+            resolver=None,
+        )
+        self.assertEqual(rejected, 0)
+        self.assertEqual(len(edges), 1)
+        self.assertEqual(edges[0].graph_rel_type, "NEGATIVELY_ASSOCIATED_WITH")
+        self.assertEqual(edges[0].relation_direction, "negative")
+
+    def test_unrelated_label_rejected(self) -> None:
+        relation = self._positive_relation()
+        relation["final_label"] = "unrelated"
+        edges, rejected = build_microbe_disease_edges(
+            [relation],
+            paper_index={},
+            resolver=None,
+        )
+        self.assertEqual(len(edges), 0)
+        self.assertEqual(rejected, 1)
+
+    def test_clause_like_disease_rejected(self) -> None:
+        relation = self._positive_relation()
+        relation["disease"] = "development of colorectal cancer"
+        edges, rejected = build_microbe_disease_edges(
+            [relation],
+            paper_index={},
+            resolver=None,
+        )
+        self.assertEqual(len(edges), 0)
+        self.assertEqual(rejected, 1)
+
+    def test_generic_microbe_rejected(self) -> None:
+        relation = self._positive_relation()
+        relation["subject_node"] = "bacterial species"
+        relation["microbe"] = "bacterial species"
+        edges, rejected = build_microbe_disease_edges(
+            [relation],
+            paper_index={},
+            resolver=None,
+        )
+        self.assertEqual(len(edges), 0)
+        self.assertEqual(rejected, 1)
+
+    def test_both_positive_and_negative_together(self) -> None:
+        edges, rejected = build_microbe_disease_edges(
+            [self._positive_relation(), self._negative_relation()],
+            paper_index={},
+            resolver=None,
+        )
+        self.assertEqual(rejected, 0)
+        self.assertEqual(len(edges), 2)
+        rel_types = {e.graph_rel_type for e in edges}
+        self.assertIn("POSITIVELY_ASSOCIATED_WITH", rel_types)
+        self.assertIn("NEGATIVELY_ASSOCIATED_WITH", rel_types)
+
+    def test_deduplication_keeps_higher_confidence(self) -> None:
+        r1 = self._positive_relation()
+        r2 = {**r1, "confidence": 0.95}
+        edges, _ = build_microbe_disease_edges(
+            [r1, r2],
+            paper_index={},
+            resolver=None,
+        )
+        self.assertEqual(len(edges), 1)
+        self.assertAlmostEqual(edges[0].confidence, 0.95)
 
 
 if __name__ == "__main__":

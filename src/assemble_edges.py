@@ -22,7 +22,7 @@ from src.extract_radiomics_text import (
 from src.journal_metrics import ImpactFactorResolver, resolve_paper_metrics
 from src.schema_utils import SchemaValidationError, load_schema, validate_record
 from src.span_cleanup import clean_disease_span, clean_subject_span
-from src.types import BridgeHypothesis, EdgeCandidate, PhenotypeAxisCandidate, to_dict
+from src.types import BridgeHypothesis, EdgeCandidate, MicrobeDiseaseEdge, PhenotypeAxisCandidate, to_dict
 
 
 BODYCOMP_CANONICAL = {feat["canonical"] for feat in BODYCOMP_FEATURES}
@@ -531,6 +531,83 @@ def build_bridge_hypotheses(
     return hypotheses, rejected
 
 
+_LABEL_TO_REL_TYPE = {
+    "positive": "POSITIVELY_ASSOCIATED_WITH",
+    "negative": "NEGATIVELY_ASSOCIATED_WITH",
+}
+
+
+def build_microbe_disease_edges(
+    relation_aggregated: list[dict[str, Any]],
+    paper_index: dict[str, dict[str, Any]],
+    resolver: ImpactFactorResolver | None,
+) -> tuple[list[MicrobeDiseaseEdge], int]:
+    edges: list[MicrobeDiseaseEdge] = []
+    rejected = 0
+
+    dedup: dict[tuple[str, str, str, str], MicrobeDiseaseEdge] = {}
+
+    for relation in relation_aggregated:
+        final_label = str(relation.get("final_label") or "").lower()
+        if final_label not in _LABEL_TO_REL_TYPE:
+            rejected += 1
+            continue
+
+        pmid = str(relation.get("pmid") or "")
+        raw_microbe = str(relation.get("subject_node") or relation.get("microbe") or "").strip()
+        raw_disease = str(relation.get("disease") or "").strip()
+        if not pmid or not raw_microbe or not raw_disease:
+            rejected += 1
+            continue
+
+        cleaned_subject, subject_reason = clean_subject_span(
+            raw_microbe,
+            subject_node_type=str(relation.get("subject_node_type") or "Microbe"),
+        )
+        if cleaned_subject is None or subject_reason is not None:
+            rejected += 1
+            continue
+
+        disease, disease_reason = _clean_text_disease(raw_disease)
+        if disease is None or disease_reason is not None or not _is_graph_eligible_text_disease(disease):
+            rejected += 1
+            continue
+
+        subject_node_type = str(relation.get("subject_node_type") or "Microbe")
+        graph_rel_type = _LABEL_TO_REL_TYPE[final_label]
+        evidence = str(relation.get("evidence") or "").strip()
+        confidence = float(relation.get("confidence") or 0.7)
+        meta = _paper_metadata(pmid, paper_index, resolver)
+
+        edge = MicrobeDiseaseEdge(
+            edge_id=_edge_id("microbe-disease", pmid, cleaned_subject.canonical, disease, final_label),
+            pmid=pmid,
+            subject_node_type=subject_node_type,
+            subject_node=cleaned_subject.canonical,
+            object_node_type="Disease",
+            object_node=disease,
+            graph_rel_type=graph_rel_type,
+            relation_direction=final_label,
+            evidence=evidence,
+            confidence=confidence,
+            evidence_type="text_model_verified",
+            assertion_level="direct_evidence",
+            pmcid=meta["pmcid"],
+            journal=meta["journal"],
+            title=meta["title"],
+            publication_year=meta["publication_year"],
+        )
+
+        key = (pmid, cleaned_subject.canonical, disease, final_label)
+        prev = dedup.get(key)
+        if prev is None:
+            dedup[key] = edge
+        elif edge.confidence > prev.confidence:
+            dedup[key] = edge
+
+    return list(dedup.values()), rejected
+
+
 def _resolve_proposal_verification(
     proposal: dict[str, Any],
     verification_index: dict[str, dict[str, Any]],
@@ -789,6 +866,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output-neo4j-csv", default="artifacts/neo4j_relationships.csv")
     parser.add_argument("--output-bridge-hypotheses", default="artifacts/bridge_hypotheses.jsonl")
     parser.add_argument("--output-axis-candidates", default="artifacts/phenotype_axis_candidates.jsonl")
+    parser.add_argument("--output-microbe-disease-edges", default="artifacts/microbe_disease_edges.jsonl")
     parser.add_argument("--manifest-dir", default="artifacts/manifests")
     parser.add_argument("--include-unverified-vision", action="store_true")
     parser.add_argument("--text-min-confidence", type=float, default=0.6)
@@ -831,6 +909,11 @@ def main(argv: list[str] | None = None) -> int:
         paper_index,
         resolver,
     )
+    microbe_disease_edges_preview, md_rejected = build_microbe_disease_edges(
+        relation_aggregated,
+        paper_index,
+        resolver,
+    )
     vision_edges_preview, vision_rejected = _build_vision_edges(
         vision_proposals,
         verification_index,
@@ -868,6 +951,12 @@ def main(argv: list[str] | None = None) -> int:
                 validate_record(to_dict(candidate), axis_schema)
             except SchemaValidationError as exc:
                 raise SchemaValidationError(f"phenotype_axis_candidates[{idx}] invalid: {exc}") from exc
+        md_schema = load_schema("microbe_disease_edges.schema.json")
+        for idx, md_edge in enumerate(microbe_disease_edges_preview):
+            try:
+                validate_record(to_dict(md_edge), md_schema)
+            except SchemaValidationError as exc:
+                raise SchemaValidationError(f"microbe_disease_edges[{idx}] invalid: {exc}") from exc
 
     jsonl_count = write_jsonl(args.output_jsonl, edges)
     _write_edges_csv(args.output_csv, edges)
@@ -880,6 +969,7 @@ def main(argv: list[str] | None = None) -> int:
         args.output_axis_candidates,
         axis_candidates_preview,
     )
+    md_edge_count = write_jsonl(args.output_microbe_disease_edges, microbe_disease_edges_preview)
 
     metrics = {
         "text_mentions_in": len(text_mentions),
@@ -895,10 +985,12 @@ def main(argv: list[str] | None = None) -> int:
         "axis_rejected": axis_rejected,
         "bridge_rejected": bridge_rejected,
         "vision_rejected": vision_rejected,
+        "md_rejected": md_rejected,
         "edges_out": jsonl_count,
         "neo4j_rows_out": neo4j_rows,
         "axis_candidates_out": axis_candidate_count,
         "bridge_hypotheses_out": bridge_hypothesis_count,
+        "microbe_disease_edges_out": md_edge_count,
         "vision_verified_edges": sum(
             1
             for e in edges
@@ -926,6 +1018,7 @@ def main(argv: list[str] | None = None) -> int:
             "neo4j_relationships_csv": str(Path(args.output_neo4j_csv).resolve()),
             "phenotype_axis_candidates_jsonl": str(Path(args.output_axis_candidates).resolve()),
             "bridge_hypotheses_jsonl": str(Path(args.output_bridge_hypotheses).resolve()),
+            "microbe_disease_edges_jsonl": str(Path(args.output_microbe_disease_edges).resolve()),
         },
         command=" ".join(sys.argv),
     )
