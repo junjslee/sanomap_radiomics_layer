@@ -1,7 +1,7 @@
 # Progress
 
 ## Last Updated
-- 2026-03-19 America/Chicago
+- 2026-03-27 America/Chicago
 
 ## Completed
 - Query profiles were split and refined for strict radiomics, adjacent imaging, and body-composition retrieval.
