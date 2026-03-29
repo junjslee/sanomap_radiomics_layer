@@ -107,6 +107,55 @@ class TestSpanCleanup(unittest.TestCase):
         self.assertIsNone(cleaned)
         self.assertEqual(reason, "disease_relation_language")
 
+    def test_clean_subject_span_normalizes_genus_containing_product(self) -> None:
+        cleaned, reason = clean_subject_span("lactobacillus-containing probiotic", subject_node_type="Microbe")
+
+        self.assertIsNone(reason)
+        self.assertIsNotNone(cleaned)
+        self.assertEqual(cleaned.canonical, "lactobacillus")
+
+    def test_clean_subject_span_normalizes_genus_containing_supplement(self) -> None:
+        cleaned, reason = clean_subject_span("bifidobacterium-containing supplement", subject_node_type="Microbe")
+
+        self.assertIsNone(reason)
+        self.assertIsNotNone(cleaned)
+        self.assertEqual(cleaned.canonical, "bifidobacterium")
+
+    def test_clean_subject_span_keeps_nonproduct_containing(self) -> None:
+        cleaned, reason = clean_subject_span("lactobacillus-containing biofilm", subject_node_type="Microbe")
+
+        self.assertIsNone(reason)
+        self.assertIsNotNone(cleaned)
+        self.assertEqual(cleaned.canonical, "lactobacillus-containing biofilm")
+
+    def test_clean_disease_span_normalizes_finding_in_disease(self) -> None:
+        cleaned, reason = clean_disease_span("body cell mass deficiency in cirrhosis")
+
+        self.assertIsNone(reason)
+        self.assertIsNotNone(cleaned)
+        self.assertEqual(cleaned.canonical, "cirrhosis")
+
+    def test_clean_disease_span_normalizes_finding_in_obesity(self) -> None:
+        cleaned, reason = clean_disease_span("muscle wasting in obesity")
+
+        self.assertIsNone(reason)
+        self.assertIsNotNone(cleaned)
+        self.assertEqual(cleaned.canonical, "obesity")
+
+    def test_clean_disease_span_keeps_plain_disease(self) -> None:
+        cleaned, reason = clean_disease_span("cirrhosis")
+
+        self.assertIsNone(reason)
+        self.assertIsNotNone(cleaned)
+        self.assertEqual(cleaned.canonical, "cirrhosis")
+
+    def test_clean_disease_span_keeps_systemic_inflammation(self) -> None:
+        cleaned, reason = clean_disease_span("systemic inflammation")
+
+        self.assertIsNone(reason)
+        self.assertIsNotNone(cleaned)
+        self.assertEqual(cleaned.canonical, "systemic inflammation")
+
     def test_clean_relation_pair_rejects_relation_language_disease(self) -> None:
         subject, disease, reason = clean_relation_pair(
             sentence="Escherichia coli was discussed with obesity-associated markers.",

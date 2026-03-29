@@ -108,6 +108,11 @@ MODALITY_TERMS = {
     "ultrasound": "US",
     "radiograph": "XRAY",
     "x ray": "XRAY",
+    "dxa": "DXA",
+    "dexa": "DXA",
+    "dual-energy x-ray absorptiometry": "DXA",
+    "dual energy x-ray absorptiometry": "DXA",
+    "absorptiometry": "DXA",
 }
 
 BODY_LOCATION_TERMS = [
@@ -123,6 +128,24 @@ BODY_LOCATION_TERMS = [
     "spleen",
     "heart",
     "aorta",
+    "abdomen",
+    "abdominal",
+    "muscle",
+    "muscular",
+    "skeletal",
+    "adipose",
+    "bone",
+    "cerebral",
+    "waist",
+    "lumbar",
+    "vertebral",
+    "spine",
+    "spinal",
+    "hip",
+    "trunk",
+    "femur",
+    "femoral",
+    "thigh",
 ]
 
 # Single-token aliases are useful but highly ambiguous in clinical writing.
@@ -311,11 +334,32 @@ def _detect_body_location(text: str) -> str | None:
     return None
 
 
+_DISEASE_LEAD_STOPWORDS = {
+    "is", "are", "was", "were", "in", "of", "with", "and", "or",
+    "the", "a", "an", "this", "that", "exercise", "dietary", "important",
+    "related", "training", "such", "pepper", "including", "affecting",
+    "induced", "associated", "effects", "role", "impact",
+}
+_DISEASE_CONTEXT_STOPWORDS = {
+    "humans", "human", "patients", "subjects", "training",
+    "distribution", "degree", "density", "components", "intake",
+    "lessens", "reduces", "causes", "affects", "affected", "induced", "diet",
+    "is", "are", "was", "were", "by", "via", "phenotype", "marker",
+}
+
+
 def _detect_disease(sentence: str, title: str) -> str | None:
     for source in (sentence, title):
-        match = DISEASE_PATTERN.search(source)
-        if match:
-            return _normalize_text(match.group(1))
+        for match in DISEASE_PATTERN.finditer(source):
+            candidate = _normalize_text(match.group(1))
+            tokens = candidate.split()
+            if not tokens:
+                continue
+            if tokens[0] in _DISEASE_LEAD_STOPWORDS:
+                continue
+            if len(tokens) > 3 and set(tokens[:-1]) & _DISEASE_CONTEXT_STOPWORDS:
+                continue
+            return candidate
     return None
 
 

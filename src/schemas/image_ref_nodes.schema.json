@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ImageRef",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["node_id", "pmcid", "figure_id", "node_type"],
+  "properties": {
+    "node_id": {"type": "string"},
+    "pmcid": {"type": "string"},
+    "figure_id": {"type": "string"},
+    "node_type": {
+      "type": "string",
+      "enum": ["ImageRef"]
+    },
+    "panel_id": {"type": ["string", "null"]},
+    "image_path": {"type": ["string", "null"]},
+    "caption": {"type": ["string", "null"]},
+    "topology": {"type": ["string", "null"]},
+    "modality": {"type": ["string", "null"]}
+  }
+}

@@ -327,7 +327,7 @@ class TestAssembleEdges(unittest.TestCase):
 
         self.assertEqual(edges, [])
 
-    def test_text_edges_reject_subject_leakage_disease_context(self) -> None:
+    def test_text_edges_normalize_finding_in_disease(self) -> None:
         text_mentions = [
             {
                 "mention_id": "m3g",
@@ -349,7 +349,8 @@ class TestAssembleEdges(unittest.TestCase):
             papers=[],
         )
 
-        self.assertEqual(edges, [])
+        self.assertEqual(len(edges), 1)
+        self.assertEqual(edges[0].disease, "colorectal cancer")
 
     def test_text_edges_reject_self_typed_disease_context(self) -> None:
         text_mentions = [

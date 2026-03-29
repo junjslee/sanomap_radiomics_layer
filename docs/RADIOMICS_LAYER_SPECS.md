@@ -3,13 +3,19 @@
 ## Objective
 Build a MINERVA-aligned graph extension that remains radiomics-first but models a broader imaging phenotype space when the literature supports it.
 
-The first-pass graph supports these direct-evidence relations:
+The graph supports these direct-evidence relations:
 - `(Microbe)-[:CORRELATES_WITH]->(RadiomicFeature)`
 - `(Microbe)-[:CORRELATES_WITH]->(BodyCompositionFeature)`
 - `(MicrobialSignature)-[:CORRELATES_WITH]->(RadiomicFeature)`
 - `(MicrobialSignature)-[:CORRELATES_WITH]->(BodyCompositionFeature)`
 - `(RadiomicFeature)-[:ASSOCIATED_WITH]->(Disease)`
 - `(BodyCompositionFeature)-[:ASSOCIATED_WITH]->(Disease)`
+- `(RadiomicFeature)-[:MEASURED_AT]->(BodyLocation)`
+- `(BodyCompositionFeature)-[:MEASURED_AT]->(BodyLocation)`
+- `(RadiomicFeature)-[:ACQUIRED_VIA]->(ImagingModality)`
+- `(BodyCompositionFeature)-[:ACQUIRED_VIA]->(ImagingModality)`
+- `(ImagingModality)-[:REPRESENTED_BY]->(ImageRef)`
+- `(Microbe)-[:CORRELATES_WITH_DISEASE]->(Disease)` (signed polarity via relation extraction)
 
 ## Node Types
 - `Microbe`: taxon-specific entities such as `Fusobacterium nucleatum` or `Akkermansia`.
@@ -17,6 +23,9 @@ The first-pass graph supports these direct-evidence relations:
 - `RadiomicFeature`: IBSI-backed quantitative imaging features such as `glcm_entropy` or `first_order_kurtosis`.
 - `BodyCompositionFeature`: imaging-derived phenotype markers such as `skeletal_muscle_index`, `visceral_adipose_tissue`, `myosteatosis`, or `sarcopenia`.
 - `Disease`: disease or outcome concepts grounded in paper text.
+- `BodyLocation`: anatomical sites where imaging measurements are taken, such as `liver`, `lung`, `colon`, or `abdomen`.
+- `ImagingModality`: imaging modalities used to acquire phenotype data, such as CT, MRI, PET, DXA, or ultrasound. Carries DICOM modality codes where applicable.
+- `ImageRef`: a verified figure reference produced by the Vision Track pipeline. Stores PMCID, figure ID, panel ID, image path, topology (heatmap/forest_plot), and modality. Completes the professor's chain: `Disease ← Feature → BodyLocation / ImagingModality → ImageRef`.
 
 ## Text Track
 - Extract IBSI-backed radiomics mentions and a seeded body-composition vocabulary from titles and abstracts.

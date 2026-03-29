@@ -220,6 +220,34 @@ class PhenotypeAxisCandidate:
 
 
 @dataclass
+class BodyLocationNode:
+    node_id: str
+    name: str
+    node_type: str = "BodyLocation"
+
+
+@dataclass
+class ImagingModalityNode:
+    node_id: str
+    name: str
+    dicom_code: str = ""
+    node_type: str = "ImagingModality"
+
+
+@dataclass
+class ImageRef:
+    node_id: str
+    pmcid: str
+    figure_id: str
+    node_type: str = "ImageRef"
+    panel_id: Optional[str] = None
+    image_path: Optional[str] = None
+    caption: Optional[str] = None
+    topology: Optional[str] = None
+    modality: Optional[str] = None
+
+
+@dataclass
 class MicrobeDiseaseEdge:
     edge_id: str
     pmid: str
@@ -251,6 +279,9 @@ RECORD_TYPES: dict[str, Type[Any]] = {
     "edge_candidate": EdgeCandidate,
     "bridge_hypothesis": BridgeHypothesis,
     "phenotype_axis_candidate": PhenotypeAxisCandidate,
+    "body_location_node": BodyLocationNode,
+    "imaging_modality_node": ImagingModalityNode,
+    "image_ref": ImageRef,
     "microbe_disease_edge": MicrobeDiseaseEdge,
 }
 
@@ -285,6 +316,9 @@ __all__ = [
     "EdgeCandidate",
     "BridgeHypothesis",
     "PhenotypeAxisCandidate",
+    "BodyLocationNode",
+    "ImagingModalityNode",
+    "ImageRef",
     "MicrobeDiseaseEdge",
     "RECORD_TYPES",
     "to_dict",

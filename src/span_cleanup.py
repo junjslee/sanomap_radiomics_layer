@@ -228,6 +228,28 @@ LEADING_DISEASE_PREFIX_PATTERNS = (
     ),
 )
 
+SUBJECT_PRODUCT_SUFFIXES = {
+    "probiotic",
+    "probiotics",
+    "supplement",
+    "supplements",
+    "preparation",
+    "preparations",
+    "capsule",
+    "capsules",
+    "formulation",
+    "formulations",
+}
+
+_FINDING_IN_DISEASE_RE = re.compile(
+    r"^(.+?)\s+in\s+((?:cirrhosis|obesity|diabetes|cancer|fibrosis|hepatitis|"
+    r"colitis|crohn|asthma|copd|nafld|mafld|nash|ckd|hiv infection|"
+    r"chronic kidney disease|inflammatory bowel disease|colorectal cancer|"
+    r"liver disease|heart failure|cardiovascular disease|metabolic syndrome|"
+    r"rheumatoid arthritis|celiac disease|type 2 diabetes|"
+    r"chronic liver disease|nonalcoholic fatty liver disease).*)$"
+)
+
 
 @dataclass(frozen=True)
 class CleanedSpan:
@@ -303,6 +325,13 @@ def clean_subject_span(text: Any, *, subject_node_type: str = "Microbe") -> tupl
         return None, "missing_subject_node"
     if "##" in canonical:
         return None, "subject_wordpiece_fragment"
+
+    if subject_node_type == "Microbe":
+        # Normalize "<genus>-containing <product>" -> "<genus>"
+        m = re.match(r"^(\w+)-containing\s+(.+)$", canonical)
+        if m and m.group(2).strip() in SUBJECT_PRODUCT_SUFFIXES:
+            canonical = m.group(1)
+
     if subject_node_type == "Microbe" and _is_generic_microbe_term(canonical):
         return None, "generic_microbe_term"
 
@@ -320,6 +349,12 @@ def clean_disease_span(text: Any) -> tuple[CleanedSpan | None, str | None]:
     tokens = _strip_trailing_tokens(tokens, DISEASE_TRAILING_CONTEXT_TOKENS)
     tokens = _strip_trailing_tokens(tokens, TRAILING_STOP_TOKENS)
     canonical = " ".join(tokens).strip()
+
+    # Normalize "<measurement_finding> in <known_disease>" -> "<known_disease>"
+    finding_match = _FINDING_IN_DISEASE_RE.match(canonical)
+    if finding_match:
+        canonical = finding_match.group(2).strip()
+        tokens = canonical.split()
 
     if not canonical:
         return None, "missing_disease"

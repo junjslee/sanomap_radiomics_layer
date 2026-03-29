@@ -36,13 +36,15 @@ Read this together with:
 Finish the radiomics-first imaging phenotype extension to a level that is methodologically close to upstream MINERVA, while keeping the current graph semantics and direct-evidence policy.
 
 The next major milestone is:
-- make the phenotype axis explicit and inspectable in assembled artifacts
 - tighten text-derived phenotype-to-disease filtering so assembled edges are semantically cleaner
 - confirm which assembled outputs are graph-eligible versus audit-only
+- expand BodyLocation and ImagingModality coverage through improved extractor vocabulary
+- run expanded 640-paper corpus through improved extraction pipeline (no API calls needed for text stages)
+- validate Vision Track on more gradient-colormap heatmap figures specifically (dot-plot figures will correctly fail)
 - then continue to final edge assembly and downstream graph export
 
 ## Current Baseline
-- Last pushed baseline before this handoff: commit `a8e4341`
+- Last pushed baseline before this handoff: commit `b8b4981`
 - Active implementation lane: `ops/remote-run-hf-hosted`
 - Current repo direction is locked:
   - hybrid imaging phenotype scope
@@ -100,8 +102,17 @@ The next major milestone is:
   - `src/build_relation_input.py`
   - `src/relation_extract_stage.py`
 - `src/verify_heatmap.py` legend detection has been repaired and the local Conda `base` pytest suite is currently green.
+- Vision Track is validated end-to-end:
+  - `src/index_figures.py` → `src/propose_vision_qwen.py` → `src/verify_heatmap.py`
+  - first real figure extraction: Gemini 2.5 Flash-Lite extracted r=0.95 for Prevotella_nigrescens ↔ GLCM_Correlation on CT from PMC10605408
+  - deterministic verification accepted with distance_metric=0.05 and support_fraction=1.0
+- Imaging backbone nodes are implemented:
+  - `BodyLocation` and `ImagingModality` as first-class graph nodes
+  - `collect_imaging_backbone_nodes()` and `build_imaging_backbone_neo4j_rows()` in `src/assemble_edges.py`
+  - current corpus yields: 5 body locations (brain, kidney, liver, heart, colon), 3 imaging modalities (CT/CT, PET/PT, MRI/MR)
+  - 25 MEASURED_AT + ACQUIRED_VIA Neo4j rows from 1,129 text mentions
 - Professor-facing deliverables now exist in the repo:
-  - `docs/knowledge_map.md`
+  - `docs/knowledge_map.md` (updated with BodyLocation and ImagingModality)
   - `docs/explorer/index.html`
   - `docs/explorer/README.md`
   - `README.md`
@@ -167,19 +178,15 @@ Known gaps vs upstream:
 
 ## Blockers
 - Strict-radiomics and adjacent-imaging yield remain weak even with the expanded corpus; the expansion is body-composition-heavy.
-- The `213` phenotype-to-disease text edges have noisy disease strings from `extract_radiomics_text.py` — improving these requires changes to that extractor or its assembly filter, not span_cleanup.py.
-- Two borderline microbe-disease pairs need explicit policy decisions before graph promotion:
-  - `catenibacterium` + `body cell mass deficiency in cirrhosis` (qualifier scope)
-  - `lactobacillus-containing probiotic` + `systemic inflammation` (broad inflammation target)
-- A formal false-negative audit of dropped phenotype→disease targets is still missing.
+- Disease string quality in `extract_radiomics_text.py` is now improved (stopword guards in `_detect_disease()`), but the expanded 640-paper corpus has not been re-run yet to quantify the improvement.
+- Vision Track: 2 additional figures attempted (PMC10176953, PMC11924647), both correctly rejected. Need to identify papers with proper gradient-colormap heatmaps (not dot-plot style) for additional verified ImageRef nodes.
+- NER: `d4data/biomedical-ner-all` remains the default; BENT was evaluated and rejected due to systematic FPs and tokenization issues.
+- UMLS normalization: documented as a known gap vs upstream MINERVA; not yet implemented.
 
 ## Exact Next Actions
-1. Make explicit policy decisions on the two borderline disease targets above.
-2. Perform a false-negative audit: sample the `16` pre-filtered and `13` post-filtered rows to estimate how many genuine relations were dropped by the cleanup.
+1. Re-run `src/extract_radiomics_text.py` on the expanded 640-paper corpus to measure improvement in disease string quality.
+2. Search the PMC corpus specifically for papers with gradient-colormap heatmaps (not bar/dot charts) showing microbe-radiomics correlations.
 3. If strict-radiomics yield needs improvement, improve adjacent-imaging / strict-radiomics extractor vocabulary rather than broadening retrieval queries.
-4. Evaluate phenotype extraction disease string quality separately: the noise in `artifacts/text_mentions_microbe_expanded.jsonl` disease co-mentions is a different problem from span_cleanup.py, and requires either:
-   - a tighter extraction pattern in `src/extract_radiomics_text.py`, or
-   - a stronger assembly-side disease filter applied to the text edge path specifically
 
 ## What We Are Waiting On
 ### Infrastructure
@@ -419,7 +426,7 @@ python3 src/assemble_edges.py \
 - Conda `base` has `pytest` installed for this repo.
 - Current full-suite result:
   - `conda run -n base python -m pytest -q`
-  - `99 passed` (as of 2026-03-19)
+  - `156 passed` (as of 2026-03-28)
 
 ### Expanded corpus metrics (2026-03-19)
 - Papers: `640` unique (baseline `120` + recall `520`)

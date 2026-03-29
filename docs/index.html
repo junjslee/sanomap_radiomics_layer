@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SanoMap Radiomics Layer</title>
+    <style>
+      :root {
+        --bg: #020617;
+        --surface: rgba(15, 23, 42, 0.85);
+        --accent: #38bdf8;
+        --accent2: #818cf8;
+        --green: #34d399;
+        --text: #f1f5f9;
+        --muted: rgba(241, 245, 249, 0.58);
+        --border: rgba(255, 255, 255, 0.08);
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: 'Avenir Next', 'Trebuchet MS', 'Segoe UI', sans-serif;
+        background: radial-gradient(ellipse at top left, #0f172a 0%, #020617 55%);
+        color: var(--text);
+        min-height: 100vh;
+        padding: 0 1.5rem 4rem;
+      }
+
+      /* NAV */
+      nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.2rem 0;
+        border-bottom: 1px solid var(--border);
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+
+      .nav-logo {
+        font-size: 1.05rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: var(--accent);
+      }
+
+      nav a {
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.88rem;
+        transition: color 0.15s;
+      }
+
+      nav a:hover { color: var(--text); }
+
+      .nav-links { display: flex; gap: 1.8rem; }
+
+      /* HERO */
+      .hero {
+        max-width: 1080px;
+        margin: 5rem auto 3.5rem;
+        text-align: center;
+      }
+
+      .badge {
+        display: inline-block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--accent);
+        background: rgba(56, 189, 248, 0.1);
+        border: 1px solid rgba(56, 189, 248, 0.25);
+        border-radius: 99px;
+        padding: 0.3rem 0.9rem;
+        margin-bottom: 1.4rem;
+      }
+
+      h1 {
+        font-size: clamp(2rem, 4vw + 1rem, 3.6rem);
+        line-height: 1.15;
+        letter-spacing: -0.01em;
+        margin-bottom: 1.2rem;
+      }
+
+      h1 span { color: var(--accent); }
+
+      .hero-sub {
+        max-width: 660px;
+        margin: 0 auto 2.4rem;
+        font-size: 1.08rem;
+        line-height: 1.65;
+        color: var(--muted);
+      }
+
+      .cta-row {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.72rem 1.6rem;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: opacity 0.15s, transform 0.1s;
+      }
+
+      .btn:hover { opacity: 0.88; transform: translateY(-1px); }
+
+      .btn-primary {
+        background: var(--accent);
+        color: #020617;
+      }
+
+      .btn-outline {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+
+      /* STATS ROW */
+      .stats-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1px;
+        max-width: 1080px;
+        margin: 0 auto 4rem;
+        background: var(--border);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+
+      .stat {
+        flex: 1 1 160px;
+        background: var(--surface);
+        padding: 1.4rem 1.6rem;
+        text-align: center;
+      }
+
+      .stat-value {
+        display: block;
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--accent);
+        line-height: 1;
+        margin-bottom: 0.4rem;
+      }
+
+      .stat-label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        letter-spacing: 0.03em;
+      }
+
+      /* SECTION */
+      section {
+        max-width: 1080px;
+        margin: 0 auto 4rem;
+      }
+
+      .section-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent2);
+        margin-bottom: 0.8rem;
+      }
+
+      h2 {
+        font-size: 1.65rem;
+        font-weight: 700;
+        margin-bottom: 0.6rem;
+        letter-spacing: -0.01em;
+      }
+
+      .section-sub {
+        color: var(--muted);
+        font-size: 0.97rem;
+        line-height: 1.6;
+        margin-bottom: 2rem;
+        max-width: 680px;
+      }
+
+      /* CARD GRID */
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1rem;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1.4rem;
+        transition: border-color 0.15s;
+      }
+
+      .card:hover { border-color: rgba(56, 189, 248, 0.35); }
+
+      .card-icon {
+        font-size: 1.5rem;
+        margin-bottom: 0.7rem;
+      }
+
+      .card h3 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin-bottom: 0.45rem;
+        color: var(--text);
+      }
+
+      .card p {
+        font-size: 0.83rem;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      /* SCHEMA DIAGRAM */
+      .schema-block {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 2rem;
+        overflow-x: auto;
+      }
+
+      .schema-chain {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        font-family: 'SF Mono', 'Fira Code', monospace;
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-bottom: 1rem;
+      }
+
+      .node {
+        background: rgba(56, 189, 248, 0.1);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        color: var(--accent);
+        border-radius: 6px;
+        padding: 0.3rem 0.65rem;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .node-purple {
+        background: rgba(129, 140, 248, 0.1);
+        border-color: rgba(129, 140, 248, 0.3);
+        color: var(--accent2);
+      }
+
+      .node-green {
+        background: rgba(52, 211, 153, 0.1);
+        border-color: rgba(52, 211, 153, 0.3);
+        color: var(--green);
+      }
+
+      .edge {
+        color: var(--muted);
+        font-size: 0.75rem;
+        white-space: nowrap;
+      }
+
+      /* VALIDATION TABLE */
+      .val-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.87rem;
+      }
+
+      .val-table th {
+        text-align: left;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding: 0.6rem 1rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .val-table td {
+        padding: 0.8rem 1rem;
+        border-bottom: 1px solid var(--border);
+        color: var(--text);
+        vertical-align: top;
+      }
+
+      .val-table tr:last-child td { border-bottom: none; }
+
+      .pill {
+        display: inline-block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        border-radius: 99px;
+        padding: 0.2rem 0.6rem;
+      }
+
+      .pill-green { background: rgba(52, 211, 153, 0.15); color: var(--green); }
+      .pill-blue  { background: rgba(56, 189, 248, 0.12); color: var(--accent); }
+      .pill-gray  { background: rgba(255,255,255,0.07); color: var(--muted); }
+
+      /* VISION TRACK */
+      .vision-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1px;
+        background: var(--border);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      @media (max-width: 640px) {
+        .vision-row { grid-template-columns: 1fr; }
+      }
+
+      .vision-cell {
+        background: var(--surface);
+        padding: 1.3rem;
+      }
+
+      .vision-cell .pmcid {
+        font-size: 0.72rem;
+        font-family: monospace;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+
+      .vision-cell .result {
+        font-size: 0.88rem;
+        font-weight: 700;
+        margin-bottom: 0.3rem;
+      }
+
+      .result-pass { color: var(--green); }
+      .result-fail { color: rgba(241, 245, 249, 0.4); }
+
+      .vision-cell .detail {
+        font-size: 0.78rem;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      /* PIPELINE */
+      .pipeline {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+
+      .pipe-step {
+        display: flex;
+        gap: 1.2rem;
+        align-items: flex-start;
+        padding: 1.1rem 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .pipe-step:last-child { border-bottom: none; }
+
+      .pipe-num {
+        min-width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        background: rgba(56, 189, 248, 0.12);
+        border: 1px solid rgba(56, 189, 248, 0.25);
+        color: var(--accent);
+        font-size: 0.8rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .pipe-content h4 {
+        font-size: 0.9rem;
+        font-weight: 700;
+        margin-bottom: 0.2rem;
+      }
+
+      .pipe-content code {
+        font-family: 'SF Mono', 'Fira Code', monospace;
+        font-size: 0.78rem;
+        color: var(--accent2);
+        background: rgba(129, 140, 248, 0.1);
+        padding: 0.1rem 0.35rem;
+        border-radius: 4px;
+      }
+
+      .pipe-content p {
+        font-size: 0.82rem;
+        color: var(--muted);
+        line-height: 1.5;
+        margin-top: 0.2rem;
+      }
+
+      /* FOOTER */
+      footer {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding-top: 2rem;
+        border-top: 1px solid var(--border);
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+
+      footer a {
+        color: var(--muted);
+        text-decoration: none;
+      }
+
+      footer a:hover { color: var(--text); }
+    </style>
+  </head>
+
+  <body>
+
+    <nav>
+      <span class="nav-logo">SanoMap / Radiomics Layer</span>
+      <div class="nav-links">
+        <a href="knowledge_map.md">Schema</a>
+        <a href="explorer/index.html">Explorer</a>
+        <a href="proposal/proposal_sanomap_minerva_extension.tex">Proposal</a>
+        <a href="https://github.com/junjslee/sanomap_radiomics_layer" target="_blank">GitHub</a>
+      </div>
+    </nav>
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="badge">Biomedical Knowledge Graph · MINERVA Extension</div>
+      <h1>Imaging phenotypes as a <span>first-class layer</span><br>in the microbiome graph</h1>
+      <p class="hero-sub">
+        SanoMap's Radiomics Layer closes the gap between gut microbiome evidence and imaging-derived disease markers.
+        Radiomic features and body-composition measurements are explicit intermediate nodes — not inferred, not implied —
+        grounded in literature-extracted direct evidence and verified quantitative figure correlations.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="explorer/index.html">Open Artifact Explorer</a>
+        <a class="btn btn-outline" href="https://github.com/junjslee/sanomap_radiomics_layer" target="_blank">View on GitHub</a>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-row">
+      <div class="stat">
+        <span class="stat-value">640</span>
+        <span class="stat-label">Papers in corpus</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">8</span>
+        <span class="stat-label">Node types</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">12</span>
+        <span class="stat-label">Edge types</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">9</span>
+        <span class="stat-label">Validated microbe–disease pairs</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">156</span>
+        <span class="stat-label">Passing tests</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">r=0.95</span>
+        <span class="stat-label">Verified Vision Track correlation</span>
+      </div>
+    </div>
+
+    <!-- SCHEMA -->
+    <section>
+      <div class="section-label">Graph Schema</div>
+      <h2>The professor's four-part chain — complete</h2>
+      <p class="section-sub">
+        Every edge in the graph is grounded in direct evidence. No inferred bridge matches become asserted relationships.
+        The imaging backbone (BodyLocation, ImagingModality, ImageRef) is now fully wired.
+      </p>
+
+      <div class="schema-block">
+        <div class="schema-chain">
+          <span class="node">Microbe</span>
+          <span class="edge">─[:CORRELATES_WITH]─▶</span>
+          <span class="node">RadiomicFeature</span>
+          <span class="edge">─[:ASSOCIATED_WITH]─▶</span>
+          <span class="node node-green">Disease</span>
+        </div>
+        <div class="schema-chain">
+          <span class="node">Microbe</span>
+          <span class="edge">─[:CORRELATES_WITH]─▶</span>
+          <span class="node">BodyCompositionFeature</span>
+          <span class="edge">─[:ASSOCIATED_WITH]─▶</span>
+          <span class="node node-green">Disease</span>
+        </div>
+        <div class="schema-chain">
+          <span class="node">MicrobialSignature</span>
+          <span class="edge">─[:CORRELATES_WITH]─▶</span>
+          <span class="node">RadiomicFeature</span>
+          <span class="edge">─[:MEASURED_AT]─▶</span>
+          <span class="node node-purple">BodyLocation</span>
+        </div>
+        <div class="schema-chain">
+          <span class="node">RadiomicFeature</span>
+          <span class="edge">─[:ACQUIRED_VIA]─▶</span>
+          <span class="node node-purple">ImagingModality</span>
+          <span class="edge">─[:REPRESENTED_BY]─▶</span>
+          <span class="node node-purple">ImageRef</span>
+        </div>
+        <div class="schema-chain">
+          <span class="node">Microbe</span>
+          <span class="edge">─[:CORRELATES_WITH_DISEASE]─▶</span>
+          <span class="node node-green">Disease</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- NODE TYPES -->
+    <section>
+      <div class="section-label">Node Inventory</div>
+      <h2>Eight node types, grounded in direct evidence</h2>
+      <p class="section-sub">
+        Each node type maps to a specific evidence source. No speculative nodes.
+      </p>
+
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-icon">🦠</div>
+          <h3>Microbe</h3>
+          <p>Taxon-specific entities from microbial NER. Examples: <em>Fusobacterium nucleatum</em>, <em>Akkermansia muciniphila</em>.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🔬</div>
+          <h3>MicrobialSignature</h3>
+          <p>Non-taxon microbiome states: dysbiosis, alpha diversity, beta diversity, intratumoral microbiome.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">📊</div>
+          <h3>RadiomicFeature</h3>
+          <p>IBSI-backed quantitative imaging features. Examples: glcm_entropy, first_order_kurtosis.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">⚖️</div>
+          <h3>BodyCompositionFeature</h3>
+          <p>Imaging-derived phenotype markers: skeletal_muscle_index, visceral_adipose_tissue, sarcopenia, myosteatosis.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🏥</div>
+          <h3>Disease</h3>
+          <p>Disease or outcome concepts grounded in paper text. Filtered through shared span cleanup before edge promotion.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">📍</div>
+          <h3>BodyLocation</h3>
+          <p>12 anatomical sites where imaging measurements are taken: liver, lung, colon, abdomen, muscle, bone, and more.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🖥️</div>
+          <h3>ImagingModality</h3>
+          <p>4 modalities with DICOM codes: CT/CT, MRI/MR, PET/PT, DXA/DXA.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🖼️</div>
+          <h3>ImageRef</h3>
+          <p>Verified figure references from the Vision Track. Stores PMCID, figure ID, topology, and image path. Completes the chain to representative evidence.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- VISION TRACK -->
+    <section>
+      <div class="section-label">Vision Track</div>
+      <h2>Quantitative correlation extraction from medical figures</h2>
+      <p class="section-sub">
+        The Vision Track uses a VLM to propose r-values from heatmap figures,
+        then gates every proposal through a deterministic pixel-level verifier before any edge is asserted.
+        Figures that are not continuous gradient heatmaps — or that lack a microbe entity — are correctly rejected.
+      </p>
+
+      <div class="vision-row">
+        <div class="vision-cell">
+          <div class="pmcid">PMC10605408 · Fig (CT texture heatmap)</div>
+          <div class="result result-pass">Verified ✓</div>
+          <div class="detail">
+            <strong>Prevotella nigrescens ↔ GLCM_Correlation</strong><br>
+            r = 0.95 · distance_metric = 0.05 · support_fraction = 1.0<br>
+            → 1 ImageRef node emitted to graph
+          </div>
+        </div>
+        <div class="vision-cell">
+          <div class="pmcid">PMC10176953 · Fig6 (microbiota ↔ radiomics)</div>
+          <div class="result result-fail">Rejected — correct</div>
+          <div class="detail">
+            VLM proposed Actinomyces r=−0.4 (paper text: R=−0.510)<br>
+            Rejection reason: dot/bar-plot style, not a continuous gradient heatmap
+          </div>
+        </div>
+        <div class="vision-cell">
+          <div class="pmcid">PMC11924647 · Fig4 (radiomics feature heatmap)</div>
+          <div class="result result-fail">Rejected — correct</div>
+          <div class="detail">
+            Feature-to-feature correlation only. No microbe entity present.<br>
+            Verifier correctly gates non-microbe figures.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PIPELINE -->
+    <section>
+      <div class="section-label">Pipeline</div>
+      <h2>Nine-stage evidence extraction pipeline</h2>
+      <p class="section-sub">Aligned with MINERVA methodology. Each stage produces validated JSONL artifacts.</p>
+
+      <div class="schema-block pipeline">
+        <div class="pipe-step">
+          <div class="pipe-num">1</div>
+          <div class="pipe-content">
+            <h4>Literature Retrieval</h4>
+            <code>src/harvest_pubmed.py</code>
+            <p>Split query profiles: strict radiomics, adjacent imaging, body-composition. 640-paper expanded corpus.</p>
+          </div>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-num">2</div>
+          <div class="pipe-content">
+            <h4>Corpus Merge + PMC Full-Text</h4>
+            <code>src/merge_paper_corpora.py</code> · <code>src/download_pmc_fulltext.py</code>
+            <p>Deduplicated merge. Full-text preferred over abstract-only for downstream NER.</p>
+          </div>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-num">3</div>
+          <div class="pipe-content">
+            <h4>Phenotype Text Extraction</h4>
+            <code>src/extract_radiomics_text.py</code>
+            <p>IBSI-backed radiomics + body-composition vocabulary. Detects BodyLocation (42.8% coverage) and ImagingModality. Stopword-guarded disease detection.</p>
+          </div>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-num">4</div>
+          <div class="pipe-content">
+            <h4>Disease + Microbe NER</h4>
+            <code>src/text_ner_minerva.py</code>
+            <p>MINERVA-aligned sentence-level NER. MPS-accelerated microbe NER on Apple Silicon. BC5CDR disease NER.</p>
+          </div>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-num">5</div>
+          <div class="pipe-content">
+            <h4>Relation Input Construction</h4>
+            <code>src/build_relation_input.py</code>
+            <p>Joins sentence evidence with phenotype context. Threads subject_node_type for graph typing.</p>
+          </div>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-num">6</div>
+          <div class="pipe-content">
+            <h4>Relation Extraction</h4>
+            <code>src/relation_extract_stage.py</code>
+            <p>Self-consistency 3-label classification (Positive / Negative / Unrelated). Hosted via Gemini 2.5 Flash-Lite. 9 clean validated microbe–disease pairs.</p>
+          </div>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-num">7</div>
+          <div class="pipe-content">
+            <h4>Span Cleanup</h4>
+            <code>src/span_cleanup.py</code>
+            <p>Pre-inference entity cleanup. Normalizes genus-containing products, finding-in-disease patterns, clause fragments.</p>
+          </div>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-num">8</div>
+          <div class="pipe-content">
+            <h4>Vision Track</h4>
+            <code>src/index_figures.py</code> · <code>src/propose_vision_qwen.py</code> · <code>src/verify_heatmap.py</code>
+            <p>VLM proposes r-values from PMC figures. Deterministic pixel-level verifier gates every proposal. Only verified figures become ImageRef nodes.</p>
+          </div>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-num">9</div>
+          <div class="pipe-content">
+            <h4>Graph Assembly</h4>
+            <code>src/assemble_edges.py</code>
+            <p>Emits Neo4j-ready edge CSV, BodyLocation/ImagingModality/ImageRef nodes, and audit-only phenotype-axis candidates. Bridge hypotheses are explicitly not ingested.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VALIDATION -->
+    <section>
+      <div class="section-label">Validation Baseline</div>
+      <h2>Current graph-ready output snapshot</h2>
+      <p class="section-sub">All artifacts are schema-validated JSONL. The test suite runs in Conda base on Apple Silicon MPS.</p>
+
+      <div class="schema-block">
+        <table class="val-table">
+          <thead>
+            <tr>
+              <th>Artifact</th>
+              <th>Count</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Validated microbe–disease pairs (Gemini, self-consistency)</td>
+              <td>9</td>
+              <td><span class="pill pill-green">Graph-ready</span></td>
+            </tr>
+            <tr>
+              <td>Phenotype-to-disease text edges (ASSOCIATED_WITH)</td>
+              <td>23</td>
+              <td><span class="pill pill-green">Graph-ready</span></td>
+            </tr>
+            <tr>
+              <td>BodyLocation nodes</td>
+              <td>12</td>
+              <td><span class="pill pill-green">Graph-ready</span></td>
+            </tr>
+            <tr>
+              <td>ImagingModality nodes (CT, MRI, PET, DXA)</td>
+              <td>4</td>
+              <td><span class="pill pill-green">Graph-ready</span></td>
+            </tr>
+            <tr>
+              <td>MEASURED_AT + ACQUIRED_VIA backbone rows</td>
+              <td>50</td>
+              <td><span class="pill pill-green">Graph-ready</span></td>
+            </tr>
+            <tr>
+              <td>ImageRef nodes (Vision Track verified)</td>
+              <td>1</td>
+              <td><span class="pill pill-green">Graph-ready</span></td>
+            </tr>
+            <tr>
+              <td>Phenotype-axis candidates (audit-only)</td>
+              <td>233</td>
+              <td><span class="pill pill-gray">Audit-only</span></td>
+            </tr>
+            <tr>
+              <td>Bridge hypotheses (audit-only, not ingested)</td>
+              <td>232</td>
+              <td><span class="pill pill-gray">Audit-only</span></td>
+            </tr>
+            <tr>
+              <td>pytest checks passing</td>
+              <td>156</td>
+              <td><span class="pill pill-blue">Green</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+      <span>SanoMap Radiomics Layer — MINERVA-aligned imaging phenotype extension</span>
+      <div style="display:flex;gap:1.4rem;">
+        <a href="https://github.com/junjslee/sanomap_radiomics_layer" target="_blank">GitHub</a>
+        <a href="explorer/index.html">Artifact Explorer</a>
+        <a href="knowledge_map.md">Knowledge Map</a>
+      </div>
+    </footer>
+
+  </body>
+</html>

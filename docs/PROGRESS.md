@@ -1,7 +1,7 @@
 # Progress
 
 ## Last Updated
-- 2026-03-27 America/Chicago
+- 2026-03-28 America/Chicago (Vision Track second run, BENT NER eval, disease extraction quality fix)
 
 ## Completed
 - Query profiles were split and refined for strict radiomics, adjacent imaging, and body-composition retrieval.
@@ -277,10 +277,91 @@
     - `catenibacterium` + `body cell mass deficiency in cirrhosis` (qualifier vs co-disease)
     - `lactobacillus-containing probiotic` + `systemic inflammation` (broad inflammation target)
 
+- Vision Track validated end-to-end on 2026-03-27:
+  - used real PMC figure from PMC10605408 (correlation heatmap of CT texture features and gut microbiome)
+  - pipeline: `index_figures.py` → `propose_vision_qwen.py` (Gemini 2.5 Flash-Lite via OpenAI-compatible API) → `verify_heatmap.py`
+  - VLM extracted `r=0.95` for `Prevotella_nigrescens` ↔ `GLCM_Correlation` on CT
+  - deterministic verification accepted: `distance_metric=0.05`, `support_fraction=1.0`
+  - artifacts produced: `artifacts/figures.jsonl`, `artifacts/vision_proposals_gemini_vision.jsonl`, `artifacts/verification_results_gemini_vision.jsonl`
+- Imaging backbone nodes implemented on 2026-03-27:
+  - added `BodyLocationNode` and `ImagingModalityNode` dataclasses in `src/types.py`
+  - added JSON Schemas: `src/schemas/body_location_nodes.schema.json` and `src/schemas/imaging_modality_nodes.schema.json`
+  - added `collect_imaging_backbone_nodes()` and `build_imaging_backbone_neo4j_rows()` in `src/assemble_edges.py`
+  - wired into `main()`: node JSONL output, schema validation, Neo4j CSV backbone rows, metrics
+  - new CLI args: `--output-body-locations`, `--output-imaging-modalities`
+  - new edge types: `MEASURED_AT` (feature → BodyLocation), `ACQUIRED_VIA` (feature → ImagingModality)
+  - DICOM code mapping for CT, MRI, PET, US, DXA, XRAY
+  - `18` new tests in `tests/test_imaging_backbone.py`, all passing
+  - full test suite: `124 passed`
+  - addresses professor's guidance to "connect disease — body location — imaging modality — representative images"
+- Updated `docs/knowledge_map.md` with BodyLocation and ImagingModality nodes in Mermaid diagram
+- Updated `docs/RADIOMICS_LAYER_SPECS.md` with 7 node types and 11 edge types
+
+- Vocabulary expansion in `src/extract_radiomics_text.py` on 2026-03-28:
+  - added 5 new DXA modality terms and 19 new body location terms
+  - body location coverage: `8.1%` → `42.8%` of text mentions
+  - modality coverage: `54.7%` → `56.5%` of text mentions
+  - BodyLocation nodes: `5` → `12`, ImagingModality nodes: `3` → `4` (+DXA)
+  - backbone Neo4j rows: `25` → `50`
+  - full test suite: `131 passed`
+- Policy decisions resolved on 2026-03-28:
+  - `body cell mass deficiency in cirrhosis`: normalized to `cirrhosis` (measurement finding, not a disease concept)
+  - `systemic inflammation`: kept as valid disease node (MINERVA has bare `inflammation` as its #1 disease node)
+  - `lactobacillus-containing probiotic`: normalized subject to `lactobacillus` (product description, not a microbe)
+  - added `<finding> in <disease>` normalization in `src/span_cleanup.py`
+  - added `<genus>-containing <product>` normalization in `src/span_cleanup.py`
+  - 7 new tests for normalization rules
+- False-negative audit completed on 2026-03-28:
+  - overall pipeline false-negative rate estimated at `3-5%`
+  - root cause of lost relations is NER wordpiece fragmentation, not overly aggressive filters
+  - recommendation: improve NER quality upstream, do not loosen filters
+- `ImageRef` node type implemented on 2026-03-28:
+  - added `ImageRef` dataclass in `src/types.py`
+  - added JSON Schema: `src/schemas/image_ref_nodes.schema.json`
+  - added `collect_image_ref_nodes()` and `build_image_ref_neo4j_rows()` in `src/assemble_edges.py`
+  - new edge type: `REPRESENTED_BY` (ImagingModality → ImageRef)
+  - completes professor's four-part chain: Disease ← Feature → BodyLocation / ImagingModality → ImageRef
+  - `13` new tests in `tests/test_image_ref.py`, all passing
+  - full test suite: `144 passed`
+  - assembly produces `1` ImageRef node and `1` REPRESENTED_BY edge from validated Vision Track figure
+- Updated `docs/knowledge_map.md` with ImageRef node and REPRESENTED_BY edge
+- Updated `docs/RADIOMICS_LAYER_SPECS.md` with 8 node types and 12 edge types
+- Re-ran text extraction and edge assembly with all expanded vocabulary, new normalization rules, and ImageRef support:
+  - neo4j_rows_out: `74` total (text edges + backbone + image ref)
+  - body_location_nodes_out: `12`, imaging_modality_nodes_out: `4`, image_ref_nodes_out: `1`
+
+- Vision Track second run on 2026-03-28:
+  - downloaded figures from PMC10176953 (respiratory microbiota + radiomics, COPD) and PMC11924647 (intratumoral microbiota + fusion radiomics, TNBC)
+  - fixed PMC figure URL extraction: new PMC domain is `pmc.ncbi.nlm.nih.gov`, figure images served from `cdn.ncbi.nlm.nih.gov/pmc/blobs/`
+  - PMC10176953 Fig6 (Spearman correlation, microbiota ↔ radiomics):
+    - VLM proposed: Actinomyces ↔ Ai/BSA r=-0.4 (text confirms R=-0.510)
+    - verifier rejected: distance_metric=0.60, support_fraction=0.0
+    - rejection reason: figure is a dot/bar-plot style correlation chart, not a continuous gradient heatmap
+  - PMC11924647 Fig4 (radiomics feature-feature correlation heatmap):
+    - VLM proposed: r=0.37 for log-sigma-4-glcm_Coarseness
+    - verifier rejected: distance_metric=0.42, support_fraction=0.0
+    - rejection reason: no microbe entity in this figure (feature-feature correlation only)
+  - both rejections are correct behavior: the verifier properly gates non-standard figures and non-microbe correlations
+  - updated `artifacts/figures.jsonl`, `artifacts/vision_proposals_gemini_vision.jsonl`, `artifacts/verification_results_gemini_vision.jsonl` with new records
+  - Vision Track summary: 3 figures attempted total, 1 verified (PMC10605408 r=0.95), 2 correctly rejected
+
+- BENT NER model evaluation on 2026-03-28:
+  - evaluated `pruas/BENT-PubMedBERT-NER-Organism` as candidate upgrade
+  - NOT adopted: systematic FP on "patients" (score>0.99 in every test), and B/B tokenization instead of B/I for multi-token species names
+  - current `d4data/biomedical-ner-all` with MPS remains the recommended local default
+  - evaluation documented in `docs/RUN_CONTEXT.md`
+
+- Text edge disease extraction quality fix on 2026-03-28:
+  - root cause: `DISEASE_PATTERN` in `src/extract_radiomics_text.py` was greedily matching sentence fragments as disease strings
+  - fix: tightened `_detect_disease()` with `_DISEASE_LEAD_STOPWORDS` and `_DISEASE_CONTEXT_STOPWORDS` guards
+  - rejects: "is related with sarcopenia in cirrhosis", "exercise training in humans with obesity", "tissue phenotype is affected by obesity"
+  - preserves: "colorectal cancer", "liver fibrosis", "metabolic dysfunction-associated fatty liver disease", "low-grade chronic inflammation"
+  - 12 new tests in `tests/test_extract_radiomics_text.py`
+  - full test suite: `156 passed`
+
 ## In Progress
-- Determining whether the phenotype extraction disease quality issue (the `213` text edge disease strings from `extract_radiomics_text.py`) needs a separate cleanup pass — this is a different pipeline from the Gemini microbe-disease path.
-- Explicit policy decision on whether `systemic inflammation` and `body cell mass deficiency in cirrhosis` are graph-eligible disease nodes.
-- Formal false-negative audit of dropped phenotype→disease targets still missing.
+- Expanded 640-paper corpus re-run with improved disease detection (text stages only, no API calls needed)
+- UMLS normalization: documented as known gap vs MINERVA upstream; ScispaCy linker is optional and separate
 
 ## Decisions
 - The repo direction is locked to a hybrid imaging phenotype scope:

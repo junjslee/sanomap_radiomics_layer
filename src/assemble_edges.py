@@ -22,7 +22,16 @@ from src.extract_radiomics_text import (
 from src.journal_metrics import ImpactFactorResolver, resolve_paper_metrics
 from src.schema_utils import SchemaValidationError, load_schema, validate_record
 from src.span_cleanup import clean_disease_span, clean_subject_span
-from src.types import BridgeHypothesis, EdgeCandidate, MicrobeDiseaseEdge, PhenotypeAxisCandidate, to_dict
+from src.types import (
+    BodyLocationNode,
+    BridgeHypothesis,
+    EdgeCandidate,
+    ImageRef,
+    ImagingModalityNode,
+    MicrobeDiseaseEdge,
+    PhenotypeAxisCandidate,
+    to_dict,
+)
 
 
 BODYCOMP_CANONICAL = {feat["canonical"] for feat in BODYCOMP_FEATURES}
@@ -814,6 +823,165 @@ def _neo4j_rows_from_edge(edge: EdgeCandidate) -> list[dict[str, Any]]:
     ]
 
 
+MODALITY_DICOM_CODES: dict[str, str] = {
+    "CT": "CT",
+    "MRI": "MR",
+    "PET": "PT",
+    "PET/CT": "PT",
+    "US": "US",
+    "XRAY": "DX",
+    "DXA": "DXA",
+}
+
+
+def collect_imaging_backbone_nodes(
+    text_mentions: list[dict[str, Any]],
+) -> tuple[list[BodyLocationNode], list[ImagingModalityNode]]:
+    body_locations: dict[str, BodyLocationNode] = {}
+    modalities: dict[str, ImagingModalityNode] = {}
+
+    for mention in text_mentions:
+        bl = mention.get("body_location")
+        if bl and isinstance(bl, str):
+            bl_norm = bl.strip().lower()
+            if bl_norm and bl_norm not in body_locations:
+                body_locations[bl_norm] = BodyLocationNode(
+                    node_id=f"body_location:{bl_norm}",
+                    name=bl_norm,
+                )
+
+        mod = mention.get("modality")
+        if mod and isinstance(mod, str):
+            mod_norm = mod.strip().upper()
+            if mod_norm and mod_norm not in modalities:
+                modalities[mod_norm] = ImagingModalityNode(
+                    node_id=f"modality:{mod_norm}",
+                    name=mod_norm,
+                    dicom_code=MODALITY_DICOM_CODES.get(mod_norm, mod_norm),
+                )
+
+    return list(body_locations.values()), list(modalities.values())
+
+
+def build_imaging_backbone_neo4j_rows(
+    text_mentions: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    for mention in text_mentions:
+        feature = mention.get("canonical_feature", "")
+        node_type = mention.get("node_type", "RadiomicFeature")
+        bl = mention.get("body_location")
+        mod = mention.get("modality")
+        pmid = str(mention.get("pmid", ""))
+
+        if bl and isinstance(bl, str):
+            bl_norm = bl.strip().lower()
+            key = f"{node_type}:{feature}:MEASURED_AT:{bl_norm}"
+            if key not in seen:
+                seen.add(key)
+                rows.append({
+                    "source_node_type": node_type,
+                    "source_node": feature,
+                    "target_node_type": "BodyLocation",
+                    "target_node": bl_norm,
+                    "rel_type": "MEASURED_AT",
+                    "pmid": pmid,
+                })
+
+        if mod and isinstance(mod, str):
+            mod_norm = mod.strip().upper()
+            key = f"{node_type}:{feature}:ACQUIRED_VIA:{mod_norm}"
+            if key not in seen:
+                seen.add(key)
+                rows.append({
+                    "source_node_type": node_type,
+                    "source_node": feature,
+                    "target_node_type": "ImagingModality",
+                    "target_node": mod_norm,
+                    "rel_type": "ACQUIRED_VIA",
+                    "pmid": pmid,
+                })
+
+    return rows
+
+
+def collect_image_ref_nodes(
+    vision_proposals: list[dict[str, Any]],
+    verification_results: list[dict[str, Any]],
+) -> list[ImageRef]:
+    """Build ImageRef nodes from verified vision proposals."""
+    verified_ids: set[str] = set()
+    for vr in verification_results:
+        if vr.get("verified") or vr.get("pass_fail"):
+            pid = vr.get("proposal_id", "")
+            if pid:
+                verified_ids.add(pid)
+
+    seen: set[str] = set()
+    nodes: list[ImageRef] = []
+    for vp in vision_proposals:
+        proposal_id = vp.get("proposal_id", "")
+        if proposal_id not in verified_ids:
+            continue
+        pmcid = str(vp.get("pmid") or vp.get("pmcid") or "")
+        figure_id = str(vp.get("figure_id", ""))
+        if not figure_id:
+            continue
+        # Use figure_id alone when pmcid is unavailable
+        node_id = f"imageref:{pmcid}:{figure_id}" if pmcid else f"imageref:{figure_id}"
+        if node_id in seen:
+            continue
+        seen.add(node_id)
+        nodes.append(ImageRef(
+            node_id=node_id,
+            pmcid=pmcid,
+            figure_id=figure_id,
+            panel_id=vp.get("panel_id"),
+            image_path=vp.get("image_path"),
+            topology=None,
+            modality=vp.get("modality"),
+        ))
+    return nodes
+
+
+def build_image_ref_neo4j_rows(
+    image_refs: list[ImageRef],
+    vision_proposals: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Generate REPRESENTED_BY edges: ImagingModality -> ImageRef."""
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    ref_by_figure: dict[str, ImageRef] = {}
+    for ref in image_refs:
+        ref_by_figure[ref.figure_id] = ref
+
+    for vp in vision_proposals:
+        figure_id = str(vp.get("figure_id", ""))
+        ref = ref_by_figure.get(figure_id)
+        if ref is None:
+            continue
+        modality = vp.get("modality")
+        if not modality:
+            continue
+        mod_norm = modality.strip().upper()
+        key = f"modality:{mod_norm}:REPRESENTED_BY:{ref.node_id}"
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append({
+            "source_node_type": "ImagingModality",
+            "source_node": mod_norm,
+            "target_node_type": "ImageRef",
+            "target_node": ref.node_id,
+            "rel_type": "REPRESENTED_BY",
+            "pmid": str(vp.get("pmid", "")),
+        })
+    return rows
+
+
 def _write_bridge_hypotheses(path: str | Path, hypotheses: list[BridgeHypothesis]) -> int:
     return write_jsonl(path, hypotheses)
 
@@ -822,7 +990,12 @@ def _write_axis_candidates(path: str | Path, candidates: list[PhenotypeAxisCandi
     return write_jsonl(path, candidates)
 
 
-def _write_neo4j_relationships_csv(path: str | Path, edges: list[EdgeCandidate]) -> int:
+def _write_neo4j_relationships_csv(
+    path: str | Path,
+    edges: list[EdgeCandidate],
+    imaging_backbone_rows: list[dict[str, Any]] | None = None,
+    image_ref_rows: list[dict[str, Any]] | None = None,
+) -> int:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     fields = [
         "source_node_type",
@@ -845,10 +1018,18 @@ def _write_neo4j_relationships_csv(path: str | Path, edges: list[EdgeCandidate])
 
     row_count = 0
     with Path(path).open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         for edge in edges:
             for row in _neo4j_rows_from_edge(edge):
+                writer.writerow(row)
+                row_count += 1
+        if imaging_backbone_rows:
+            for row in imaging_backbone_rows:
+                writer.writerow(row)
+                row_count += 1
+        if image_ref_rows:
+            for row in image_ref_rows:
                 writer.writerow(row)
                 row_count += 1
     return row_count
@@ -867,6 +1048,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output-bridge-hypotheses", default="artifacts/bridge_hypotheses.jsonl")
     parser.add_argument("--output-axis-candidates", default="artifacts/phenotype_axis_candidates.jsonl")
     parser.add_argument("--output-microbe-disease-edges", default="artifacts/microbe_disease_edges.jsonl")
+    parser.add_argument("--output-body-locations", default="artifacts/body_location_nodes.jsonl")
+    parser.add_argument("--output-imaging-modalities", default="artifacts/imaging_modality_nodes.jsonl")
+    parser.add_argument("--output-image-refs", default="artifacts/image_ref_nodes.jsonl")
     parser.add_argument("--manifest-dir", default="artifacts/manifests")
     parser.add_argument("--include-unverified-vision", action="store_true")
     parser.add_argument("--text-min-confidence", type=float, default=0.6)
@@ -932,6 +1116,12 @@ def main(argv: list[str] | None = None) -> int:
         resolve_journal_metrics=args.resolve_journal_metrics,
     )
 
+    body_locations, imaging_modalities = collect_imaging_backbone_nodes(text_mentions)
+    backbone_rows = build_imaging_backbone_neo4j_rows(text_mentions)
+
+    image_refs = collect_image_ref_nodes(vision_proposals, verification_results)
+    image_ref_rows = build_image_ref_neo4j_rows(image_refs, vision_proposals)
+
     if args.validate_schema:
         schema = load_schema("verified_edges.schema.json")
         for idx, edge in enumerate(edges):
@@ -957,10 +1147,32 @@ def main(argv: list[str] | None = None) -> int:
                 validate_record(to_dict(md_edge), md_schema)
             except SchemaValidationError as exc:
                 raise SchemaValidationError(f"microbe_disease_edges[{idx}] invalid: {exc}") from exc
+        bl_schema = load_schema("body_location_nodes.schema.json")
+        for idx, bl_node in enumerate(body_locations):
+            try:
+                validate_record(to_dict(bl_node), bl_schema)
+            except SchemaValidationError as exc:
+                raise SchemaValidationError(f"body_location_nodes[{idx}] invalid: {exc}") from exc
+        mod_schema = load_schema("imaging_modality_nodes.schema.json")
+        for idx, mod_node in enumerate(imaging_modalities):
+            try:
+                validate_record(to_dict(mod_node), mod_schema)
+            except SchemaValidationError as exc:
+                raise SchemaValidationError(f"imaging_modality_nodes[{idx}] invalid: {exc}") from exc
+        image_ref_schema = load_schema("image_ref_nodes.schema.json")
+        for idx, ir_node in enumerate(image_refs):
+            try:
+                validate_record(to_dict(ir_node), image_ref_schema)
+            except SchemaValidationError as exc:
+                raise SchemaValidationError(f"image_ref_nodes[{idx}] invalid: {exc}") from exc
 
     jsonl_count = write_jsonl(args.output_jsonl, edges)
     _write_edges_csv(args.output_csv, edges)
-    neo4j_rows = _write_neo4j_relationships_csv(args.output_neo4j_csv, edges)
+    neo4j_rows = _write_neo4j_relationships_csv(
+        args.output_neo4j_csv, edges,
+        imaging_backbone_rows=backbone_rows,
+        image_ref_rows=image_ref_rows,
+    )
     bridge_hypothesis_count = _write_bridge_hypotheses(
         args.output_bridge_hypotheses,
         bridge_hypotheses_preview,
@@ -970,6 +1182,9 @@ def main(argv: list[str] | None = None) -> int:
         axis_candidates_preview,
     )
     md_edge_count = write_jsonl(args.output_microbe_disease_edges, microbe_disease_edges_preview)
+    bl_count = write_jsonl(args.output_body_locations, body_locations)
+    mod_count = write_jsonl(args.output_imaging_modalities, imaging_modalities)
+    image_ref_count = write_jsonl(args.output_image_refs, image_refs)
 
     metrics = {
         "text_mentions_in": len(text_mentions),
@@ -991,6 +1206,11 @@ def main(argv: list[str] | None = None) -> int:
         "axis_candidates_out": axis_candidate_count,
         "bridge_hypotheses_out": bridge_hypothesis_count,
         "microbe_disease_edges_out": md_edge_count,
+        "body_location_nodes_out": bl_count,
+        "imaging_modality_nodes_out": mod_count,
+        "imaging_backbone_neo4j_rows": len(backbone_rows),
+        "image_ref_nodes_out": image_ref_count,
+        "image_ref_neo4j_rows": len(image_ref_rows),
         "vision_verified_edges": sum(
             1
             for e in edges
@@ -1019,6 +1239,9 @@ def main(argv: list[str] | None = None) -> int:
             "phenotype_axis_candidates_jsonl": str(Path(args.output_axis_candidates).resolve()),
             "bridge_hypotheses_jsonl": str(Path(args.output_bridge_hypotheses).resolve()),
             "microbe_disease_edges_jsonl": str(Path(args.output_microbe_disease_edges).resolve()),
+            "body_location_nodes_jsonl": str(Path(args.output_body_locations).resolve()),
+            "imaging_modality_nodes_jsonl": str(Path(args.output_imaging_modalities).resolve()),
+            "image_ref_nodes_jsonl": str(Path(args.output_image_refs).resolve()),
         },
         command=" ".join(sys.argv),
     )

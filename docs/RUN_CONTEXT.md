@@ -167,3 +167,12 @@ Read this file at the start of implementation work.
 - Prefer batching and inference reduction before large model swaps.
 - `src/text_ner_minerva.py` now chunks long sentences, batches NER calls, and runs microbe NER only after disease-positive sentence filtering.
 - Revisit model substitution only after checking whether those safer runtime optimizations are enough.
+
+## BENT Model Evaluation (2026-03-28)
+- `pruas/BENT-PubMedBERT-NER-Organism` was evaluated as a candidate upgrade for microbe NER.
+- Evaluation outcome: **not adopted** as default due to two blockers:
+  1. Systematic false positive on "patients" (labeled as B entity with score > 0.99 in every test sentence)
+  2. Subword tokenization produces B/B instead of B/I for multi-token species names (e.g., "fus" → B, "##obacterium" → B), requiring custom post-processing to merge spans correctly
+- The current `d4data/biomedical-ner-all` model with MPS remains the recommended local default.
+- BENT could be adopted if a custom span-merging layer is added and the "patients" FP is filtered; the `span_cleanup.py` generic-term filter already handles "patients", but the tokenization issue needs additional code work.
+- If organism NER quality becomes the bottleneck again, re-evaluate with explicit subword-merging or consider `pruas/BENT-PubMedBERT-NER-Disease` for the disease side instead.

@@ -12,6 +12,9 @@ The current implemented graph scope is:
 - `RadiomicFeature`
 - `BodyCompositionFeature`
 - `Disease`
+- `BodyLocation`
+- `ImagingModality`
+- `ImageRef`
 
 The current direct-evidence graph policy is:
 - `(Microbe)-[:CORRELATES_WITH]->(RadiomicFeature)`
@@ -20,6 +23,12 @@ The current direct-evidence graph policy is:
 - `(MicrobialSignature)-[:CORRELATES_WITH]->(BodyCompositionFeature)`
 - `(RadiomicFeature)-[:ASSOCIATED_WITH]->(Disease)`
 - `(BodyCompositionFeature)-[:ASSOCIATED_WITH]->(Disease)`
+- `(RadiomicFeature)-[:MEASURED_AT]->(BodyLocation)`
+- `(BodyCompositionFeature)-[:MEASURED_AT]->(BodyLocation)`
+- `(RadiomicFeature)-[:ACQUIRED_VIA]->(ImagingModality)`
+- `(BodyCompositionFeature)-[:ACQUIRED_VIA]->(ImagingModality)`
+- `(ImagingModality)-[:REPRESENTED_BY]->(ImageRef)`
+- `(Microbe)-[:CORRELATES_WITH_DISEASE]->(Disease)`
 
 Audit-only lanes that help inspect the extension without asserting new graph facts are:
 - direct text subject-to-phenotype candidates in `phenotype_axis_candidates*.jsonl`
@@ -60,7 +69,9 @@ How can we connect microbiome findings to imaging-derived phenotypes and then to
 - relation aggregation in `src/relation_extract_stage.py`
 - shared span cleanup in `src/span_cleanup.py`
 - phenotype edge assembly and audit artifacts in `src/assemble_edges.py`
+- imaging backbone node extraction (BodyLocation, ImagingModality) in `src/assemble_edges.py`
 - deterministic heatmap verification in `src/verify_heatmap.py`
+- Vision Track end-to-end: figure indexing, VLM proposal, deterministic verification
 - local static explorer in `docs/explorer/index.html`
 - explicit graph diagram in `docs/knowledge_map.md`
 
@@ -80,17 +91,30 @@ How can we connect microbiome findings to imaging-derived phenotypes and then to
   `6` phenotype subjects linked to `9` disease-side targets, with the obvious clause/measurement leakage removed from the emitted text edges
 - Current hosted microbe-disease validation baseline:
   cleaned Gemini rerun produced `8` accepted aggregated relations on the current `26`-row local relation set
+- Current imaging backbone snapshot:
+  `12` BodyLocation nodes, `4` ImagingModality nodes (CT/CT, PET/PT, MRI/MR, DXA/DXA),
+  `50` MEASURED_AT and ACQUIRED_VIA Neo4j rows
+- Current ImageRef snapshot:
+  `1` ImageRef node from validated Vision Track figure (PMC10605408, r=0.95, Prevotella_nigrescens ↔ GLCM_Correlation)
+- Vision Track validated:
+  3 figures attempted total: 1 verified (PMC10605408, r=0.95, Prevotella_nigrescens ↔ GLCM_Correlation),
+  2 correctly rejected by deterministic verifier (PMC10176953 dot-plot style, PMC11924647 feature-feature only)
 - Validation:
-  `98` pytest checks passing locally
+  `156` pytest checks passing locally
 
 ## Current Status
 
 - The local proof-of-concept pipeline is operational end to end.
 - Shared entity cleanup has been implemented and locally audited on the merged corpus.
-- The local pytest suite is currently green at `98 passed`.
-- The main remaining technical gap is a real hosted or GPU-backed model-backed merged relation run.
+- The imaging backbone (BodyLocation + ImagingModality) is implemented with vocabulary-expanded coverage (body location 8.1% → 42.8%).
+- The ImageRef node type is implemented, completing the professor's four-part chain: Disease ← Feature → BodyLocation / ImagingModality → ImageRef.
+- The Vision Track has been validated end-to-end: 1 verified figure, 2 correctly rejected by deterministic verifier.
+- Policy decisions on all borderline disease targets are resolved with normalization rules.
+- Disease extraction quality is improved with stopword-guarded `_detect_disease()` in `extract_radiomics_text.py`.
+- The local pytest suite is currently green at `156 passed`.
+- The main remaining technical gap is running the expanded 640-paper corpus through the improved extraction pipeline.
 
-So the repo is already suitable for professor review as a topic + map + tool + visualization deliverable. What is still pending is stronger upstream-style validation and final policy judgment on whether qualified outcome targets like `systemic inflammation` should remain graph-eligible, not the existence of a visible project artifact.
+So the repo is already suitable for professor review as a topic + map + tool + visualization deliverable. What is still pending is running the expanded 640-paper corpus through the improved pipeline and strengthening upstream-style validation.
 
 ## Prior Work And Boundary
 

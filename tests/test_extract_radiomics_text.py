@@ -2,7 +2,7 @@ import unittest
 import tempfile
 from pathlib import Path
 
-from src.extract_radiomics_text import extract_mentions_from_paper
+from src.extract_radiomics_text import _detect_disease, extract_mentions_from_paper
 
 
 class TestExtractRadiomicsText(unittest.TestCase):
@@ -70,6 +70,50 @@ class TestExtractRadiomicsText(unittest.TestCase):
             mentions, _ = extract_mentions_from_paper(paper)
             self.assertGreaterEqual(len(mentions), 1)
             self.assertEqual(mentions[0].canonical_feature, "glcm_entropy")
+
+
+class TestDetectDisease(unittest.TestCase):
+    def test_rejects_sentence_fragment_verb_lead(self) -> None:
+        self.assertIsNone(_detect_disease("is related with sarcopenia in cirrhosis patients", ""))
+
+    def test_rejects_sentence_fragment_with_humans(self) -> None:
+        self.assertIsNone(_detect_disease("exercise training in humans with obesity", ""))
+
+    def test_rejects_components_prefix(self) -> None:
+        self.assertIsNone(_detect_disease("components of liver steatosis and fibrosis", ""))
+
+    def test_rejects_distribution_context(self) -> None:
+        self.assertIsNone(_detect_disease("body fat distribution and systemic inflammation", ""))
+
+    def test_rejects_verb_lessens(self) -> None:
+        self.assertIsNone(_detect_disease("pepper lessens high fat diet-induced inflammation", ""))
+
+    def test_rejects_is_affected_by(self) -> None:
+        self.assertIsNone(_detect_disease("tissue phenotype is affected by obesity", ""))
+
+    def test_keeps_colorectal_cancer(self) -> None:
+        self.assertEqual(_detect_disease("colorectal cancer was associated with Fusobacterium", ""), "colorectal cancer")
+
+    def test_keeps_liver_fibrosis(self) -> None:
+        self.assertEqual(_detect_disease("liver fibrosis was predicted by microbiome features", ""), "liver fibrosis")
+
+    def test_keeps_metabolic_syndrome(self) -> None:
+        self.assertEqual(_detect_disease("metabolic syndrome risk was increased", ""), "metabolic syndrome")
+
+    def test_keeps_mafld_multiword(self) -> None:
+        self.assertEqual(
+            _detect_disease("metabolic dysfunction-associated fatty liver disease", ""),
+            "metabolic dysfunction-associated fatty liver disease",
+        )
+
+    def test_keeps_low_grade_chronic_inflammation(self) -> None:
+        self.assertEqual(
+            _detect_disease("low-grade chronic inflammation correlated with muscle loss", ""),
+            "low-grade chronic inflammation",
+        )
+
+    def test_keeps_systemic_inflammation(self) -> None:
+        self.assertEqual(_detect_disease("systemic inflammation was elevated", ""), "systemic inflammation")
 
 
 if __name__ == "__main__":

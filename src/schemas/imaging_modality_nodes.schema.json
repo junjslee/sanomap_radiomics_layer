@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ImagingModalityNode",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["node_id", "name", "node_type"],
+  "properties": {
+    "node_id": {"type": "string"},
+    "name": {"type": "string"},
+    "dicom_code": {"type": "string"},
+    "node_type": {
+      "type": "string",
+      "enum": ["ImagingModality"]
+    }
+  }
+}
