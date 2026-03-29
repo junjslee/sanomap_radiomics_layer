@@ -33,18 +33,17 @@ Read this together with:
 - Optional Claude-only plugins such as `claude-mem` are not canonical project memory and are not required for normal repo operation.
 
 ## Primary Goal
-Finish the radiomics-first imaging phenotype extension to a level that is methodologically close to upstream MINERVA, while keeping the current graph semantics and direct-evidence policy.
+Own the full delivery: run the expanded corpus through the improved pipeline, strengthen the Vision Track with more verified figures, and lock the proposal document to match the actual shipped system.
 
 The next major milestone is:
-- tighten text-derived phenotype-to-disease filtering so assembled edges are semantically cleaner
-- confirm which assembled outputs are graph-eligible versus audit-only
-- expand BodyLocation and ImagingModality coverage through improved extractor vocabulary
-- run expanded 640-paper corpus through improved extraction pipeline (no API calls needed for text stages)
-- validate Vision Track on more gradient-colormap heatmap figures specifically (dot-plot figures will correctly fail)
-- then continue to final edge assembly and downstream graph export
+- re-run `src/extract_radiomics_text.py` on the 640-paper corpus with the improved `_detect_disease()` (local, no API spend)
+- update `docs/proposal/proposal_sanomap_minerva_extension.tex` to reflect delivered system, not the original plan
+- find PMC papers with proper gradient-colormap heatmaps for additional Vision Track runs
+- decide on UMLS normalization: add ScispaCy optional pass or document explicitly as known gap
 
 ## Current Baseline
-- Last pushed baseline before this handoff: commit `b8b4981`
+- Last pushed baseline: commit `b8b4981` — disease filter expansion + 640-paper corpus re-run in progress
+- GitHub Pages live: `https://junjslee.github.io/sanomap_radiomics_layer/`
 - Active implementation lane: `ops/remote-run-hf-hosted`
 - Current repo direction is locked:
   - hybrid imaging phenotype scope
@@ -184,9 +183,10 @@ Known gaps vs upstream:
 - UMLS normalization: documented as a known gap vs upstream MINERVA; not yet implemented.
 
 ## Exact Next Actions
-1. Re-run `src/extract_radiomics_text.py` on the expanded 640-paper corpus to measure improvement in disease string quality.
-2. Search the PMC corpus specifically for papers with gradient-colormap heatmaps (not bar/dot charts) showing microbe-radiomics correlations.
-3. If strict-radiomics yield needs improvement, improve adjacent-imaging / strict-radiomics extractor vocabulary rather than broadening retrieval queries.
+1. ~~Re-run `src/extract_radiomics_text.py` on the expanded 640-paper corpus~~ — **Done 2026-03-29.** 640-paper corpus re-run; disease targets now 30 clean concepts, 72 ASSOCIATED_WITH + 9 microbe-disease edges, 149 Neo4j rows.
+2. Update `docs/proposal/proposal_sanomap_minerva_extension.tex` to reflect the actual delivered system (not the original plan).
+3. Search PMC corpus specifically for papers with gradient-colormap heatmaps (not bar/dot charts) showing microbe ↔ radiomic feature correlations — needed for additional verified ImageRef nodes.
+4. If strict-radiomics yield needs improvement, improve adjacent-imaging / strict-radiomics extractor vocabulary rather than broadening retrieval queries.
 
 ## What We Are Waiting On
 ### Infrastructure

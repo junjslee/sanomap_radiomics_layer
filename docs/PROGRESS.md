@@ -1,7 +1,7 @@
 # Progress
 
 ## Last Updated
-- 2026-03-28 America/Chicago (Vision Track second run, BENT NER eval, disease extraction quality fix)
+- 2026-03-29 America/Chicago (expanded 640-paper corpus re-run, disease string quality hardened to 30 clean targets)
 
 ## Completed
 - Query profiles were split and refined for strict radiomics, adjacent imaging, and body-composition retrieval.
@@ -359,8 +359,17 @@
   - 12 new tests in `tests/test_extract_radiomics_text.py`
   - full test suite: `156 passed`
 
+- Expanded 640-paper corpus re-run completed on 2026-03-29:
+  - re-ran `src/extract_radiomics_text.py` on 640-paper fulltext corpus
+  - further expanded `_DISEASE_LEAD_STOPWORDS` with section-header words (abstract, introduction, aims, background), preposition/conjunction leads (as, like, to, when, particularly, independent, indicate), and population-prefix starters
+  - further expanded `TEXT_EDGE_DISEASE_PREFIX_PATTERNS` in `src/assemble_edges.py` with 14 new patterns covering clinical-fragment leads, narrative starters, technique strings
+  - further expanded `TEXT_EDGE_DISEASE_SUBSTRING_PATTERNS` with trigger, intervention, visualize, stain, background
+  - disease string progression: initial `213` edges (120-paper corpus) → `144` → `99` → `75` → `72` clean edges (640-paper corpus)
+  - final disease target set: `30` clinically meaningful concepts, zero sentence fragments or section-header noise
+  - final assembly output: `72` ASSOCIATED_WITH edges, `9` microbe-disease edges, `18` BodyLocation nodes, `5` ImagingModality nodes, `1` ImageRef node, `149` total Neo4j rows
+  - full test suite still green: `156 passed`
+
 ## In Progress
-- Expanded 640-paper corpus re-run with improved disease detection (text stages only, no API calls needed)
 - UMLS normalization: documented as known gap vs MINERVA upstream; ScispaCy linker is optional and separate
 
 ## Decisions

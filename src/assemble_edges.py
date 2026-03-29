@@ -52,6 +52,13 @@ MICROBE_STOPWORDS = {
 }
 TEXT_EDGE_DISEASE_EXACT_REJECT = {
     "s disease",
+    "all disease",
+    "number of disease",
+    "identifying disease",
+    "any disease",
+    "multidimensional syndrome",
+    "disease",
+    "cancer",
 }
 TEXT_EDGE_DISEASE_NORMALIZATION_PATTERNS = (
     (re.compile(r"^presence of\s+"), ""),
@@ -95,10 +102,45 @@ TEXT_EDGE_DISEASE_PREFIX_PATTERNS = (
     re.compile(r"^individuals? with\b"),
     re.compile(r"^patients? with\b"),
     re.compile(r"^subjects? with\b"),
+    re.compile(r"^controls? with(?:out)?\b"),
+    re.compile(r"^participants? with(?:out)?\b"),
+    re.compile(r"^people with(?:out)?\b"),
+    re.compile(r"^samples? of\b"),
+    re.compile(r"^from (?:individuals?|various|people)\b"),
     # Participle/adjective fragment leads without a disease head noun
     re.compile(r"^mediated\b"),
     re.compile(r"^grade\b"),
     re.compile(r"^[a-z]+-driven\b"),
+    # Section-header words (structured abstracts)
+    re.compile(r"^(?:abstract|introduction|aims?|background|abbreviations?|discussion|conclusion|objectives?|purpose|summary)\b"),
+    # Preposition / conjunction leads not in _DISEASE_LEAD_STOPWORDS
+    re.compile(r"^(?:according to|between|from|at the|depending|but|either|among|against|as a|like|when|particularly in|to (?:compare|the onset|protect))\b"),
+    # Narrative / measurement fragment starters
+    re.compile(r"^(?:consequently|subsequently|regardless|delays?|determine|findings?|investigating|early life|fold change|basal metabolic|androgen deprivation|flaxseed|biological substrate|cell division|amino acid ibd)\b"),
+    # Clinical/pathology fragment leads
+    re.compile(r"^mechanisms? of\b"),
+    re.compile(r"^independent of\b"),
+    re.compile(r"^known as\b"),
+    re.compile(r"^indicate\b"),
+    re.compile(r"^individual susceptibility\b"),
+    re.compile(r"^influences? the\b"),
+    re.compile(r"^roles?\b"),
+    re.compile(r"^most prevalent\b"),
+    re.compile(r"^multiple testing\b"),
+    re.compile(r"^macrophage\b"),
+    re.compile(r"^pan-"),
+    re.compile(r"^picrosirius\b"),
+    re.compile(r"^short-chain\b"),
+    re.compile(r"^mm mercury\b"),
+    re.compile(r"^succinate background\b"),
+    re.compile(r"^tissue to\b"),
+    # Protection/defense phrasing (not a disease concept)
+    re.compile(r"^protection against\b"),
+    re.compile(r"^all disease\b"),
+    re.compile(r"^number of disease\b"),
+    re.compile(r"^identifying disease\b"),
+    re.compile(r"^organ dysfunction\b"),
+    re.compile(r"^(?:f|na)\s"),
 )
 TEXT_EDGE_DISEASE_SUBSTRING_PATTERNS = (
     re.compile(r"\bcauses?\b"),
@@ -114,7 +156,18 @@ TEXT_EDGE_DISEASE_SUBSTRING_PATTERNS = (
     re.compile(r"\bameliorates?\b"),
     re.compile(r"\bcontributes?\b"),
     re.compile(r"\bprevents?\b"),
+    re.compile(r"\bmitigates?\b"),
     re.compile(r"\bin patients? without\b"),
+    re.compile(r"\bsupplementation\b"),
+    re.compile(r"\bhighlights?\b"),
+    re.compile(r"\bpathways?\b"),
+    re.compile(r"\bexposure\b"),
+    re.compile(r"\bsubstrate\b"),
+    re.compile(r"\btrigger\b"),
+    re.compile(r"\bintervention\b"),
+    re.compile(r"\bvisualize\b"),
+    re.compile(r"\bstain\b"),
+    re.compile(r"\bbackground\b"),
 )
 TEXT_EDGE_DISEASE_CONTEXT_TOKENS = {
     "development",

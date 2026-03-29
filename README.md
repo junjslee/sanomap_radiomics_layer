@@ -77,44 +77,26 @@ How can we connect microbiome findings to imaging-derived phenotypes and then to
 
 ## Current Snapshot
 
-- Retrieval lanes:
-  `8` strict microbe-radiomics papers, `15` adjacent imaging papers, and `99` microbe-body-composition papers
-- Current merged microbiome-side corpus:
-  `120` papers
-- Current merged phenotype extraction output:
-  `1,129` text mentions
-- Current local phenotype-axis assembly PoC on the merged artifact set:
-  `17` text-derived phenotype-to-disease edges after assembly-only semantic normalization,
-  `61` audit-only direct text subject-to-phenotype candidates,
-  and `143` audit-only bridge hypotheses
-- Current graph-ready phenotype-edge snapshot:
-  `6` phenotype subjects linked to `9` disease-side targets, with the obvious clause/measurement leakage removed from the emitted text edges
-- Current hosted microbe-disease validation baseline:
-  cleaned Gemini rerun produced `8` accepted aggregated relations on the current `26`-row local relation set
-- Current imaging backbone snapshot:
-  `12` BodyLocation nodes, `4` ImagingModality nodes (CT/CT, PET/PT, MRI/MR, DXA/DXA),
-  `50` MEASURED_AT and ACQUIRED_VIA Neo4j rows
-- Current ImageRef snapshot:
-  `1` ImageRef node from validated Vision Track figure (PMC10605408, r=0.95, Prevotella_nigrescens ↔ GLCM_Correlation)
-- Vision Track validated:
-  3 figures attempted total: 1 verified (PMC10605408, r=0.95, Prevotella_nigrescens ↔ GLCM_Correlation),
-  2 correctly rejected by deterministic verifier (PMC10176953 dot-plot style, PMC11924647 feature-feature only)
-- Validation:
-  `156` pytest checks passing locally
+- Corpus: `640` papers (merged baseline + clinical-recall expansion)
+- Phenotype mentions extracted: `5,721`
+- Disease string quality: `30` clean, clinically meaningful disease targets after expanded stopword filtering
+- Graph-ready phenotype-to-disease edges: `72` ASSOCIATED_WITH edges across 30 disease targets
+- Graph-ready microbe-disease edges: `9` CORRELATES_WITH_DISEASE pairs (Gemini 2.5 Flash-Lite validated)
+- Imaging backbone: `18` BodyLocation nodes, `5` ImagingModality nodes, `75` MEASURED_AT / ACQUIRED_VIA Neo4j rows
+- ImageRef: `1` node from validated Vision Track figure (PMC10605408, r=0.95, Prevotella_nigrescens ↔ GLCM_Correlation)
+- Total Neo4j export rows: `149`
+- Vision Track: 3 figures attempted total — 1 verified (PMC10605408), 2 correctly rejected by deterministic verifier (PMC10176953 dot-plot style, PMC11924647 feature-feature only)
+- Validation: `156` pytest checks passing locally
 
 ## Current Status
 
-- The local proof-of-concept pipeline is operational end to end.
-- Shared entity cleanup has been implemented and locally audited on the merged corpus.
+- The full 640-paper corpus has been run through the improved extraction pipeline.
+- Disease string quality is substantially improved: sentence-fragment noise removed at two layers (`_detect_disease()` stopword expansion + assembly-side prefix/substring patterns).
+- Final disease target set contains 30 clinically meaningful concepts — no sentence fragments, no section-header noise, no technique/method strings.
 - The imaging backbone (BodyLocation + ImagingModality) is implemented with vocabulary-expanded coverage (body location 8.1% → 42.8%).
-- The ImageRef node type is implemented, completing the professor's four-part chain: Disease ← Feature → BodyLocation / ImagingModality → ImageRef.
-- The Vision Track has been validated end-to-end: 1 verified figure, 2 correctly rejected by deterministic verifier.
-- Policy decisions on all borderline disease targets are resolved with normalization rules.
-- Disease extraction quality is improved with stopword-guarded `_detect_disease()` in `extract_radiomics_text.py`.
-- The local pytest suite is currently green at `156 passed`.
-- The main remaining technical gap is running the expanded 640-paper corpus through the improved extraction pipeline.
-
-So the repo is already suitable for professor review as a topic + map + tool + visualization deliverable. What is still pending is running the expanded 640-paper corpus through the improved pipeline and strengthening upstream-style validation.
+- The ImageRef node type completes the professor's four-part chain: Disease ← Feature → BodyLocation / ImagingModality → ImageRef.
+- The Vision Track is validated end-to-end: 1 verified figure, 2 correctly rejected by deterministic verifier.
+- The local pytest suite is green at `156 passed`.
 
 ## Prior Work And Boundary
 

@@ -335,9 +335,26 @@ def _detect_body_location(text: str) -> str | None:
 
 
 _DISEASE_LEAD_STOPWORDS = {
+    # Copulas / prepositions / conjunctions
     "is", "are", "was", "were", "in", "of", "with", "and", "or",
-    "the", "a", "an", "this", "that", "exercise", "dietary", "important",
-    "related", "training", "such", "pepper", "including", "affecting",
+    "the", "a", "an", "this", "that", "at", "by", "but", "for",
+    "from", "among", "against", "through", "during", "without",
+    "between", "according", "depending", "either", "as", "like",
+    "to", "when", "particularly", "independent", "indicate",
+    # Section-header words that appear at sentence start in structured abstracts
+    "abstract", "introduction", "aims", "aim", "background",
+    "abbreviations", "discussion", "conclusion", "methods", "results",
+    "objectives", "purpose", "summary",
+    # Temporal / narrative fragment starters
+    "early", "consequently", "subsequently", "regardless", "considering",
+    "delays", "determine", "findings", "investigating", "following",
+    # Population prefix starters (full phrases caught in assembly; single word caught here)
+    "controls", "participants", "people", "samples", "subjects",
+    # Measurement / technique starters
+    "fold", "basal", "flaxseed", "androgen",
+    # Existing
+    "exercise", "dietary", "important", "related", "training",
+    "such", "pepper", "including", "affecting",
     "induced", "associated", "effects", "role", "impact",
 }
 _DISEASE_CONTEXT_STOPWORDS = {
@@ -345,6 +362,8 @@ _DISEASE_CONTEXT_STOPWORDS = {
     "distribution", "degree", "density", "components", "intake",
     "lessens", "reduces", "causes", "affects", "affected", "induced", "diet",
     "is", "are", "was", "were", "by", "via", "phenotype", "marker",
+    "highlight", "highlights", "exposure", "supplementation", "substrate",
+    "pathway", "pathways", "consequently", "regardless", "subsequently",
 }
 
 
