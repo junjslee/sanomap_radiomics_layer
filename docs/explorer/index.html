@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Artifact Explorer</title>
+    <title>SanoMap Radiomics Layer — Explorer</title>
+    <script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/dist/vis-network.min.js"></script>
     <style>
       :root {
         color-scheme: light;
@@ -14,9 +15,7 @@
         --border: rgba(255, 255, 255, 0.12);
       }
 
-      * {
-        box-sizing: border-box;
-      }
+      * { box-sizing: border-box; }
 
       body {
         margin: 0;
@@ -30,9 +29,7 @@
         gap: 1rem;
       }
 
-      header {
-        text-align: center;
-      }
+      header { text-align: center; }
 
       header h1 {
         margin: 0;
@@ -42,7 +39,7 @@
 
       header p {
         margin: 0.5rem auto 0;
-        max-width: 640px;
+        max-width: 680px;
         color: rgba(248, 250, 252, 0.72);
       }
 
@@ -54,6 +51,32 @@
         box-shadow: 0 20px 40px rgba(2, 6, 23, 0.65);
       }
 
+      /* ---- Tab bar ---- */
+      .tab-bar {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.25rem;
+      }
+
+      .tab-btn {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--border);
+        border-radius: 0.6rem;
+        color: rgba(248,250,252,0.65);
+        cursor: pointer;
+        font-size: 0.95rem;
+        font-weight: 600;
+        padding: 0.55rem 1.2rem;
+        transition: background 150ms, color 150ms;
+      }
+
+      .tab-btn.active {
+        background: linear-gradient(135deg, var(--accent), #0ea5e9);
+        border-color: transparent;
+        color: #0f172a;
+      }
+
+      /* ---- Table tab ---- */
       .file-row {
         display: flex;
         flex-wrap: wrap;
@@ -103,9 +126,7 @@
         transition: transform 150ms ease;
       }
 
-      .filters button:active {
-        transform: scale(0.97);
-      }
+      .filters button:active { transform: scale(0.97); }
 
       .stats {
         display: flex;
@@ -125,10 +146,7 @@
         text-align: center;
       }
 
-      .stat strong {
-        display: block;
-        font-size: 1.8rem;
-      }
+      .stat strong { display: block; font-size: 1.8rem; }
 
       .stat span {
         font-size: 0.85rem;
@@ -144,12 +162,9 @@
         font-size: 0.9rem;
       }
 
-      tbody tr:nth-child(even) {
-        background: rgba(248, 250, 252, 0.04);
-      }
+      tbody tr:nth-child(even) { background: rgba(248, 250, 252, 0.04); }
 
-      th,
-      td {
+      th, td {
         padding: 0.6rem 0.5rem;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         text-align: left;
@@ -162,9 +177,91 @@
         color: rgba(248, 250, 252, 0.72);
       }
 
-      tbody td {
-        color: rgba(248, 250, 252, 0.92);
+      tbody td { color: rgba(248, 250, 252, 0.92); }
+
+      /* ---- Graph tab ---- */
+      #graphCanvas {
+        width: 100%;
+        height: 600px;
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        background: rgba(2, 6, 23, 0.6);
       }
+
+      .graph-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        align-items: center;
+      }
+
+      .graph-controls button {
+        background: rgba(255,255,255,0.07);
+        border: 1px solid var(--border);
+        border-radius: 0.6rem;
+        color: var(--text);
+        cursor: pointer;
+        font-size: 0.85rem;
+        padding: 0.45rem 0.9rem;
+        transition: background 120ms;
+      }
+
+      .graph-controls button:hover { background: rgba(255,255,255,0.12); }
+
+      .graph-controls select {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid var(--border);
+        border-radius: 0.6rem;
+        color: var(--text);
+        font-size: 0.85rem;
+        padding: 0.45rem 0.75rem;
+      }
+
+      .graph-controls label {
+        font-size: 0.85rem;
+        color: rgba(248,250,252,0.65);
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.5rem;
+        margin-top: 1rem;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.8rem;
+        color: rgba(248,250,252,0.75);
+      }
+
+      .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .legend-line {
+        width: 24px;
+        height: 3px;
+        border-radius: 2px;
+        flex-shrink: 0;
+      }
+
+      .legend-section {
+        font-size: 0.75rem;
+        color: rgba(248,250,252,0.45);
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        width: 100%;
+        margin-top: 0.25rem;
+      }
+
+      .hidden { display: none; }
 
       .hint {
         font-size: 0.85rem;
@@ -174,260 +271,409 @@
       }
 
       @media (max-width: 640px) {
-        body {
-          padding: 1rem;
-        }
-
-        th,
-        td {
-          padding: 0.5rem 0.3rem;
-        }
+        body { padding: 1rem; }
+        th, td { padding: 0.5rem 0.3rem; }
+        #graphCanvas { height: 400px; }
       }
     </style>
   </head>
   <body>
     <header>
-      <h1>Artifact Explorer</h1>
+      <h1>SanoMap Radiomics Layer</h1>
       <p>
-        SanoMap Radiomics Layer — 185 records auto-loaded (72 ASSOCIATED_WITH · 12 microbe-disease · 100 audit-only bridges · 1 Vision Track).
-        Upload a custom JSONL to override.
+        Knowledge graph explorer — 85 graph-ready edges auto-loaded (72 ASSOCIATED_WITH · 12 microbe-disease · 1 Vision Track).
+        Switch between table and force-directed graph views.
       </p>
     </header>
 
     <section class="panel">
-      <div class="file-row">
-        <label for="fileInput">Upload custom JSONL</label>
-        <input id="fileInput" type="file" accept=".jsonl,.json" />
+      <!-- Tab bar -->
+      <div class="tab-bar">
+        <button class="tab-btn active" id="tabTable" onclick="switchTab('table')">Table View</button>
+        <button class="tab-btn" id="tabGraph" onclick="switchTab('graph')">Graph View</button>
       </div>
 
-      <div class="filters">
-        <input id="filterSubject" type="text" placeholder="Filter by microbe, signature, or subject" />
-        <input id="filterDisease" type="text" placeholder="Filter by disease or disease context" />
-        <input id="filterFeature" type="text" placeholder="Filter by phenotype or feature" />
-        <input id="filterPmid" type="text" placeholder="Filter by PMID" />
-        <button id="clearFilters">Clear filters</button>
-      </div>
-
-      <div class="stats">
-        <div class="stat">
-          <strong id="totalCount">0</strong>
-          <span>records loaded</span>
+      <!-- ===== TABLE TAB ===== -->
+      <div id="tableTab">
+        <div class="file-row">
+          <label for="fileInput">Upload custom JSONL</label>
+          <input id="fileInput" type="file" accept=".jsonl,.json" />
         </div>
-        <div class="stat">
-          <strong id="matchingCount">0</strong>
-          <span>records matching filters</span>
+
+        <div class="filters">
+          <input id="filterSubject" type="text" placeholder="Filter by microbe, signature, or subject" />
+          <input id="filterDisease" type="text" placeholder="Filter by disease or disease context" />
+          <input id="filterFeature" type="text" placeholder="Filter by phenotype or feature" />
+          <input id="filterPmid" type="text" placeholder="Filter by PMID" />
+          <button id="clearFilters">Clear filters</button>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <strong id="totalCount">0</strong>
+            <span>records loaded</span>
+          </div>
+          <div class="stat">
+            <strong id="matchingCount">0</strong>
+            <span>records matching filters</span>
+          </div>
+        </div>
+
+        <div id="tableWrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>PMID</th>
+                <th>Subject</th>
+                <th>Phenotype / Target</th>
+                <th>Disease / Context</th>
+                <th>Artifact Type</th>
+                <th>Evidence</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
         </div>
       </div>
 
-      <div id="tableWrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>PMID</th>
-              <th>Subject</th>
-              <th>Phenotype / Target</th>
-              <th>Disease / Context</th>
-              <th>Artifact Type</th>
-              <th>Evidence</th>
-            </tr>
-          </thead>
-          <tbody id="resultsBody"></tbody>
-        </table>
+      <!-- ===== GRAPH TAB ===== -->
+      <div id="graphTab" class="hidden">
+        <div class="graph-controls">
+          <button onclick="resetGraph()">Reset layout</button>
+          <button onclick="togglePhysics()">Toggle physics</button>
+          <label for="edgeFilter">Show edges:</label>
+          <select id="edgeFilter" onchange="rebuildGraph()">
+            <option value="all">All graph-eligible</option>
+            <option value="microbe_disease">Microbe → Disease only</option>
+            <option value="feature_disease">Feature → Disease only</option>
+            <option value="backbone">Backbone (location / modality)</option>
+          </select>
+        </div>
+
+        <div id="graphCanvas"></div>
+
+        <div class="legend">
+          <span class="legend-section">Nodes</span>
+          <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Microbe / MicrobialSignature</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div>RadiomicFeature</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>BodyCompositionFeature</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#f87171"></div>Disease</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>BodyLocation</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#818cf8"></div>ImagingModality</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div>ImageRef</div>
+
+          <span class="legend-section">Edges</span>
+          <div class="legend-item"><div class="legend-line" style="background:#64748b"></div>ASSOCIATED_WITH (text)</div>
+          <div class="legend-item"><div class="legend-line" style="background:#2dd4bf"></div>CORRELATES_WITH (Vision Track)</div>
+          <div class="legend-item"><div class="legend-line" style="background:#4ade80"></div>POSITIVELY_ASSOCIATED_WITH</div>
+          <div class="legend-item"><div class="legend-line" style="background:#f87171"></div>NEGATIVELY_ASSOCIATED_WITH</div>
+          <div class="legend-item"><div class="legend-line" style="background:#6366f1"></div>MEASURED_AT / ACQUIRED_VIA</div>
+          <div class="legend-item"><div class="legend-line" style="background:#fbbf24"></div>REPRESENTED_BY</div>
+        </div>
       </div>
     </section>
 
     <p class="hint">
-      Data auto-loaded from the bundled artifact snapshot. Upload a custom JSONL to explore a different artifact file.
-      The explorer runs entirely in your browser — no data is sent anywhere.
+      Data auto-loaded from the bundled artifact snapshot. Upload a custom JSONL in Table View to explore other artifacts.
+      Explorer runs entirely in your browser.
     </p>
 
     <script>
-      const fileInput = document.getElementById('fileInput');
-      const clearFilters = document.getElementById('clearFilters');
-      const resultsBody = document.getElementById('resultsBody');
-      const totalCount = document.getElementById('totalCount');
-      const matchingCount = document.getElementById('matchingCount');
-      const filters = {
-        subject: document.getElementById('filterSubject'),
-        disease: document.getElementById('filterDisease'),
-        feature: document.getElementById('filterFeature'),
-        pmid: document.getElementById('filterPmid'),
+      // ================================================================
+      // State
+      // ================================================================
+      let records = [];
+      let graphNetwork = null;
+      let graphBuilt = false;
+      let physicsEnabled = true;
+
+      // ================================================================
+      // Tab switching
+      // ================================================================
+      function switchTab(tab) {
+        document.getElementById('tableTab').classList.toggle('hidden', tab !== 'table');
+        document.getElementById('graphTab').classList.toggle('hidden', tab !== 'graph');
+        document.getElementById('tabTable').classList.toggle('active', tab === 'table');
+        document.getElementById('tabGraph').classList.toggle('active', tab === 'graph');
+
+        if (tab === 'graph' && !graphBuilt && records.length > 0) {
+          rebuildGraph();
+        }
+      }
+
+      // ================================================================
+      // Node / edge configuration
+      // ================================================================
+      const NODE_COLORS = {
+        Microbe:               { background: '#3b82f6', border: '#1d4ed8', font: '#fff' },
+        MicrobialSignature:    { background: '#60a5fa', border: '#2563eb', font: '#fff' },
+        RadiomicFeature:       { background: '#10b981', border: '#059669', font: '#fff' },
+        BodyCompositionFeature:{ background: '#34d399', border: '#10b981', font: '#065f46' },
+        Disease:               { background: '#f87171', border: '#dc2626', font: '#fff' },
+        BodyLocation:          { background: '#a78bfa', border: '#7c3aed', font: '#fff' },
+        ImagingModality:       { background: '#818cf8', border: '#4f46e5', font: '#fff' },
+        ImageRef:              { background: '#fbbf24', border: '#d97706', font: '#1c1917' },
       };
 
-      let records = [];
+      const EDGE_COLORS = {
+        ASSOCIATED_WITH:             '#64748b',
+        CORRELATES_WITH:             '#2dd4bf',
+        POSITIVELY_ASSOCIATED_WITH:  '#4ade80',
+        NEGATIVELY_ASSOCIATED_WITH:  '#f87171',
+        MEASURED_AT:                 '#6366f1',
+        ACQUIRED_VIA:                '#818cf8',
+        REPRESENTED_BY:              '#fbbf24',
+      };
 
+      const EDGE_FILTER_RELS = {
+        all:            null,
+        microbe_disease:['POSITIVELY_ASSOCIATED_WITH','NEGATIVELY_ASSOCIATED_WITH','CORRELATES_WITH'],
+        feature_disease:['ASSOCIATED_WITH'],
+        backbone:       ['MEASURED_AT','ACQUIRED_VIA','REPRESENTED_BY'],
+      };
+
+      // ================================================================
+      // Build graph from records
+      // ================================================================
+      function buildGraphData() {
+        const filterVal = document.getElementById('edgeFilter').value;
+        const allowedRels = EDGE_FILTER_RELS[filterVal];
+
+        // Only graph-eligible records (have subject_node + object_node, not audit-only)
+        const eligible = records.filter(r =>
+          r.subject_node && r.object_node && !r.not_for_graph_ingestion
+        );
+
+        const nodeMap = new Map();
+        const edges = [];
+        const degree = new Map();
+
+        for (const r of eligible) {
+          const rel = r.graph_rel_type;
+          if (allowedRels && !allowedRels.includes(rel)) continue;
+
+          const srcKey = `${r.subject_node_type}::${r.subject_node}`;
+          const tgtKey = `${r.object_node_type}::${r.object_node}`;
+
+          if (!nodeMap.has(srcKey)) {
+            nodeMap.set(srcKey, { id: srcKey, label: r.subject_node, type: r.subject_node_type });
+          }
+          if (!nodeMap.has(tgtKey)) {
+            nodeMap.set(tgtKey, { id: tgtKey, label: r.object_node, type: r.object_node_type });
+          }
+
+          degree.set(srcKey, (degree.get(srcKey) || 0) + 1);
+          degree.set(tgtKey, (degree.get(tgtKey) || 0) + 1);
+
+          const edgeKey = `${srcKey}=>${tgtKey}=>${rel}`;
+          edges.push({
+            id: edgeKey,
+            from: srcKey,
+            to: tgtKey,
+            rel,
+            title: `${rel}\nPMID: ${r.pmid || '—'}\n${(r.evidence || '').slice(0, 120)}`,
+          });
+        }
+
+        const nodes = Array.from(nodeMap.values()).map(n => {
+          const deg = degree.get(n.id) || 1;
+          const size = Math.max(14, Math.min(36, 12 + deg * 2.5));
+          const colors = NODE_COLORS[n.type] || { background: '#94a3b8', border: '#64748b', font: '#fff' };
+          const shortLabel = n.label.length > 22 ? n.label.slice(0, 20) + '…' : n.label;
+          return {
+            id: n.id,
+            label: shortLabel,
+            title: `${n.type}: ${n.label}\nDegree: ${deg}`,
+            size,
+            color: { background: colors.background, border: colors.border, highlight: { background: colors.border, border: '#fff' } },
+            font: { color: colors.font, size: 11, face: 'Segoe UI, sans-serif' },
+            shape: 'dot',
+          };
+        });
+
+        const visEdges = edges.map(e => ({
+          id: e.id,
+          from: e.from,
+          to: e.to,
+          title: e.title,
+          color: { color: EDGE_COLORS[e.rel] || '#94a3b8', highlight: '#fff', opacity: 0.8 },
+          width: e.rel === 'CORRELATES_WITH' ? 3 : 1.5,
+          arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+          smooth: { type: 'continuous' },
+          dashes: e.rel === 'ASSOCIATED_WITH',
+        }));
+
+        return { nodes, edges: visEdges };
+      }
+
+      function rebuildGraph() {
+        graphBuilt = false;
+        const { nodes, edges } = buildGraphData();
+
+        if (nodes.length === 0) {
+          document.getElementById('graphCanvas').innerHTML =
+            '<p style="color:rgba(248,250,252,0.5);padding:2rem;text-align:center">No graph-eligible records loaded.</p>';
+          return;
+        }
+
+        const container = document.getElementById('graphCanvas');
+        const data = {
+          nodes: new vis.DataSet(nodes),
+          edges: new vis.DataSet(edges),
+        };
+
+        const options = {
+          physics: {
+            enabled: true,
+            stabilization: { iterations: 150, updateInterval: 25 },
+            barnesHut: { gravitationalConstant: -8000, centralGravity: 0.3, springLength: 120 },
+          },
+          interaction: {
+            hover: true,
+            tooltipDelay: 200,
+            hideEdgesOnDrag: true,
+          },
+          layout: { improvedLayout: true },
+        };
+
+        graphNetwork = new vis.Network(container, data, options);
+        physicsEnabled = true;
+        graphBuilt = true;
+      }
+
+      function resetGraph() {
+        if (graphNetwork) {
+          graphNetwork.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+        }
+      }
+
+      function togglePhysics() {
+        if (!graphNetwork) return;
+        physicsEnabled = !physicsEnabled;
+        graphNetwork.setOptions({ physics: { enabled: physicsEnabled } });
+      }
+
+      // ================================================================
+      // Table helpers (unchanged)
+      // ================================================================
       function parseJsonl(text) {
-        return text
-          .split(/\\r?\\n/)
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .map((line) => {
-            try {
-              return JSON.parse(line);
-            } catch (error) {
-              console.error('Failed to parse JSON line', line, error);
-              return null;
-            }
-          })
-          .filter(Boolean);
+        return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
+          try { return JSON.parse(l); } catch { return null; }
+        }).filter(Boolean);
       }
 
-      function normalize(value) {
-        return (value ?? '').toString().trim().toLowerCase();
-      }
+      function normalize(v) { return (v ?? '').toString().trim().toLowerCase(); }
 
       function matches(record, needle, keys) {
-        if (!needle) {
-          return true;
+        if (!needle) return true;
+        const low = normalize(needle);
+        return keys.some(k => normalize(record[k]).includes(low));
+      }
+
+      function subjectLabel(r) {
+        return r.subject_node || r.microbe_or_signature || r.microbe || '—';
+      }
+
+      function phenotypeLabel(r) {
+        return (r.phenotype || (r.object_node_type === 'Disease' ? '' : r.object_node) ||
+          r.canonical_feature || r.radiomic_feature || r.feature_family || '—') || '—';
+      }
+
+      function diseaseLabel(r) {
+        return r.disease || r.disease_context ||
+          (r.object_node_type === 'Disease' ? r.object_node : '') || '—';
+      }
+
+      function artifactType(r) {
+        return r.relation_type || r.graph_rel_type ||
+          (r.not_for_graph_ingestion ? 'AUDIT_ONLY' : '') || '—';
+      }
+
+      function evidenceLabel(r) {
+        if (Array.isArray(r.evidence_fragments)) {
+          return r.evidence_fragments.filter(Boolean).join(' || ') || '—';
         }
-        const lowered = normalize(needle);
-        return keys.some((key) => normalize(record[key]).includes(lowered));
-      }
-
-      function subjectLabel(record) {
-        return (
-          record.subject_node ||
-          record.microbe_or_signature ||
-          record.microbe ||
-          '—'
-        );
-      }
-
-      function phenotypeLabel(record) {
-        return (
-          record.phenotype ||
-          (record.object_node_type === 'Disease' ? '' : record.object_node) ||
-          record.canonical_feature ||
-          record.radiomic_feature ||
-          record.feature_family ||
-          '—'
-        ) || '—';
-      }
-
-      function diseaseLabel(record) {
-        return (
-          record.disease ||
-          record.disease_context ||
-          (record.object_node_type === 'Disease' ? record.object_node : '') ||
-          '—'
-        );
-      }
-
-      function artifactType(record) {
-        return (
-          record.relation_type ||
-          record.graph_rel_type ||
-          (record.not_for_graph_ingestion ? 'AUDIT_ONLY' : '') ||
-          '—'
-        );
-      }
-
-      function evidenceLabel(record) {
-        if (Array.isArray(record.evidence_fragments)) {
-          return record.evidence_fragments.filter(Boolean).join(' || ') || '—';
-        }
-        return (
-          record.evidence ||
-          record.evidence_sentence ||
-          record.sentence_text ||
-          record.sentence ||
-          '—'
-        );
+        return r.evidence || r.evidence_sentence || r.sentence_text || r.sentence || '—';
       }
 
       function renderTable() {
-        const subjectFilter = filters.subject.value;
-        const diseaseFilter = filters.disease.value;
-        const featureFilter = filters.feature.value;
-        const pmidFilter = filters.pmid.value;
+        const sf = document.getElementById('filterSubject').value;
+        const df = document.getElementById('filterDisease').value;
+        const ff = document.getElementById('filterFeature').value;
+        const pf = document.getElementById('filterPmid').value;
 
-        const filtered = records.filter((record) => {
-          return (
-            matches(record, subjectFilter, ['subject_node', 'microbe_or_signature', 'microbe']) &&
-            matches(record, diseaseFilter, ['disease', 'disease_context', 'object_node']) &&
-            matches(record, featureFilter, [
-              'feature_family',
-              'feature_title',
-              'claim_hint',
-              'phenotype',
-              'canonical_feature',
-              'radiomic_feature',
-              'object_node',
-              'node_type',
-              'phenotype_node_type',
-            ]) &&
-            matches(record, pmidFilter, ['pmid'])
-          );
-        });
+        const filtered = records.filter(r =>
+          matches(r, sf, ['subject_node','microbe_or_signature','microbe']) &&
+          matches(r, df, ['disease','disease_context','object_node']) &&
+          matches(r, ff, ['feature_family','feature_title','claim_hint','phenotype',
+                          'canonical_feature','radiomic_feature','object_node','node_type','phenotype_node_type']) &&
+          matches(r, pf, ['pmid'])
+        );
 
-        totalCount.textContent = records.length;
-        matchingCount.textContent = filtered.length;
+        document.getElementById('totalCount').textContent = records.length;
+        document.getElementById('matchingCount').textContent = filtered.length;
 
-        resultsBody.innerHTML = filtered
-          .slice(0, 200)
-          .map((record) => {
-            return `
-              <tr>
-                <td>${record.pmid ?? record.PMID ?? '—'}</td>
-                <td>${subjectLabel(record)}</td>
-                <td>${phenotypeLabel(record)}</td>
-                <td>${diseaseLabel(record)}</td>
-                <td>${artifactType(record)}</td>
-                <td>${evidenceLabel(record)}</td>
-              </tr>
-            `.trim();
-          })
-          .join('');
+        document.getElementById('resultsBody').innerHTML = filtered.slice(0, 200).map(r => `
+          <tr>
+            <td>${r.pmid ?? r.PMID ?? '—'}</td>
+            <td>${subjectLabel(r)}</td>
+            <td>${phenotypeLabel(r)}</td>
+            <td>${diseaseLabel(r)}</td>
+            <td>${artifactType(r)}</td>
+            <td>${evidenceLabel(r)}</td>
+          </tr>
+        `.trim()).join('');
 
         if (filtered.length > 200) {
-          resultsBody.insertAdjacentHTML(
-            'beforeend',
-            `
-              <tr>
-                <td colspan="6" style="text-align:center; color: rgba(248,250,252,0.65);">
-                  Showing first 200 matches of ${filtered.length}. Refine filters to focus on more specific records.
-                </td>
-              </tr>
-            `.trim()
-          );
+          document.getElementById('resultsBody').insertAdjacentHTML('beforeend', `
+            <tr><td colspan="6" style="text-align:center;color:rgba(248,250,252,0.65);">
+              Showing first 200 of ${filtered.length}. Refine filters to narrow results.
+            </td></tr>
+          `.trim());
         }
       }
 
-      filters.subject.addEventListener('input', renderTable);
-      filters.disease.addEventListener('input', renderTable);
-      filters.feature.addEventListener('input', renderTable);
-      filters.pmid.addEventListener('input', renderTable);
+      // ================================================================
+      // Wire up controls
+      // ================================================================
+      ['filterSubject','filterDisease','filterFeature','filterPmid'].forEach(id => {
+        document.getElementById(id).addEventListener('input', renderTable);
+      });
 
-      clearFilters.addEventListener('click', () => {
-        filters.subject.value = '';
-        filters.disease.value = '';
-        filters.feature.value = '';
-        filters.pmid.value = '';
+      document.getElementById('clearFilters').addEventListener('click', () => {
+        ['filterSubject','filterDisease','filterFeature','filterPmid'].forEach(id => {
+          document.getElementById(id).value = '';
+        });
         renderTable();
       });
 
-      fileInput.addEventListener('change', (event) => {
+      document.getElementById('fileInput').addEventListener('change', event => {
         const file = event.target.files?.[0];
-        if (!file) {
-          return;
-        }
+        if (!file) return;
         const reader = new FileReader();
-        reader.onload = (loadEvent) => {
-          records = parseJsonl(loadEvent.target.result ?? '');
+        reader.onload = e => {
+          records = parseJsonl(e.target.result ?? '');
+          graphBuilt = false;
           renderTable();
+          // Re-render graph if it's currently visible
+          if (!document.getElementById('graphTab').classList.contains('hidden')) {
+            rebuildGraph();
+          }
         };
         reader.readAsText(file);
       });
 
+      // ================================================================
       // Auto-load bundled snapshot
+      // ================================================================
       fetch('./data.jsonl')
-        .then((res) => res.text())
-        .then((text) => {
+        .then(res => res.text())
+        .then(text => {
           records = parseJsonl(text);
           renderTable();
         })
         .catch(() => {
-          // No bundled data available — user must upload manually
+          // No bundled data — manual upload required
         });
     </script>
   </body>
