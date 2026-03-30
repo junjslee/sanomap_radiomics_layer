@@ -8,7 +8,7 @@
 \usepackage{setspace} % Mandatory for Double Spacing
 
 % Mandatory Double Spacing
-\doublespacing 
+\doublespacing
 
 % Mandatory Header setup for pages 2-5
 \pagestyle{fancy}
@@ -26,52 +26,114 @@
 \thispagestyle{empty}
 \begin{center}
     \textbf{JUNSEONG LEE} \\
-    \textbf{PROPOSAL: THE RADIOMICS-MICROBIOME AXIS LAYER} \\
-    Extending SanoMap via Agentic AI
+    \textbf{THE RADIOMICS-MICROBIOME AXIS LAYER} \\
+    Extending SanoMap via Agentic AI — Delivered System
 \end{center}
 
 \section{A statement of the research problem}
-Biomedical data is inherently multimodal. It spans everything from raw cell sequences to clinical imaging. Recent advances in natural language processing (NLP) and methodologies for artificial intelligence (primarily the emergence of transformers and subsequent generative models) have enabled the creation of unified biomedical knowledge graph base by extracting large amounts of data from verified scientific literature. The SanoMap project, specifically through MINERVA (Microbiomes Network for Research and Visualization Atlas) platform, is a prominent example of this, successfully mapping associations between gut microbes and systemic diseases using sophisticated text-mining. 
+Biomedical data is inherently multimodal. It spans everything from raw cell sequences to clinical imaging. Recent advances in natural language processing (NLP) and methodologies for artificial intelligence (primarily the emergence of transformers and subsequent generative models) have enabled the creation of unified biomedical knowledge graph bases by extracting large amounts of data from verified scientific literature. The SanoMap project, specifically through the MINERVA (Microbiomes Network for Research and Visualization Atlas) platform, is a prominent example of this, successfully mapping associations between gut microbes and systemic diseases using sophisticated text-mining.
 
-Building upon this foundational work, an opportunity exists to complement the knowledge base by addressing a critical missing component. Currently, the MINERVA framework effectively maps the endpoints of microbes to diseases, but it does not yet incorporate the intermediary radiomic features that quantify structural tissue changes and specific phenotypes for diagnosis or measurement of the disease stage. Integrating these quantitative imaging phenotypes into such ecosystem is a way that can bridge this gap. Radiomics extracts compact quantitative data from medical scans, providing vital biomarkers for oncology and systemic metabolic conditions (for instance, Sarcopenia, Nonalcoholic Fatty Liver Disease). Clinical studies increasingly demonstrate that microbiome activity influences these specific tissue-level changes, which proves the importance of making radiomic features intermediary biomarkers for disease diagnosis and prognosis.
+Building upon this foundational work, the delivered system addresses a critical structural gap in MINERVA's graph: it maps the endpoints of microbes to diseases but does not incorporate the intermediary imaging phenotypes that quantify structural tissue changes. Integrating these quantitative imaging phenotypes bridges this gap. Radiomics extracts compact quantitative data from medical scans, providing vital biomarkers for oncology and systemic metabolic conditions such as sarcopenia and nonalcoholic fatty liver disease. Clinical studies increasingly demonstrate that microbiome activity influences these specific tissue-level changes, making radiomic and body-composition features natural intermediary nodes in the knowledge graph.
 
-Additionally, while SOTA text-mining methods accurately capture the statistically significant findings that authors highlight in plain text on the manuscript, comprehensive ground-truth data is often represented in visual formats. For example, forest plots and correlation heatmaps contain correlation matrices detailing both significant and non-significant links between dozens of microbes and radiomic features—data that standard NLP pipelines are not structurally designed to parse and analyze. My objective is to build a Radiomics-Microbiome Axis Layer for SanoMap, and my main research questions are: (1) Can a hybrid AI pipeline (LLMs + VLMs), paired with deterministic verification, reliably extract quantitative correlation coefficients directly from complex medical figures to capture comprehensive correlation matrices?; and (2) Does adding radiomics as an ontological layer increase the clinical completeness of the Neo4j knowledge graph compared to text-only extraction?
+Standard text-mining pipelines capture findings that authors highlight in prose, but comprehensive ground-truth data is frequently represented in visual formats. Correlation heatmaps, for instance, contain matrices linking dozens of microbial taxa to radiomic feature values—data that NLP alone is not structurally designed to parse. The delivered system addresses both tracks: text-based extraction of phenotype-to-disease associations, and a figure-aware track that extracts quantitative r-values from gradient-colormap heatmaps using a vision language model paired with deterministic pixel-level verification. The two central research questions this system answers are: (1) Can a hybrid AI pipeline (LLMs + VLMs with deterministic verification) reliably extract quantitative correlation coefficients directly from complex medical figures? and (2) Does adding radiomics as an ontological layer increase the clinical completeness of the Neo4j knowledge graph?
 
-\section{A research plan}
-To address this problem, I will develop an agentic workflow that integrates with MINERVA's existing pipeline. To prevent scope drift, extraction will focus majorly on CT radiomics and two defined figure topologies: forest plots and correlation heatmaps.
+\section{Delivered System}
 
-\subsection{Data Sourcing and Extraction}
-Data will be sourced from the established PubMed Central Open Access (PMCOA) subset. To build a comprehensive ontological layer compatible with SanoMap, the developed agent will utilize a dual-track strategy:
+\subsection{Graph Schema}
+
+The delivered system extends MINERVA with a radiomics-first imaging phenotype layer. Following Professor Do's guidance to ``connect disease — body location — imaging modality — representative images,'' the graph implements the following node types:
+
 \begin{itemize}
-    \item \textbf{Text Track:} I plan on reusing MINERVA’s DistilBERT and SciBERT models for microbial and disease extraction to ensure database consistency. For the new \texttt{:RadiomicFeature} nodes, I will develop a dictionary-based named entity recognition (NER) module paired with LLM-assisted standardization. This will map diverse terminology (e.g., "GLCM entropy" vs. "Haralick entropy") to the standardized Image Biomarker Standardization Initiative (IBSI) ontology, establishing a hierarchical classification system for imaging phenotypes help us see the full chain of events, just like MINERVA does when mapping out diseases.
-    \item \textbf{Vision Track:} I will utilize VLMs (e.g., OSS models like Qwen2.5-VL or proprietary models such as Gemini 3.1 Pro) to classify figure types and extract structural data. To prevent VLM hallucination, I plan on implementing a verification layer: the VLM will propose an extracted r-value from a heatmap, which I will then cross-check deterministically against the image's color-scale legend or geometric grid logic. If a prediction is uncertain or mathematically not plausible, the script will reject it.
+    \item \texttt{Microbe} and \texttt{MicrobialSignature} — microbial entity nodes from literature NER
+    \item \texttt{RadiomicFeature} — texture, morphological, and intensity imaging features (GLCM, wavelet, first-order)
+    \item \texttt{BodyCompositionFeature} — quantitative tissue phenotypes extracted from imaging (sarcopenia, visceral adipose tissue, skeletal muscle index, BMI, liver fat fraction)
+    \item \texttt{Disease} — disease entity nodes from literature NER and text co-mention extraction
+    \item \texttt{BodyLocation} — anatomical sites associated with feature measurements (liver, colon, brain, kidney, heart, lumbar spine, and others)
+    \item \texttt{ImagingModality} — acquisition modalities (CT, MRI, PET, DXA, ultrasound, X-ray)
+    \item \texttt{ImageRef} — representative verified figure references with provenance from the Vision Track
 \end{itemize}
 
-\subsection{Integration as Knowledge Graphs}
-The output will be structured as a Neo4j graph extension. I will improve MINERVA's existing Microbe-Disease links by injecting the radiomics, forming: 
-\[\texttt{(Microbe)-[:CORRELATES\_WITH]->(RadiomicFeature)-[:PREDICTS]->(Disease)}
-\]
-pathways. To resolve inter-paper conflicts, I will baseline my model against MINERVA’s established heuristic—incorporating the impact factor of the journal in which the work was published—while evaluating secondary metrics based on statistical evidence strength, such as Confidence Intervals (CI) or sample size. 
+The direct-evidence edge policy is:
 
-\subsection{Research Timeline and Success Metrics}
-\textbf{Pre-Summer (Spring 2026):} Conduct a deep review of the MINERVA codebase and architecture. Explore existing literature relating to radiomics, gut microbes, and diseases. Follow recent methodologies of agentic AI framework and gain understanding of NER models and knowledge graphs.
 \begin{itemize}
-    \item \textbf{Weeks 1-2:} Finalize the ontological layer mapping and multimodal extraction plan, and execute the query strategy to isolate high-yield radiogenomic papers.
-    \item \textbf{Summer Weeks 3-6:} Prompt engineering, fine-tuning, and iterative testing of the VLM vision track and deterministic verification scripts.
-    \item \textbf{Weeks 7-10:} Large-scale data extraction and programmatic ingestion into Neo4j. 
-    \item \textbf{Weeks 11-12:} Validation of extracted relationships. \textit{Success Metric:} Achieve over 90\% extraction precision on a manually curated gold-standard set of 100 microbe-radiomic edges.
+    \item \texttt{(Microbe)-[:CORRELATES\_WITH]->(RadiomicFeature)}
+    \item \texttt{(Microbe)-[:CORRELATES\_WITH]->(BodyCompositionFeature)}
+    \item \texttt{(MicrobialSignature)-[:CORRELATES\_WITH]->(RadiomicFeature)}
+    \item \texttt{(RadiomicFeature)-[:ASSOCIATED\_WITH]->(Disease)}
+    \item \texttt{(BodyCompositionFeature)-[:ASSOCIATED\_WITH]->(Disease)}
+    \item \texttt{(RadiomicFeature)-[:MEASURED\_AT]->(BodyLocation)}
+    \item \texttt{(BodyCompositionFeature)-[:MEASURED\_AT]->(BodyLocation)}
+    \item \texttt{(RadiomicFeature)-[:ACQUIRED\_VIA]->(ImagingModality)}
+    \item \texttt{(BodyCompositionFeature)-[:ACQUIRED\_VIA]->(ImagingModality)}
+    \item \texttt{(ImagingModality)-[:REPRESENTED\_BY]->(ImageRef)}
+    \item \texttt{(Microbe)-[:CORRELATES\_WITH\_DISEASE]->(Disease)}
 \end{itemize}
-\textbf{Weekly Reporting:} I will report directly to Professor Synho Do at weekly lab meetings, structuring updates strictly around: (1) Problem, (2) Solution, (3) Why it works/doesn't, and (4) Next Steps.
 
-\subsection{Importance to Professional Development}
-Born as twins and a premature baby with underdeveloped eyes, heart, and lungs, I spent my first critical months in an incubator. My personal history naturally evolved into a deep fascination with how technologies that supplemented to create diverse medical tools and protect lives. It is no coincidence that my research focus has gravitated toward the medical domain and the protection of the vulnerables. As I advance in academics, my motivation to contribute to this specific field is rooted. This project bridges my training at UIUC with my dedication to healthcare. Developing autonomous AI agents directly contributes to my professional goal of building transparent, explainable AI systems that reliably assist clinicians. 
+The relation type \texttt{ASSOCIATED\_WITH} is used for text-derived phenotype-to-disease edges to accurately reflect the associative, non-causal evidence level of text co-mention extraction. The relation type \texttt{CORRELATES\_WITH} is reserved for quantitatively verified subject-to-feature edges, specifically from the Vision Track where a correlation coefficient has been deterministically confirmed against the figure's color scale.
+
+\subsection{Data Sourcing and Corpus}
+
+Data was sourced from PubMed Central Open Access using a split query strategy with three lanes: a strict radiomics lane targeting papers that explicitly co-mention radiomics with microbiome markers; an adjacent imaging phenotype lane targeting CT and MRI body composition papers; and a clinical recall expansion lane. The final merged corpus totals \textbf{640 papers}, with PMC full text retrieved for open-access articles.
+
+\subsection{Text Track: NER and Relation Extraction}
+
+The Text Track operates as a multi-stage pipeline:
+
+\begin{enumerate}
+    \item \textbf{Phenotype extraction} (\texttt{src/extract\_radiomics\_text.py}): A vocabulary-matched NER module maps diverse terminology to canonical imaging phenotype names. Disease co-mentions are extracted with a two-layer filter that blocks section-header noise (``Abstract Background:''), population-context fragments (``patients with obesity''), and sentence-fragment disease strings.
+    \item \textbf{Microbial and disease NER} (\texttt{src/text\_ner\_minerva.py}): The \texttt{d4data/biomedical-ner-all} model runs on Apple Silicon MPS for microbial entity extraction. Disease NER uses \texttt{en\_ner\_bc5cdr\_md}. Long sentences are chunked and batched.
+    \item \textbf{Span cleanup} (\texttt{src/span\_cleanup.py}): A shared helper rejects wordpiece fragments (\texttt{\#\#} artifacts), generic microbial placeholder terms, trailing coordination fragments, and clause-prefix disease strings before relation extraction.
+    \item \textbf{Relation extraction} (\texttt{src/relation\_extract\_stage.py}): Relations are extracted using Gemini 2.5 Flash-Lite via an OpenAI-compatible API, following MINERVA's self-consistency protocol: 7 samples per pair with full-consistency acceptance. The relation stage supports three backends (\texttt{heuristic}, \texttt{hf\_textgen}, \texttt{openai\_compatible}) and is intended to be run model-backed for production outputs.
+    \item \textbf{Edge assembly} (\texttt{src/assemble\_edges.py}): Assembles graph-ready edges, enforces direct-evidence policy, emits audit-only bridge hypotheses, and exports Neo4j-ready CSV artifacts.
+\end{enumerate}
+
+\subsection{Vision Track: Figure-Aware Quantitative Extraction}
+
+The Vision Track addresses the structured figure data gap. Pipeline stages are:
+
+\begin{enumerate}
+    \item \textbf{Figure indexing} (\texttt{src/index\_figures.py}): Indexes figures from PMC articles using the NCBI figure API.
+    \item \textbf{VLM proposal} (\texttt{src/propose\_vision\_qwen.py}): Gemini 2.5 Flash-Lite proposes r-values for microbial entity to radiomic feature correlations from candidate heatmap figures.
+    \item \textbf{Deterministic verification} (\texttt{src/verify\_heatmap.py}): Each VLM proposal is cross-checked against the figure's gradient color scale using pixel-level analysis. A proposal is accepted only when the predicted value's color is geometrically consistent with the scale legend and the support fraction of matching pixels meets the acceptance threshold.
+\end{enumerate}
+
+Across 3 figures tested: 1 was verified (PMC10605408, \textit{Prevotella nigrescens} $\leftrightarrow$ GLCM\_Correlation, CT, $r = 0.95$, distance\_metric$= 0.05$, support\_fraction$= 1.0$); 2 were correctly rejected (PMC10176953: dot/bar-plot style, not a gradient heatmap; PMC11924647: feature-to-feature matrix with no microbial entities).
+
+\subsection{Delivered Graph Metrics}
+
+On the full 640-paper corpus:
+
+\begin{itemize}
+    \item \textbf{5,721} phenotype text mentions extracted
+    \item \textbf{72} \texttt{ASSOCIATED\_WITH} phenotype-to-disease edges across \textbf{30} clinically meaningful disease targets
+    \item \textbf{9} Gemini-validated \texttt{CORRELATES\_WITH\_DISEASE} microbe-disease pairs
+    \item \textbf{18} \texttt{BodyLocation} nodes, \textbf{5} \texttt{ImagingModality} nodes
+    \item \textbf{1} \texttt{ImageRef} node from Vision Track verification
+    \item \textbf{149} total Neo4j export rows
+    \item \textbf{156} automated test checks passing
+\end{itemize}
+
+\subsection{Scope Decision: Body Composition Features}
+
+The corpus evidence strongly supported extending scope from strict radiomic features to body composition features. MINERVA itself treats diseases such as sarcopenia and obesity as first-class nodes; the body composition literature demonstrates the same microbiome-phenotype coupling that radiomics does. The system therefore treats \texttt{RadiomicFeature} (texture, shape, intensity) and \texttt{BodyCompositionFeature} (sarcopenia, visceral adipose tissue, skeletal muscle index) as parallel nodes with identical edge types, rather than collapsing them into a single generic category.
+
+\subsection{Known Gaps Relative to MINERVA Upstream}
+
+\begin{itemize}
+    \item \textbf{UMLS normalization}: MINERVA assigns a CUI to every entity via ScispaCy; the current system does not implement UMLS entity linking, so alias deduplication is not applied.
+    \item \textbf{NER models}: The current system uses substitute models (\texttt{d4data/biomedical-ner-all} and \texttt{en\_ner\_bc5cdr\_md}) rather than MINERVA's custom BNER2.0-finetuned DistilBERT (F1 = 0.914). Professor-mediated access to BNER2.0 weights would allow a direct comparison run.
+    \item \textbf{Relation model}: Gemini 2.5 Flash-Lite (zero-shot) is used rather than the BioMistral-AUG-7B model that MINERVA fine-tuned on 1,100 labeled sentences. Gemini's full-consistency rate on the current corpus is 0.896.
+\end{itemize}
 
 \section{A detailed budget}
-I am requesting \$2,000 to cover living expenses during my academic break for my 12-week on-site residency at Massachusetts General Hospital in Boston, MA. 
+I am requesting \$2,000 to cover living expenses during my academic break for my 12-week on-site residency at Massachusetts General Hospital in Boston, MA.
 \begin{itemize}
-    \item \textbf{Housing:} \$1,550. This covers approximately one month of my three-month rental agreement for a apartment room in Brookline, Boston. 
+    \item \textbf{Housing:} \$1,550. This covers approximately one month of my three-month rental agreement for a apartment room in Brookline, Boston.
     \item \textbf{Subsistence (Transportation and Food):} \$450. While the true cost of groceries in Boston is higher, this \$450 represents the remainder of the \$2,000 maximum grant limit. It will act as a critical supplemental subsidy (\$37.50 per week) to offset my out-of-pocket expenses for the 12-week duration.
 \end{itemize}
 These funds are strictly necessary for my participation, as the research internship at MGH is an unpaid position located in a high-cost city, and as an international student, my off-campus employment options are legally restricted.
+
+\section{A statement of professional development}
+Born as twins and a premature baby with underdeveloped eyes, heart, and lungs, I spent my first critical months in an incubator. My personal history naturally evolved into a deep fascination with how technologies that supplemented to create diverse medical tools and protect lives. It is no coincidence that my research focus has gravitated toward the medical domain and the protection of the vulnerables. As I advance in academics, my motivation to contribute to this specific field is rooted. This project bridges my training at UIUC with my dedication to healthcare. Delivering the Radiomics-Microbiome Axis Layer directly contributes to my professional goal of building transparent, explainable AI systems that reliably assist clinicians.
 
 \end{document}
