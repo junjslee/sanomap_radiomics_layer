@@ -1,7 +1,7 @@
 # Progress
 
 ## Last Updated
-- 2026-03-29 America/Chicago (expanded 640-paper corpus re-run, disease string quality hardened to 30 clean targets)
+- 2026-03-29 America/Chicago (proposal rewritten to delivered system; expanded Gemini run on 640-paper corpus; Vision Track external search completed)
 
 ## Completed
 - Query profiles were split and refined for strict radiomics, adjacent imaging, and body-composition retrieval.
@@ -528,10 +528,47 @@
   - residual audit outcome:
     - no previously observed subject-tail or disease-prefix fragment patterns remained in accepted aggregated outputs under the local heuristic rerun
 
+- Gemini relation run on expanded 640-paper corpus completed on 2026-03-29:
+  - model: `gemini-2.5-flash-lite`
+  - input: `artifacts/relation_input_microbe_expanded.jsonl` — `54` rows
+  - full consistency rate: `0.926` (`50/54`)
+  - predictions: `12` positive, `14` negative, `28` unrelated
+  - output: `artifacts/relation_predictions_microbe_expanded.gemini25_flash_lite.jsonl`
+  - aggregated: `artifacts/relation_aggregated_microbe_expanded.gemini25_flash_lite.jsonl`
+  - note: `vote_counts` in aggregated file records sentence-level votes within a paper, NOT 7-sample self-consistency counts. Confirmed correct via predictions file (`sample_labels: ['positive'×7]` → `vote_counts: {'positive': 7}`).
+
+- Signed polarity microbe-disease edges emitted on 2026-03-29:
+  - `12` signed pairs in `artifacts/microbe_disease_edges.jsonl`
+  - edge types: `POSITIVELY_ASSOCIATED_WITH` / `NEGATIVELY_ASSOCIATED_WITH` (improvement over unsigned `CORRELATES_WITH_DISEASE`)
+  - NOTE: microbe-disease edges are written to a separate JSONL, NOT included in `neo4j_relationships_*.csv` — design gap if full Neo4j import is the goal
+
+- Full assembly on expanded 640-paper corpus (2026-03-29):
+  - `72` `ASSOCIATED_WITH` text edges (phenotype-to-disease), across `30` clean disease targets
+  - `1` `CORRELATES_WITH` Vision Track edge (PMC10605408)
+  - `56` `MEASURED_AT` + `ACQUIRED_VIA` backbone rows
+  - `1` `REPRESENTED_BY` edge (ImageRef)
+  - `149` total Neo4j export rows in `artifacts/neo4j_relationships_microbe_expanded.csv`
+
+- Vision Track external search completed on 2026-03-29:
+  - exhaustive search across 300+ PMC articles, 7 search strategies, 5 E-utils query variants, 15+ full-text fetches
+  - result: PMC10605408 is the only confirmed open-access paper in PMC with a gradient colormap microbiome-vs-radiomic-feature heatmap
+  - <8 PMC results total for "CT texture" + "gut microbiota" + "Spearman" — niche is genuinely sparse
+  - confirmed near-miss eliminations: PMC11924647 (feature-feature), PMC10176953 (dot/bar-plot), PMC11607295 (chord diagram), 11 others
+  - recommended future strategy: target HCC/liver-specific queries and Chinese-group BMC/Frontiers deposits
+
+- Proposal rewritten on 2026-03-29 (commit `0ea971d`):
+  - `docs/proposal/proposal_sanomap_minerva_extension.tex` fully updated to reflect delivered system
+  - changed subtitle: "PROPOSAL:" removed → "Delivered System" added
+  - "A research plan" → "Delivered System" section
+  - all 8 node types and 12 edge types documented with correct semantics
+  - NER model stack corrected: `d4data/biomedical-ner-all` + `en_ner_bc5cdr_md` (substitutes, not MINERVA originals)
+  - `PREDICTS` edge replaced with `ASSOCIATED_WITH` (actual semantics)
+  - Vision Track metrics added: 3 figures tested, 1 verified (r=0.95), 2 correctly rejected
+  - Delivered Graph Metrics section added: 5,721 mentions, 72 edges, 9 microbe-disease, 18 BodyLocation, 5 ImagingModality, 1 ImageRef, 149 Neo4j rows, 156 tests
+  - Known Gaps section added: UMLS normalization, NER substitute models, Gemini zero-shot vs BioMistral fine-tuned
+
 ## Blockers
-- Public upstream-associated model assets remain unavailable in this workspace, even though professor-mediated access may later unblock review or handoff of those checkpoints.
-- The local 2026-03-17 rebuild could not load `d4data/biomedical-ner-all` in the offline environment, so microbe NER fell back to regex and recall is depressed.
-- The public `bacterial_NER` repo is now verified as the strongest public BNER candidate, but its checked-in corpus totals do not yet prove exact equivalence to MINERVA's `BNER2.0` release.
-- Gemini direct now provides a real low-cost model-backed relation path, but the first full 26-row run surfaced accepted spans such as `and metabolic syndrome`, `in cirrhosis`, and `reduces inflammation`, so the cleanup milestone is reopened for model-backed acceptance.
-- The malformed-prefix and subject-tail cleanup regressions are fixed for the current Gemini rerun, but broad accepted disease concepts such as `inflammation` may still need a separate semantic filtering or normalization decision before graph promotion.
-- The phenotype axis is now explicit in local assembled artifacts, but text-derived phenotype-to-disease edges still need semantic filtering before they should be treated as graph-ready by default.
+- Vision Track new candidates: PMC10605408 is the only confirmed valid paper in PMC. New candidates must come from organs not yet well-represented (HCC, liver cancer) or from preprint servers / Chinese-group open-access deposits.
+- Microbe-disease edges in separate JSONL: `artifacts/microbe_disease_edges.jsonl` is not included in the main Neo4j CSV. Requires a deliberate decision + implementation to merge if full Neo4j import is the goal.
+- UMLS normalization: documented as known gap vs MINERVA upstream. Not implemented — alias deduplication is missing.
+- Upstream-associated model assets (BNER2.0, BioMistral-AUG-7B) remain unavailable. Gemini zero-shot is the current production relation path.

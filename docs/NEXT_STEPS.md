@@ -33,16 +33,16 @@ Read this together with:
 - Optional Claude-only plugins such as `claude-mem` are not canonical project memory and are not required for normal repo operation.
 
 ## Primary Goal
-Own the full delivery: run the expanded corpus through the improved pipeline, strengthen the Vision Track with more verified figures, and lock the proposal document to match the actual shipped system.
+The core pipeline is complete and the proposal is locked to the delivered system. The project is in a stable, professor-review-ready state. The next work is about graph completeness and connection to the SanoMap ecosystem.
 
 The next major milestone is:
-- re-run `src/extract_radiomics_text.py` on the 640-paper corpus with the improved `_detect_disease()` (local, no API spend)
-- update `docs/proposal/proposal_sanomap_minerva_extension.tex` to reflect delivered system, not the original plan
-- find PMC papers with proper gradient-colormap heatmaps for additional Vision Track runs
-- decide on UMLS normalization: add ScispaCy optional pass or document explicitly as known gap
+- Merge microbe-disease edges (`artifacts/microbe_disease_edges.jsonl`) into the main Neo4j CSV so the full graph is importable from one file
+- UMLS normalization: add ScispaCy optional pass or explicitly document as known gap in `docs/RADIOMICS_LAYER_SPECS.md`
+- Vision Track: new candidate papers require targeting HCC/liver-specific queries or Chinese-group BMC/Frontiers deposits — PMC10605408 is confirmed as the only existing open-access paper with this figure type
 
 ## Current Baseline
-- Last pushed baseline: commit `b8b4981` — disease filter expansion + 640-paper corpus re-run in progress
+- Last pushed baseline: commit `0ea971d` — proposal rewritten to delivered system
+- Prior key commit: `6d49815` — disease quality hardening + 640-paper corpus re-run
 - GitHub Pages live: `https://junjslee.github.io/sanomap_radiomics_layer/`
 - Active implementation lane: `ops/remote-run-hf-hosted`
 - Current repo direction is locked:
@@ -176,17 +176,23 @@ Known gaps vs upstream:
 - Phenotype normalization is still lighter than upstream disease/microbe normalization maturity.
 
 ## Blockers
-- Strict-radiomics and adjacent-imaging yield remain weak even with the expanded corpus; the expansion is body-composition-heavy.
-- Disease string quality in `extract_radiomics_text.py` is now improved (stopword guards in `_detect_disease()`), but the expanded 640-paper corpus has not been re-run yet to quantify the improvement.
-- Vision Track: 2 additional figures attempted (PMC10176953, PMC11924647), both correctly rejected. Need to identify papers with proper gradient-colormap heatmaps (not dot-plot style) for additional verified ImageRef nodes.
-- NER: `d4data/biomedical-ner-all` remains the default; BENT was evaluated and rejected due to systematic FPs and tokenization issues.
-- UMLS normalization: documented as a known gap vs upstream MINERVA; not yet implemented.
+- Microbe-disease signed edges are in a separate JSONL (`artifacts/microbe_disease_edges.jsonl`), not in the main Neo4j CSV. Full graph import requires merging them.
+- Vision Track niche exhausted in PMC: <8 papers match "CT texture" + "gut microbiota" + "Spearman" in all of PMC. New candidates require new corpora (HCC/liver, preprints, non-English PMC deposits).
+- UMLS normalization not implemented — alias deduplication is missing vs MINERVA upstream.
+- Strict-radiomics yield remains weak (body-composition-heavy corpus). Improving this requires extractor vocabulary work, not broader retrieval queries.
+- BENT NER evaluated and rejected (systematic FP on "patients", tokenization issues). `d4data/biomedical-ner-all` on MPS is current default.
 
 ## Exact Next Actions
-1. ~~Re-run `src/extract_radiomics_text.py` on the expanded 640-paper corpus~~ — **Done 2026-03-29.** 640-paper corpus re-run; disease targets now 30 clean concepts, 72 ASSOCIATED_WITH + 9 microbe-disease edges, 149 Neo4j rows.
-2. Update `docs/proposal/proposal_sanomap_minerva_extension.tex` to reflect the actual delivered system (not the original plan).
-3. Search PMC corpus specifically for papers with gradient-colormap heatmaps (not bar/dot charts) showing microbe ↔ radiomic feature correlations — needed for additional verified ImageRef nodes.
-4. If strict-radiomics yield needs improvement, improve adjacent-imaging / strict-radiomics extractor vocabulary rather than broadening retrieval queries.
+1. ~~Re-run `src/extract_radiomics_text.py` on the expanded 640-paper corpus~~ — **Done 2026-03-29.**
+2. ~~Update `docs/proposal/proposal_sanomap_minerva_extension.tex`~~ — **Done 2026-03-29** (commit `0ea971d`). Proposal now reflects delivered system with all 8 node types, 12 edge types, correct NER stack, Vision Track metrics, Known Gaps section.
+3. ~~Search PMC for gradient-colormap heatmap papers~~ — **Done 2026-03-29.** Exhaustive search confirmed PMC10605408 is the only open-access PMC paper with this figure type. No new Vision Track candidates available in current PMC corpus.
+4. **Next: Merge microbe-disease edges into Neo4j CSV.** `artifacts/microbe_disease_edges.jsonl` has 12 signed pairs (POSITIVELY/NEGATIVELY_ASSOCIATED_WITH). These need to be included in `artifacts/neo4j_relationships_microbe_expanded.csv` for full graph import.
+   ```bash
+   # Modify src/assemble_edges.py to emit microbe-disease rows in neo4j_relationships_*.csv
+   # or post-process: append rows from microbe_disease_edges.jsonl to neo4j_relationships csv
+   ```
+5. **Next: UMLS normalization decision.** Either add ScispaCy optional pass (`--umls-linker on`) or explicitly document as known gap in `docs/RADIOMICS_LAYER_SPECS.md`.
+6. If strict-radiomics yield needs improvement, improve adjacent-imaging / strict-radiomics extractor vocabulary rather than broadening retrieval queries.
 
 ## What We Are Waiting On
 ### Infrastructure
