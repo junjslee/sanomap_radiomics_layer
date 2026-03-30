@@ -1043,11 +1043,33 @@ def _write_axis_candidates(path: str | Path, candidates: list[PhenotypeAxisCandi
     return write_jsonl(path, candidates)
 
 
+def _neo4j_row_from_microbe_disease_edge(edge: "MicrobeDiseaseEdge") -> dict[str, Any]:
+    return {
+        "source_node_type": edge.subject_node_type,
+        "source_node": edge.subject_node,
+        "target_node_type": edge.object_node_type,
+        "target_node": edge.object_node,
+        "rel_type": edge.graph_rel_type,
+        "pmid": edge.pmid,
+        "pmcid": edge.pmcid or "",
+        "journal": edge.journal or "",
+        "title": edge.title or "",
+        "publication_year": edge.publication_year or "",
+        "impact_factor": "",
+        "quartile": "",
+        "issn": "",
+        "evidence": edge.evidence,
+        "confidence": edge.confidence,
+        "verification_passed": True,
+    }
+
+
 def _write_neo4j_relationships_csv(
     path: str | Path,
     edges: list[EdgeCandidate],
     imaging_backbone_rows: list[dict[str, Any]] | None = None,
     image_ref_rows: list[dict[str, Any]] | None = None,
+    microbe_disease_edges: list["MicrobeDiseaseEdge"] | None = None,
 ) -> int:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     fields = [
@@ -1084,6 +1106,10 @@ def _write_neo4j_relationships_csv(
         if image_ref_rows:
             for row in image_ref_rows:
                 writer.writerow(row)
+                row_count += 1
+        if microbe_disease_edges:
+            for md_edge in microbe_disease_edges:
+                writer.writerow(_neo4j_row_from_microbe_disease_edge(md_edge))
                 row_count += 1
     return row_count
 
@@ -1225,6 +1251,7 @@ def main(argv: list[str] | None = None) -> int:
         args.output_neo4j_csv, edges,
         imaging_backbone_rows=backbone_rows,
         image_ref_rows=image_ref_rows,
+        microbe_disease_edges=microbe_disease_edges_preview,
     )
     bridge_hypothesis_count = _write_bridge_hypotheses(
         args.output_bridge_hypotheses,

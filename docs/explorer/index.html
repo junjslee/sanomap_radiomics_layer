@@ -189,14 +189,14 @@
     <header>
       <h1>Artifact Explorer</h1>
       <p>
-        Load JSONL outputs from relation, edge, bridge, or phenotype-axis artifacts, then
-        filter by subject, disease or context, phenotype, or PMID to inspect the current PoC.
+        SanoMap Radiomics Layer — 185 records auto-loaded (72 ASSOCIATED_WITH · 12 microbe-disease · 100 audit-only bridges · 1 Vision Track).
+        Upload a custom JSONL to override.
       </p>
     </header>
 
     <section class="panel">
       <div class="file-row">
-        <label for="fileInput">Choose a JSONL artifact</label>
+        <label for="fileInput">Upload custom JSONL</label>
         <input id="fileInput" type="file" accept=".jsonl,.json" />
       </div>
 
@@ -237,9 +237,8 @@
     </section>
 
     <p class="hint">
-      The explorer is static and runs entirely in your browser. Use it alongside the
-      `artifacts/relation_aggregated*.jsonl`, `verified_edges*.jsonl`,
-      `bridge_hypotheses*.jsonl`, or `phenotype_axis_candidates*.jsonl` outputs.
+      Data auto-loaded from the bundled artifact snapshot. Upload a custom JSONL to explore a different artifact file.
+      The explorer runs entirely in your browser — no data is sent anywhere.
     </p>
 
     <script>
@@ -419,6 +418,17 @@
         };
         reader.readAsText(file);
       });
+
+      // Auto-load bundled snapshot
+      fetch('./data.jsonl')
+        .then((res) => res.text())
+        .then((text) => {
+          records = parseJsonl(text);
+          renderTable();
+        })
+        .catch(() => {
+          // No bundled data available — user must upload manually
+        });
     </script>
   </body>
 </html>

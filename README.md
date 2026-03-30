@@ -2,19 +2,49 @@
 
 SanoMap Radiomics Layer is a MINERVA-inspired extension that adds imaging phenotypes to a literature-derived microbiome knowledge graph. The project focuses on making microbiome, imaging phenotype, and disease evidence usable together, with radiomic and body-composition features acting as explicit intermediate nodes instead of leaving the graph as a microbe-to-disease view only.
 
-## Project Goal
+## Knowledge Graph Schema
 
-This repository extends prior MINERVA-style microbiome literature mining with a radiomics-first imaging phenotype layer.
+```mermaid
+graph LR
+    M([Microbe]) -->|CORRELATES_WITH| RF([RadiomicFeature])
+    M -->|CORRELATES_WITH| BCF([BodyCompositionFeature])
+    MS([MicrobialSignature]) -->|CORRELATES_WITH| RF
+    MS -->|CORRELATES_WITH| BCF
+    RF -->|ASSOCIATED_WITH| D([Disease])
+    BCF -->|ASSOCIATED_WITH| D
+    RF -->|MEASURED_AT| BL([BodyLocation])
+    BCF -->|MEASURED_AT| BL
+    RF -->|ACQUIRED_VIA| IM([ImagingModality])
+    BCF -->|ACQUIRED_VIA| IM
+    IM -->|REPRESENTED_BY| IR([ImageRef])
+    M -->|POSITIVELY_ASSOCIATED_WITH\nNEGATIVELY_ASSOCIATED_WITH| D
 
-The current implemented graph scope is:
-- `Microbe`
-- `MicrobialSignature`
-- `RadiomicFeature`
-- `BodyCompositionFeature`
-- `Disease`
-- `BodyLocation`
-- `ImagingModality`
-- `ImageRef`
+    style M fill:#1e40af,color:#fff
+    style MS fill:#1e40af,color:#fff
+    style RF fill:#065f46,color:#fff
+    style BCF fill:#065f46,color:#fff
+    style D fill:#7c2d12,color:#fff
+    style BL fill:#4c1d95,color:#fff
+    style IM fill:#4c1d95,color:#fff
+    style IR fill:#92400e,color:#fff
+```
+
+## Corpus Metrics
+
+| Metric | Value |
+|---|---|
+| Papers in corpus | 640 |
+| Phenotype mentions extracted | 5,721 |
+| ASSOCIATED_WITH edges (phenotype → disease) | 72 |
+| Clean disease targets | 30 |
+| Microbe-disease edges (signed polarity) | 12 |
+| BodyLocation nodes | 18 |
+| ImagingModality nodes | 5 |
+| ImageRef nodes (Vision Track verified) | 1 |
+| Total Neo4j export rows | 161 |
+| Automated test checks passing | 156 |
+
+## Graph Policy
 
 The current direct-evidence graph policy is:
 - `(Microbe)-[:CORRELATES_WITH]->(RadiomicFeature)`
@@ -28,7 +58,7 @@ The current direct-evidence graph policy is:
 - `(RadiomicFeature)-[:ACQUIRED_VIA]->(ImagingModality)`
 - `(BodyCompositionFeature)-[:ACQUIRED_VIA]->(ImagingModality)`
 - `(ImagingModality)-[:REPRESENTED_BY]->(ImageRef)`
-- `(Microbe)-[:CORRELATES_WITH_DISEASE]->(Disease)`
+- `(Microbe)-[:POSITIVELY_ASSOCIATED_WITH / NEGATIVELY_ASSOCIATED_WITH]->(Disease)`
 
 Audit-only lanes that help inspect the extension without asserting new graph facts are:
 - direct text subject-to-phenotype candidates in `phenotype_axis_candidates*.jsonl`
