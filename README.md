@@ -128,6 +128,79 @@ How can we connect microbiome findings to imaging-derived phenotypes and then to
 - The Vision Track is validated end-to-end: 1 verified figure, 2 correctly rejected by deterministic verifier.
 - The local pytest suite is green at `156 passed`.
 
+## PubMed Harvest Queries
+
+These are the query profiles used to build the corpus. Run via `src/harvest_pubmed.py --query-profile <name>`.
+
+| Profile | Purpose |
+|---|---|
+| `microbe_radiomics_strict` | Core: radiomic features (GLCM/wavelet/first-order) × microbiome co-mention |
+| `microbe_bodycomp` | Body composition (sarcopenia, SMI, VAT) × microbiome |
+| `microbe_bodycomp_clinical_recall` | Body composition × microbiome × clinical population |
+| `microbe_imaging_adjacent` | Quantitative CT/MRI phenotypes (emphysema, airway, 3D-CT) × microbiome |
+| `microbe_imaging_phenotype` | Union of the three microbe-radiomics lanes above |
+| `radiomics_disease` | Radiomic features × disease (phenotype-to-disease lane) |
+| `bodycomp_disease` | Body composition × disease outcome |
+| `bodycomp_disease_association` | Body composition × disease (association + outcome signal) |
+
+Key query blocks (defined in `src/harvest_pubmed.py`):
+
+```
+RADIOMICS_FEATURE_BLOCK_STRICT  — GLCM, wavelet, first-order, shape, gldm, LoG,
+                                    fractal dimension, quantitative imaging features,
+                                    radiogenomics, deep radiomics
+
+BODYCOMP_FEATURE_BLOCK          — sarcopenia, SMI, VAT, SAT, myosteatosis, muscle attenuation,
+                                    bone mineral density, hepatic steatosis, PDFF, fat fraction,
+                                    intramuscular fat
+
+MICROBIOME_BLOCK                — microbiome, microbiota, gut flora, dysbiosis,
+                                    alpha/beta diversity, 16S rRNA, metagenomics,
+                                    bacteriome, mycobiome, virome
+
+IMAGING_PHENOTYPE_ADJACENT_BLOCK — quantitative CT, emphysema, airway remodeling,
+                                    3D-CT, radiographic phenotype
+
+All primary research only — systematic reviews and meta-analyses are excluded.
+```
+
+## Neo4j Graph Queries
+
+After importing `artifacts/neo4j_relationships_microbe_expanded.csv`:
+
+```cypher
+// Three-hop path: Microbe → Imaging Phenotype → Disease
+MATCH (m)-[:CORRELATES_WITH]->(f)-[:ASSOCIATED_WITH]->(d:Disease)
+RETURN m.name AS microbe, labels(f)[0] AS feature_type, f.name AS feature, d.name AS disease
+ORDER BY m.name, d.name;
+
+// Which imaging features associate with a specific disease?
+MATCH (f)-[:ASSOCIATED_WITH]->(d:Disease)
+WHERE toLower(d.name) CONTAINS 'colorectal'
+RETURN labels(f)[0] AS node_type, f.name AS feature, d.name AS disease;
+
+// Signed microbe-disease associations with weighted evidence
+MATCH (m:Microbe)-[r:POSITIVELY_ASSOCIATED_WITH|NEGATIVELY_ASSOCIATED_WITH]->(d:Disease)
+RETURN m.name AS microbe, type(r) AS direction, d.name AS disease,
+       r.net_confidence, r.positive_support, r.negative_support
+ORDER BY r.net_confidence DESC;
+
+// CT radiomic features measured at a specific body location
+MATCH (f:RadiomicFeature)-[:MEASURED_AT]->(bl:BodyLocation)
+WHERE bl.name = 'liver'
+RETURN f.name AS feature, bl.name AS location;
+
+// Full four-part chain with modality backbone
+MATCH (m:Microbe)-[:CORRELATES_WITH]->(f)-[:ACQUIRED_VIA]->(mod:ImagingModality)
+MATCH (f)-[:ASSOCIATED_WITH]->(d:Disease)
+RETURN m.name, f.name, mod.name, d.name;
+
+// Vision Track verified correlation edge
+MATCH (m:Microbe)-[r:CORRELATES_WITH]->(f)
+WHERE r.evidence_type = 'vision_verified'
+RETURN m.name, f.name, r.r_value, r.confidence, r.pmid;
+```
+
 ## Prior Work And Boundary
 
 - Prior work:

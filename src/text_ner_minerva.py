@@ -86,14 +86,6 @@ DISEASE_TUIS = {
     "T191",
 }
 
-# Conservative fallback patterns used when model dependencies are unavailable.
-DISEASE_PATTERN = re.compile(
-    r"\b([a-z][a-z\- ]{2,60}(?:cancer|carcinoma|tumou?r|disease|syndrome|lesion|fibrosis|diabetes|obesity|cirrhosis|adenocarcinoma|inflammation|colitis|arthritis|infection))\b",
-    re.IGNORECASE,
-)
-MICROBE_PATTERN = re.compile(
-    r"\b([A-Z][a-z]+(?:\s[a-z]{2,})?|[A-Z][a-z]+\s[a-z]+|[a-z]+\s[a-z]+\s(?:sp\.|spp\.)|[A-Z][a-z]+\s(?:sp\.|spp\.))\b"
-)
 
 
 def split_sentences(text: str) -> list[str]:
@@ -184,16 +176,21 @@ class UMLSNormalizer:
             return
 
         try:
+            import scispacy.linking  # type: ignore  # noqa: F401 — registers scispacy_linker factory
             import spacy  # type: ignore
-            from scispacy.linking import EntityLinker  # type: ignore
         except Exception:
             return
 
         try:
             nlp = spacy.load("en_core_sci_lg")
-            if "ner" in nlp.pipe_names:
-                nlp.remove_pipe("ner")
-            linker = EntityLinker(nlp=nlp, resolve_abbreviations=True, linker_name="umls")
+            # scispacy 0.6.x API: must use nlp.add_pipe to register the linker as a
+            # real pipeline component. EntityLinker(nlp=nlp, ...) constructor no longer
+            # registers itself — nlp.pipe_names is unchanged and kb_ents stays empty.
+            nlp.add_pipe(
+                "scispacy_linker",
+                config={"resolve_abbreviations": True, "linker_name": "umls"},
+            )
+            linker = nlp.get_pipe("scispacy_linker")
         except Exception:
             return
 
@@ -206,8 +203,15 @@ class UMLSNormalizer:
             return None
 
         try:
+            # Linker is a registered pipeline component — nlp(text) runs it automatically.
             doc = self._nlp(text)
-            doc = self._linker(doc)
+            # Fallback: if NER found no spans (very short or OOV strings), manually
+            # inject the full text as one entity and run the linker directly.
+            if not doc.ents:
+                from spacy.tokens import Span  # type: ignore
+                label = doc.vocab.strings.add("ENTITY")
+                doc.set_ents([Span(doc, 0, len(doc), label=label)])
+                doc = self._linker(doc)
         except Exception:
             return None
 
@@ -322,7 +326,7 @@ class DiseaseExtractor:
             if docs:
                 return [self._rows_from_bc5cdr_doc(doc) for doc in docs]
 
-        return [self._regex_extract(sentence) for sentence in sentences]
+        return [[] for _ in sentences]
 
     def _rows_from_adapter_output(self, raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
         results: list[dict[str, Any]] = []
@@ -362,21 +366,6 @@ class DiseaseExtractor:
             )
         return _dedupe_span_results(results)
 
-    def _regex_extract(self, sentence: str) -> list[dict[str, Any]]:
-        results: list[dict[str, Any]] = []
-        for match in DISEASE_PATTERN.finditer(sentence):
-            results.append(
-                {
-                    "text": match.group(1),
-                    "start": int(match.start(1)),
-                    "end": int(match.end(1)),
-                    "score": 0.45,
-                    "label": "DISEASE",
-                    "extractor": "regex_fallback",
-                }
-            )
-        return _dedupe_span_results(results)
-
 
 class MicrobeExtractor:
     def __init__(self, model_id: str, batch_size: int = 4) -> None:
@@ -409,15 +398,14 @@ class MicrobeExtractor:
             return []
 
         if self._pipe is None:
-            return [self._regex_extract(sentence) for sentence in sentences]
+            return [[] for _ in sentences]
 
         try:
             raw = self._pipe(sentences, batch_size=self.batch_size)
         except Exception:
-            return [self._regex_extract(sentence) for sentence in sentences]
+            return [[] for _ in sentences]
 
-        out_batches = [self._rows_from_pipeline_output(rows) for rows in _normalize_batch_output(raw, len(sentences))]
-        return [rows if rows else self._regex_extract(sentence) for sentence, rows in zip(sentences, out_batches)]
+        return [self._rows_from_pipeline_output(rows) for rows in _normalize_batch_output(raw, len(sentences))]
 
     def _rows_from_pipeline_output(self, raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
@@ -433,24 +421,6 @@ class MicrobeExtractor:
                     "score": float(row.get("score") or 0.0),
                     "label": str(row.get("entity_group") or row.get("entity") or "ENTITY"),
                     "extractor": "distilbert_biomedical",
-                }
-            )
-        return _dedupe_span_results(out)
-
-    def _regex_extract(self, sentence: str) -> list[dict[str, Any]]:
-        out: list[dict[str, Any]] = []
-        for match in MICROBE_PATTERN.finditer(sentence):
-            term = match.group(1)
-            if not _is_microbe_like(term):
-                continue
-            out.append(
-                {
-                    "text": term,
-                    "start": int(match.start(1)),
-                    "end": int(match.end(1)),
-                    "score": 0.4,
-                    "label": "MICROBE",
-                    "extractor": "regex_fallback",
                 }
             )
         return _dedupe_span_results(out)

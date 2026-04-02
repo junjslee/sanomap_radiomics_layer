@@ -1,0 +1,33 @@
+# Claude Cognitive Framework — sanomap-radiomics-layer
+
+Apply this 5-step loop to every non-trivial code or documentation change:
+
+1. **Deconstruct & Contextualize**
+   - What is being changed, and why? (5W1H)
+   - What are the upstream/downstream dependencies in the pipeline?
+   - Does the proposed solution deviate from standard biomedical KG or IBSI practice?
+
+2. **Ambiguity & Critique Score**
+   - Rate certainty (High / Medium / Low) before acting.
+   - If the proposed approach is suboptimal vs. domain standards, explicitly state why and
+     propose a better architecture before implementing.
+
+3. **Search & Cross-Verify**
+   - Read relevant source files and schemas before editing.
+   - Verify integration points (types.py, schema JSON, test suite).
+
+4. **Action Plan**
+   - Output a short plan (bullet list) before writing any code.
+
+5. **Execution & Verification**
+   - Write the code.
+   - Verify the change is consistent with: graph policy (ASSOCIATED_WITH / CORRELATES_WITH
+     semantics), MINERVA alignment, and the no-bridge-hypothesis-as-edge rule.
+
+## Permanent Graph Guardrails
+- Text phenotype-to-disease: `ASSOCIATED_WITH` only
+- Verified figure edges: `CORRELATES_WITH` only
+- Bridge hypotheses: audit artifacts — never asserted as graph edges
+- Direct evidence only — no edges from shared-disease-context inferences
+- MicrobeDiseaseEdge: cross-paper aggregation with weighted evidence model
+  (`positive_support`, `negative_support`, `net_confidence`)

@@ -37,8 +37,15 @@ RADIOMICS_FEATURE_BLOCK_STRICT = (
     "(texture analysis[Title/Abstract]) OR (texture feature*[Title/Abstract]) OR "
     "(glcm[Title/Abstract]) OR (glrlm[Title/Abstract]) OR "
     "(glszm[Title/Abstract]) OR (ngtdm[Title/Abstract]) OR "
+    "(gldm[Title/Abstract]) OR "
     "(first-order feature*[Title/Abstract]) OR (shape feature*[Title/Abstract]) OR "
-    "(wavelet feature*[Title/Abstract]))"
+    "(wavelet feature*[Title/Abstract]) OR "
+    "(fractal dimension[Title/Abstract]) OR "
+    "(laplacian of gaussian[Title/Abstract]) OR (LoG[Title/Abstract]) OR "
+    "(quantitative imaging feature*[Title/Abstract]) OR "
+    "(radiogenomics[Title/Abstract]) OR (deep radiomics[Title/Abstract]) OR "
+    "(run length feature*[Title/Abstract]) OR (histogram feature*[Title/Abstract]) OR "
+    "(pyradiomics[Title/Abstract]))"
 )
 
 BODYCOMP_FEATURE_BLOCK = (
@@ -48,7 +55,12 @@ BODYCOMP_FEATURE_BLOCK = (
     "(visceral adiposity[Title/Abstract]) OR (subcutaneous adipose tissue[Title/Abstract]) OR "
     "(muscle attenuation[Title/Abstract]) OR (muscle mass[Title/Abstract]) OR "
     "(lean mass[Title/Abstract]) OR (fat mass[Title/Abstract]) OR "
-    "(psoas area[Title/Abstract]) OR (myosteatosis[Title/Abstract]))"
+    "(psoas area[Title/Abstract]) OR (myosteatosis[Title/Abstract]) OR "
+    "(bone mineral density[Title/Abstract]) OR (BMD[Title/Abstract]) OR "
+    "(hepatic steatosis[Title/Abstract]) OR (fat fraction[Title/Abstract]) OR "
+    "(PDFF[Title/Abstract]) OR (proton density fat fraction[Title/Abstract]) OR "
+    "(intramuscular fat[Title/Abstract]) OR (liver fat[Title/Abstract]) OR "
+    "(trabecular bone score[Title/Abstract]))"
 )
 
 IMAGING_MODALITY_BLOCK_STRICT = (
@@ -87,7 +99,13 @@ MICROBIOME_BLOCK = (
     "(alpha diversity[Title/Abstract]) OR (beta diversity[Title/Abstract]) OR "
     "(microbiota composition[Title/Abstract]) OR (microbiome abundance[Title/Abstract]) OR "
     "(microbial signature[Title/Abstract]) OR (microbial signatures[Title/Abstract]) OR "
-    "(microbial community[Title/Abstract]))"
+    "(microbial community[Title/Abstract]) OR "
+    "(16S rRNA[Title/Abstract]) OR (metagenomic*[Title/Abstract]) OR "
+    "(metagenome[Title/Abstract]) OR (gut flora[Title/Abstract]) OR "
+    "(bacteriome[Title/Abstract]) OR (mycobiome[Title/Abstract]) OR "
+    "(virome[Title/Abstract]) OR (shotgun metagenomic*[Title/Abstract]) OR "
+    "(fecal microbiota transplant*[Title/Abstract]) OR "
+    "(microbial diversity[Title/Abstract]))"
 )
 
 OUTCOME_SIGNAL_BLOCK = (

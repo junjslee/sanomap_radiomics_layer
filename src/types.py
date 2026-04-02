@@ -261,6 +261,13 @@ class MicrobeDiseaseEdge:
     confidence: float
     evidence_type: str
     assertion_level: str
+    # Weighted evidence model — cross-paper contradiction handling.
+    # positive_support + negative_support = total papers with an accepted label for this pair.
+    # net_confidence = (positive - negative) / (positive + negative); ranges [-1, +1].
+    positive_support: int = 0
+    negative_support: int = 0
+    net_confidence: float = 0.0
+    supporting_pmids: Optional[str] = None
     pmcid: Optional[str] = None
     journal: Optional[str] = None
     title: Optional[str] = None

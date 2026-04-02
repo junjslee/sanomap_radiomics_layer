@@ -667,13 +667,32 @@
       // Auto-load bundled snapshot
       // ================================================================
       fetch('./data.jsonl')
-        .then(res => res.text())
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.text();
+        })
         .then(text => {
           records = parseJsonl(text);
           renderTable();
         })
         .catch(() => {
-          // No bundled data — manual upload required
+          // fetch() is blocked on the file:// protocol (browser security policy).
+          // To run locally: cd into the docs/ directory and start a server:
+          //   python3 -m http.server 8000
+          // Then open: http://localhost:8000/explorer/
+          //
+          // On GitHub Pages (https://junjslee.github.io/sanomap_radiomics_layer/explorer/)
+          // data loads automatically.
+          const hint = document.createElement('p');
+          hint.style.cssText = 'color:rgba(248,250,252,0.6);text-align:center;padding:1rem;font-size:0.88rem;';
+          hint.innerHTML =
+            'No data loaded. ' +
+            'On GitHub Pages this loads automatically. ' +
+            'Locally, run <code style="background:rgba(255,255,255,0.1);padding:0 4px;border-radius:3px;">python3 -m http.server 8000</code> ' +
+            'in the <code style="background:rgba(255,255,255,0.1);padding:0 4px;border-radius:3px;">docs/</code> folder ' +
+            'and open <code style="background:rgba(255,255,255,0.1);padding:0 4px;border-radius:3px;">http://localhost:8000/explorer/</code>. ' +
+            'Or upload a JSONL file above.';
+          document.querySelector('.stats').after(hint);
         });
     </script>
   </body>

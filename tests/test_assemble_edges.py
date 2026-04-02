@@ -608,16 +608,22 @@ class TestMicrobeDiseaseEdges(unittest.TestCase):
         self.assertIn("POSITIVELY_ASSOCIATED_WITH", rel_types)
         self.assertIn("NEGATIVELY_ASSOCIATED_WITH", rel_types)
 
-    def test_deduplication_keeps_higher_confidence(self) -> None:
+    def test_deduplication_merges_same_pair_cross_paper(self) -> None:
+        # Two papers both reporting positive for the same (microbe, disease) pair.
+        # The weighted evidence model merges them into one edge; confidence is
+        # the average across the majority direction (0.85 + 0.95) / 2 = 0.90.
         r1 = self._positive_relation()
-        r2 = {**r1, "confidence": 0.95}
+        r2 = {**r1, "pmid": "888", "confidence": 0.95}
         edges, _ = build_microbe_disease_edges(
             [r1, r2],
             paper_index={},
             resolver=None,
         )
         self.assertEqual(len(edges), 1)
-        self.assertAlmostEqual(edges[0].confidence, 0.95)
+        self.assertAlmostEqual(edges[0].confidence, 0.90)
+        self.assertEqual(edges[0].positive_support, 2)
+        self.assertEqual(edges[0].negative_support, 0)
+        self.assertAlmostEqual(edges[0].net_confidence, 1.0)
 
 
 if __name__ == "__main__":

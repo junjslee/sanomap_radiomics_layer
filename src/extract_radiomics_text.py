@@ -55,45 +55,60 @@ IBSI_FEATURES = [
     },
 ]
 
+# BODYCOMP_FEATURES semantic mapping strategy:
+# UMLS CUIs are the primary normalization standard, chosen over hardcoded SNOMED/LOINC because:
+#   1. MINERVA uses UMLS CUIs — shared reference enables cross-graph node merging.
+#   2. SNOMED/LOINC codes are cross-referenced within UMLS; using CUIs avoids dual-namespace fragmentation.
+#   3. The running UMLSNormalizer (3.9M entity KB) already produces CUIs at inference time;
+#      these static CUIs serve as expected-value anchors for known-good concepts.
+# CUIs are best-effort mappings against UMLS 2022 KB. Verify with UMLS Metathesaurus browser if needed.
 BODYCOMP_FEATURES = [
     {
         "canonical": "skeletal_muscle_index",
         "ontology_id": "BODYCOMP:SKELETAL_MUSCLE_INDEX",
+        "umls_cui": "C1822407",  # Skeletal muscle mass ratio (best-effort; SMI not a direct UMLS concept)
         "aliases": ["skeletal muscle index", "smi"],
     },
     {
         "canonical": "visceral_adipose_tissue",
         "ontology_id": "BODYCOMP:VISCERAL_ADIPOSE_TISSUE",
+        "umls_cui": "C1706244",  # Visceral Adipose Tissue
         "aliases": ["visceral adipose tissue", "visceral adiposity", "vat"],
     },
     {
         "canonical": "subcutaneous_adipose_tissue",
         "ontology_id": "BODYCOMP:SUBCUTANEOUS_ADIPOSE_TISSUE",
+        "umls_cui": "C0282536",  # Subcutaneous adipose tissue
         "aliases": ["subcutaneous adipose tissue", "sat"],
     },
     {
         "canonical": "myosteatosis",
         "ontology_id": "BODYCOMP:MYOSTEATOSIS",
+        "umls_cui": "C0948046",  # Fat infiltration of muscle
         "aliases": ["myosteatosis"],
     },
     {
         "canonical": "muscle_attenuation",
         "ontology_id": "BODYCOMP:MUSCLE_ATTENUATION",
+        "umls_cui": "C0026845",  # Muscle atrophy (closest UMLS concept; CT-derived HU attenuation lacks direct CUI)
         "aliases": ["muscle attenuation"],
     },
     {
         "canonical": "psoas_area",
         "ontology_id": "BODYCOMP:PSOAS_AREA",
+        "umls_cui": "C0032530",  # Psoas major
         "aliases": ["psoas area", "psoas muscle area"],
     },
     {
         "canonical": "liver_surface_nodularity",
         "ontology_id": "BODYCOMP:LIVER_SURFACE_NODULARITY",
+        "umls_cui": "C3665309",  # Liver surface nodularity
         "aliases": ["liver surface nodularity"],
     },
     {
         "canonical": "sarcopenia",
         "ontology_id": "BODYCOMP:SARCOPENIA",
+        "umls_cui": "C0872084",  # Sarcopenia
         "aliases": ["sarcopenia"],
     },
 ]

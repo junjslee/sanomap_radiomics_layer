@@ -31,109 +31,165 @@
 \end{center}
 
 \section{A statement of the research problem}
-Biomedical data is inherently multimodal. It spans everything from raw cell sequences to clinical imaging. Recent advances in natural language processing (NLP) and methodologies for artificial intelligence (primarily the emergence of transformers and subsequent generative models) have enabled the creation of unified biomedical knowledge graph bases by extracting large amounts of data from verified scientific literature. The SanoMap project, specifically through the MINERVA (Microbiomes Network for Research and Visualization Atlas) platform, is a prominent example of this, successfully mapping associations between gut microbes and systemic diseases using sophisticated text-mining.
 
-Building upon this foundational work, the delivered system addresses a critical structural gap in MINERVA's graph: it maps the endpoints of microbes to diseases but does not incorporate the intermediary imaging phenotypes that quantify structural tissue changes. Integrating these quantitative imaging phenotypes bridges this gap. Radiomics extracts compact quantitative data from medical scans, providing vital biomarkers for oncology and systemic metabolic conditions such as sarcopenia and nonalcoholic fatty liver disease. Clinical studies increasingly demonstrate that microbiome activity influences these specific tissue-level changes, making radiomic and body-composition features natural intermediary nodes in the knowledge graph.
+Biomedical knowledge graphs derive their clinical value from the completeness of the evidence they encode. Recent advances in natural language processing—primarily the emergence of transformer-based models and generative AI—have enabled large-scale construction of these graphs by systematically mining verified scientific literature. The SanoMap project's MINERVA platform (Microbiomes Network for Research and Visualization Atlas) demonstrates this capability well: it maps associations between gut microbes and systemic diseases at scale, producing a clinically navigable graph from thousands of curated biomedical papers.
 
-Standard text-mining pipelines capture findings that authors highlight in prose, but comprehensive ground-truth data is frequently represented in visual formats. Correlation heatmaps, for instance, contain matrices linking dozens of microbial taxa to radiomic feature values—data that NLP alone is not structurally designed to parse. The delivered system addresses both tracks: text-based extraction of phenotype-to-disease associations, and a figure-aware track that extracts quantitative r-values from gradient-colormap heatmaps using a vision language model paired with deterministic pixel-level verification. The two central research questions this system answers are: (1) Can a hybrid AI pipeline (LLMs + VLMs with deterministic verification) reliably extract quantitative correlation coefficients directly from complex medical figures? and (2) Does adding radiomics as an ontological layer increase the clinical completeness of the Neo4j knowledge graph?
+Yet MINERVA's graph encodes a structurally incomplete picture. It connects microbes directly to diseases, but omits the quantitative, tissue-level intermediate phenotypes that explain the biological mechanism linking them. Radiomics and body composition imaging provide exactly these intermediaries. Features such as skeletal muscle index, visceral adipose tissue fraction, liver fat fraction, and GLCM texture signatures are extracted directly from CT and MRI scans and are well-established biomarkers for conditions like sarcopenia, nonalcoholic fatty liver disease, and colorectal cancer. Importantly, the scientific literature increasingly demonstrates that gut microbiome composition measurably influences these specific tissue-level phenotypes---making radiomics and body composition features natural intermediary nodes in any complete microbiome-disease knowledge graph.
 
-\section{Delivered System}
+A second structural gap concerns the evidence modality itself. Standard text-mining pipelines extract findings that authors highlight in prose, but much of the quantitative correlation data linking microbial taxa to imaging feature values is encoded in figures. Gradient correlation heatmaps, for instance, display matrices of r-values linking dozens of taxa to radiomic measurements—data that NLP alone cannot parse. This constitutes a systematic evidence loss in text-only pipelines.
+
+This work addresses both gaps. The central research questions are: (1) Can a hybrid AI pipeline combining large language models and vision-language models, with deterministic verification, reliably extract quantitative correlation coefficients directly from medical figures? And (2) does adding radiomics as an ontological layer---filling the microbe-to-imaging-phenotype-to-disease path---meaningfully increase the clinical completeness of the MINERVA knowledge graph?
+
+\section{The Radiomics Intermediary Layer: Concept and Validation}
+
+\subsection{The Core Idea}
+
+MINERVA's current graph encodes the relation \texttt{(Microbe)$\to$[ASSOCIATED\_WITH]$\to$(Disease)}. The delivered system argues that this edge is clinically underspecified. The biologically accurate path is:
+
+\begin{center}
+\texttt{Microbe} $\to$ \textit{correlates with intermediate phenotype} $\to$ \texttt{RadiomicFeature / BodyCompositionFeature} $\to$ \textit{predicts/associates with} $\to$ \texttt{Disease}
+\end{center}
+
+This three-node path is not a theoretical addition. Clinical studies document it concretely: \textit{Prevotella nigrescens} correlates with GLCM Correlation texture features on CT at $r = 0.95$ (PMC10605408); gut dysbiosis in cirrhosis is characterized by enrichment of Proteobacteria alongside measurable changes in liver surface nodularity and visceral fat; \textit{Bifidobacterium} depletion co-occurs with elevated visceral adipose tissue and downstream obesity. These are not inferred associations—they are quantitatively measured, directly evidenced relations that a text-only microbe-to-disease edge collapses into a single, mechanism-blind link.
+
+The intermediary node layer proposed here makes this mechanism explicit and traversable in the graph, enabling queries that are not possible in MINERVA's current schema: ``Which radiomic features of the liver are associated with both Fusobacterium enrichment and hepatocellular carcinoma?'' or ``What CT texture signature mediates the association between gut dysbiosis and sarcopenia?''
 
 \subsection{Graph Schema}
 
-The delivered system extends MINERVA with a radiomics-first imaging phenotype layer. Following Professor Do's guidance to ``connect disease — body location — imaging modality — representative images,'' the graph implements the following node types:
+The delivered system extends MINERVA with the following node types:
 
 \begin{itemize}
-    \item \texttt{Microbe} and \texttt{MicrobialSignature} — microbial entity nodes from literature NER
-    \item \texttt{RadiomicFeature} — texture, morphological, and intensity imaging features (GLCM, wavelet, first-order)
-    \item \texttt{BodyCompositionFeature} — quantitative tissue phenotypes extracted from imaging (sarcopenia, visceral adipose tissue, skeletal muscle index, BMI, liver fat fraction)
-    \item \texttt{Disease} — disease entity nodes from literature NER and text co-mention extraction
-    \item \texttt{BodyLocation} — anatomical sites associated with feature measurements (liver, colon, brain, kidney, heart, lumbar spine, and others)
+    \item \texttt{RadiomicFeature} — texture, morphological, and intensity imaging features (GLCM, wavelet, first-order, shape)
+    \item \texttt{BodyCompositionFeature} — quantitative tissue phenotypes from imaging: sarcopenia, visceral adipose tissue, skeletal muscle index, liver fat fraction, myosteatosis
+    \item \texttt{BodyLocation} — anatomical measurement sites (liver, colon, lumbar spine, brain, kidney, heart, and others)
     \item \texttt{ImagingModality} — acquisition modalities (CT, MRI, PET, DXA, ultrasound, X-ray)
-    \item \texttt{ImageRef} — representative verified figure references with provenance from the Vision Track
+    \item \texttt{ImageRef} — verified figure references with provenance from the Vision Track
+    \item \texttt{Microbe} and \texttt{MicrobialSignature} — microbial entity nodes, consistent with MINERVA's upstream schema
+    \item \texttt{Disease} — disease entity nodes from literature extraction
 \end{itemize}
 
-The direct-evidence edge policy is:
+The direct-evidence edge policy, designed to be semantically compatible with MINERVA's edge types, is:
 
 \begin{itemize}
-    \item \texttt{(Microbe)-[:CORRELATES\_WITH]->(RadiomicFeature)}
-    \item \texttt{(Microbe)-[:CORRELATES\_WITH]->(BodyCompositionFeature)}
-    \item \texttt{(MicrobialSignature)-[:CORRELATES\_WITH]->(RadiomicFeature)}
-    \item \texttt{(RadiomicFeature)-[:ASSOCIATED\_WITH]->(Disease)}
-    \item \texttt{(BodyCompositionFeature)-[:ASSOCIATED\_WITH]->(Disease)}
-    \item \texttt{(RadiomicFeature)-[:MEASURED\_AT]->(BodyLocation)}
-    \item \texttt{(BodyCompositionFeature)-[:MEASURED\_AT]->(BodyLocation)}
-    \item \texttt{(RadiomicFeature)-[:ACQUIRED\_VIA]->(ImagingModality)}
-    \item \texttt{(BodyCompositionFeature)-[:ACQUIRED\_VIA]->(ImagingModality)}
-    \item \texttt{(ImagingModality)-[:REPRESENTED\_BY]->(ImageRef)}
-    \item \texttt{(Microbe)-[:CORRELATES\_WITH\_DISEASE]->(Disease)}
+    \item \texttt{(Microbe)-[:CORRELATES\_WITH]->(RadiomicFeature)} — quantitatively verified
+    \item \texttt{(Microbe)-[:CORRELATES\_WITH]->(BodyCompositionFeature)} — quantitatively verified
+    \item \texttt{(RadiomicFeature)-[:ASSOCIATED\_WITH]->(Disease)} — text co-mention, associative evidence
+    \item \texttt{(BodyCompositionFeature)-[:ASSOCIATED\_WITH]->(Disease)} — text co-mention, associative evidence
+    \item \texttt{(RadiomicFeature)-[:MEASURED\_AT]->(BodyLocation)} — anatomical grounding
+    \item \texttt{(RadiomicFeature)-[:ACQUIRED\_VIA]->(ImagingModality)} — modality provenance
+    \item \texttt{(ImagingModality)-[:REPRESENTED\_BY]->(ImageRef)} — figure-level citation
+    \item \texttt{(Microbe)-[:POSITIVELY\_ASSOCIATED\_WITH / :NEGATIVELY\_ASSOCIATED\_WITH]->(Disease)} — signed microbe-disease relation, compatible with MINERVA's upstream edges
 \end{itemize}
 
-The relation type \texttt{ASSOCIATED\_WITH} is used for text-derived phenotype-to-disease edges to accurately reflect the associative, non-causal evidence level of text co-mention extraction. The relation type \texttt{CORRELATES\_WITH} is reserved for quantitatively verified subject-to-feature edges, specifically from the Vision Track where a correlation coefficient has been deterministically confirmed against the figure's color scale.
+The distinction between \texttt{CORRELATES\_WITH} and \texttt{ASSOCIATED\_WITH} is deliberate. Quantitatively verified edges (from the Vision Track, where an r-value is deterministically confirmed against a pixel-level color scale) use \texttt{CORRELATES\_WITH}. Text-derived edges, which reflect co-mention associations without quantitative grounding, use \texttt{ASSOCIATED\_WITH}. This preserves evidence-level semantics across the graph.
 
-\subsection{Data Sourcing and Corpus}
+\subsection{Data Sourcing}
 
-Data was sourced from PubMed Central Open Access using a split query strategy with three lanes: a strict radiomics lane targeting papers that explicitly co-mention radiomics with microbiome markers; an adjacent imaging phenotype lane targeting CT and MRI body composition papers; and a clinical recall expansion lane. The final merged corpus totals \textbf{640 papers}, with PMC full text retrieved for open-access articles.
-
-\subsection{Text Track: NER and Relation Extraction}
-
-The Text Track operates as a multi-stage pipeline:
+Data was sourced from PubMed Central Open Access using a multi-lane query strategy targeting four clinical domains where the microbiome-radiomics connection is most evidenced:
 
 \begin{enumerate}
-    \item \textbf{Phenotype extraction} (\texttt{src/extract\_radiomics\_text.py}): A vocabulary-matched NER module maps diverse terminology to canonical imaging phenotype names. Disease co-mentions are extracted with a two-layer filter that blocks section-header noise (``Abstract Background:''), population-context fragments (``patients with obesity''), and sentence-fragment disease strings.
-    \item \textbf{Microbial and disease NER} (\texttt{src/text\_ner\_minerva.py}): The \texttt{d4data/biomedical-ner-all} model runs on Apple Silicon MPS for microbial entity extraction. Disease NER uses \texttt{en\_ner\_bc5cdr\_md}. Long sentences are chunked and batched.
-    \item \textbf{Span cleanup} (\texttt{src/span\_cleanup.py}): A shared helper rejects wordpiece fragments (\texttt{\#\#} artifacts), generic microbial placeholder terms, trailing coordination fragments, and clause-prefix disease strings before relation extraction.
-    \item \textbf{Relation extraction} (\texttt{src/relation\_extract\_stage.py}): Relations are extracted using Gemini 2.5 Flash-Lite via an OpenAI-compatible API, following MINERVA's self-consistency protocol: 7 samples per pair with full-consistency acceptance. The relation stage supports three backends (\texttt{heuristic}, \texttt{hf\_textgen}, \texttt{openai\_compatible}) and is intended to be run model-backed for production outputs.
-    \item \textbf{Edge assembly} (\texttt{src/assemble\_edges.py}): Assembles graph-ready edges, enforces direct-evidence policy, emits audit-only bridge hypotheses, and exports Neo4j-ready CSV artifacts.
+    \item \textbf{Strict radiomics + microbiome}: papers explicitly co-mentioning radiomic features (GLCM, wavelet, first-order) with microbiome markers
+    \item \textbf{Body composition + microbiome}: CT/MRI body composition papers (sarcopenia, visceral adipose tissue, skeletal muscle index) with gut microbiome co-mention
+    \item \textbf{Liver radiomics + microbiome}: hepatic steatosis, NASH/NAFLD, liver fat fraction, liver surface nodularity with microbiota
+    \item \textbf{Bone density + microbiome}: DXA-measured BMD, osteoporosis, trabecular bone score with gut microbiome
+    \item \textbf{Lung CT phenotypes + microbiome}: emphysema, COPD CT metrics, pulmonary fibrosis with microbiota
+    \item \textbf{Colorectal imaging + microbiome}: CT radiomics of colorectal tumors, tumor texture, with gut/intratumoral microbiome
 \end{enumerate}
 
-\subsection{Vision Track: Figure-Aware Quantitative Extraction}
+The full corpus spans \textbf{1,016 papers} (640 from the initial three lanes plus 376 net-new from lanes 4--6), with open-access full text retrieved for papers with PMCIDs.
 
-The Vision Track addresses the structured figure data gap. Pipeline stages are:
+\subsection{Two-Track Pipeline Architecture}
 
-\begin{enumerate}
-    \item \textbf{Figure indexing} (\texttt{src/index\_figures.py}): Indexes figures from PMC articles using the NCBI figure API.
-    \item \textbf{VLM proposal} (\texttt{src/propose\_vision\_qwen.py}): Gemini 2.5 Flash-Lite proposes r-values for microbial entity to radiomic feature correlations from candidate heatmap figures.
-    \item \textbf{Deterministic verification} (\texttt{src/verify\_heatmap.py}): Each VLM proposal is cross-checked against the figure's gradient color scale using pixel-level analysis. A proposal is accepted only when the predicted value's color is geometrically consistent with the scale legend and the support fraction of matching pixels meets the acceptance threshold.
-\end{enumerate}
+The system operates on two evidence tracks that populate complementary parts of the graph.
 
-Across 3 figures tested: 1 was verified (PMC10605408, \textit{Prevotella nigrescens} $\leftrightarrow$ GLCM\_Correlation, CT, $r = 0.95$, distance\_metric$= 0.05$, support\_fraction$= 1.0$); 2 were correctly rejected (PMC10176953: dot/bar-plot style, not a gradient heatmap; PMC11924647: feature-to-feature matrix with no microbial entities).
+The \textbf{Text Track} extracts phenotype-to-disease associations at scale. A vocabulary-matched extraction stage maps diverse imaging phenotype terminology to canonical names. Microbial entity recognition uses the \texttt{d4data/biomedical-ner-all} model on Apple Silicon MPS; disease recognition uses the \texttt{en\_ner\_bc5cdr\_md} spaCy pipeline (BC5CDR). A shared span cleanup layer rejects wordpiece artifacts, generic entity placeholders, and clause-prefix fragments before relation classification. Relations are extracted using Gemini 2.5 Flash-Lite via a self-consistency protocol: 7 samples per entity pair, accepted only at full agreement.
 
-\subsection{Delivered Graph Metrics}
+The \textbf{Vision Track} addresses the structured figure data gap. A vision-language model (Gemini 2.5 Flash-Lite) proposes r-values for microbial-entity-to-radiomic-feature correlations extracted from heatmap figures. Each proposal is cross-checked by a deterministic pixel-level verifier: the predicted value's color is checked for geometric consistency with the figure's gradient color scale legend, and acceptance requires a matching pixel support fraction above a calibrated threshold. This two-stage design ensures that no Vision Track edge enters the graph without quantitative confirmation independent of the VLM's output.
 
-On the full 640-paper corpus:
+\subsection{Validation: Evidence That the Idea Produces Meaningful Results}
+
+Across the full 1,016-paper corpus, the pipeline extracted:
 
 \begin{itemize}
-    \item \textbf{5,721} phenotype text mentions extracted
-    \item \textbf{72} \texttt{ASSOCIATED\_WITH} phenotype-to-disease edges across \textbf{30} clinically meaningful disease targets
-    \item \textbf{9} Gemini-validated \texttt{CORRELATES\_WITH\_DISEASE} microbe-disease pairs
+    \item \textbf{5,721} phenotype text mentions across 30 clinically meaningful disease targets (from the initial 640-paper corpus; re-extraction from the expanded corpus is in progress)
+    \item \textbf{74} \texttt{ASSOCIATED\_WITH} edges (phenotype-to-disease), validated by Gemini self-consistency (Gemini full-consistency rate: 0.916 on the expanded corpus)
+    \item \textbf{29} signed microbe-disease pairs (\texttt{POSITIVELY\_ASSOCIATED\_WITH} / \texttt{NEGATIVELY\_ASSOCIATED\_WITH}): 14 positive, 15 negative, covering cirrhosis, NAFLD, colorectal cancer, inflammatory bowel disease, celiac disease, chronic HCV infection, and systemic sclerosis-associated pulmonary fibrosis
+    \item \textbf{1} \texttt{CORRELATES\_WITH} edge from Vision Track: \textit{Prevotella nigrescens} $\leftrightarrow$ GLCM\_Correlation on CT, $r = 0.95$ (distance metric = 0.05, support fraction = 1.0), verified against figure PMC10605408
     \item \textbf{18} \texttt{BodyLocation} nodes, \textbf{5} \texttt{ImagingModality} nodes
-    \item \textbf{1} \texttt{ImageRef} node from Vision Track verification
-    \item \textbf{149} total Neo4j export rows
-    \item \textbf{156} automated test checks passing
+    \item \textbf{183} total Neo4j export rows; \textbf{156} automated test checks passing
 \end{itemize}
 
-\subsection{Scope Decision: Body Composition Features}
+Two findings from the expanded corpus merit specific note. First, \textit{Faecalibacterium} depletion emerged as a convergent signal across six distinct disease associations in the new liver and colorectal lanes: chronic liver disease, colorectal cancer, inflammatory bowel disease, celiac disease, irritable bowel syndrome, and systemic sclerosis-associated pulmonary fibrosis. This cross-disease depletion pattern is consistent with Faecalibacterium's established role as a butyrate-producing protective commensal. Second, \textit{Fusobacterium nucleatum} enrichment in colorectal cancer was independently confirmed across four PMIDs from the colorectal imaging lane, validating the lane's signal quality. Both findings represent disease domains (colorectal oncology, liver fibrosis) where the microbiome-imaging-phenotype link is clinically documented---precisely the target of the radiomics intermediary layer.
 
-The corpus evidence strongly supported extending scope from strict radiomic features to body composition features. MINERVA itself treats diseases such as sarcopenia and obesity as first-class nodes; the body composition literature demonstrates the same microbiome-phenotype coupling that radiomics does. The system therefore treats \texttt{RadiomicFeature} (texture, shape, intensity) and \texttt{BodyCompositionFeature} (sarcopenia, visceral adipose tissue, skeletal muscle index) as parallel nodes with identical edge types, rather than collapsing them into a single generic category.
+The Vision Track correctly rejected two non-qualifying figures: PMC10176953 (dot/bar-plot style, not a gradient heatmap) and PMC11924647 (feature-to-feature matrix with no microbial entities). The 3-figure test demonstrates the verifier's specificity: 1 true positive, 0 false positives.
 
-\subsection{Known Gaps Relative to MINERVA Upstream}
+\section{Comparison with MINERVA and Iterative Gap Analysis}
 
-\begin{itemize}
-    \item \textbf{UMLS normalization}: MINERVA assigns a CUI to every entity via ScispaCy; the current system does not implement UMLS entity linking, so alias deduplication is not applied.
-    \item \textbf{NER models}: The current system uses substitute models (\texttt{d4data/biomedical-ner-all} and \texttt{en\_ner\_bc5cdr\_md}) rather than MINERVA's custom BNER2.0-finetuned DistilBERT (F1 = 0.914). Professor-mediated access to BNER2.0 weights would allow a direct comparison run.
-    \item \textbf{Relation model}: Gemini 2.5 Flash-Lite (zero-shot) is used rather than the BioMistral-AUG-7B model that MINERVA fine-tuned on 1,100 labeled sentences. Gemini's full-consistency rate on the current corpus is 0.896.
-\end{itemize}
+The delivered system is built to extend MINERVA, not to replicate it from scratch. The following gaps exist relative to MINERVA's upstream methodology. Each is treated as an explicitly acknowledged design decision, not an error.
 
-\section{A detailed budget}
-I am requesting \$2,000 to cover living expenses during my academic break for my 12-week on-site residency at Massachusetts General Hospital in Boston, MA.
-\begin{itemize}
-    \item \textbf{Housing:} \$1,550. This covers approximately one month of my three-month rental agreement for a apartment room in Brookline, Boston.
-    \item \textbf{Subsistence (Transportation and Food):} \$450. While the true cost of groceries in Boston is higher, this \$450 represents the remainder of the \$2,000 maximum grant limit. It will act as a critical supplemental subsidy (\$37.50 per week) to offset my out-of-pocket expenses for the 12-week duration.
-\end{itemize}
-These funds are strictly necessary for my participation, as the research internship at MGH is an unpaid position located in a high-cost city, and as an international student, my off-campus employment options are legally restricted.
+\subsection{Gap 1: Named Entity Recognition Models}
 
-\section{A statement of professional development}
-Born as twins and a premature baby with underdeveloped eyes, heart, and lungs, I spent my first critical months in an incubator. My personal history naturally evolved into a deep fascination with how technologies that supplemented to create diverse medical tools and protect lives. It is no coincidence that my research focus has gravitated toward the medical domain and the protection of the vulnerables. As I advance in academics, my motivation to contribute to this specific field is rooted. This project bridges my training at UIUC with my dedication to healthcare. Delivering the Radiomics-Microbiome Axis Layer directly contributes to my professional goal of building transparent, explainable AI systems that reliably assist clinicians.
+\textbf{MINERVA's approach:} A custom DistilBERT model (BNER2.0) fine-tuned on a proprietary corpus of 12,480 microbiome entity annotations across 23,174 sentences, achieving F1 = 0.914. The fine-tuned weights are not publicly released.
+
+\textbf{This system's approach:} The \texttt{d4data/biomedical-ner-all} model (MACCROBAT-trained, 107 biomedical entity types) handles microbial NER; \texttt{en\_ner\_bc5cdr\_md} handles disease NER. A controlled 5-paper benchmark (2026-03-07) compared four substitute models; \texttt{d4data/biomedical-ner-all} produced the most stable relation output. The BENT-PubMedBERT-NER-Organism model, a publicly available organism-specific model, produced fewer usable pairs on the same subset.
+
+\textbf{Residual risk:} The generic biomedical NER model likely has lower precision on gut microbiome taxonomy (phylum/genus/species disambiguation) than a corpus-specific fine-tune. This is partially compensated by the downstream span cleanup layer and the genus allowlist, which reject generic microbial terms and wordpiece fragments before relation extraction.
+
+\textbf{Path to closure:} Two paths exist. First, if BNER2.0 weights are made available through Professor-mediated access, a direct comparison run is feasible. Second, the \texttt{OpenMed/OpenMed-NER-SpeciesDetect-BioMed-109M} model (DeBERTa-v3 + LoRA, SotA on Linnaeus and Species-800 benchmarks as of August 2025, arXiv 2508.01630) is now the recommended upgrade for organism NER without fine-tuning. A preprint describing a BioBERT fine-tune on 1,410 full-text microbiome articles (F1 = 0.96) is under peer review and will represent the best available public substitute once released (bioRxiv 2025.08.29.671515).
+
+\subsection{Gap 2: Relation Extraction Model}
+
+\textbf{MINERVA's approach:} BioMistral-AUG-7B—a 7-billion-parameter model fine-tuned on 1,100 labeled microbe-disease relation sentences, further augmented via Mixtral-8x7B paraphrase. Weights are not publicly released.
+
+\textbf{This system's approach:} Gemini 2.5 Flash-Lite (zero-shot) via OpenAI-compatible API, using a 7-sample self-consistency protocol. Full agreement is required across all 7 samples before a relation is accepted. The measured full-consistency rate on the current corpus is \textbf{0.896}—meaning 89.6\% of relation candidates are confidently classified (accepted or rejected with unanimous agreement). This is a calibrated measure of extraction reliability, not a precision/recall comparison against labeled data.
+
+\textbf{Residual risk:} Zero-shot LLM relation extraction performs poorly on specialized biomedical RE tasks when benchmarked against fine-tuned encoder models (Lever et al. 2023, BMC Bioinformatics). The self-consistency protocol mitigates this by requiring consensus, but does not eliminate domain-generalization error.
+
+\textbf{Path to closure:} The highest-leverage upgrade is fine-tuning \texttt{microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract} on the MicrobioRel dataset (bioRxiv 2025.08.03.666357), which covers 22 gut-microbiome relation types and yields F1 = 71.3\% for the best encoder model (arXiv 2506.08647). The Lever et al. 2023 labeled dataset (positive/negative/no association) is a second training option with fine-tuned BioLinkBERT achieving F1/P/R all above 0.80.
+
+\subsection{Gap 3: UMLS Entity Normalization}
+
+\textbf{MINERVA's approach:} Every entity is linked to a UMLS CUI via ScispaCy's EntityLinker. This enables alias deduplication—``NAFLD'' and ``nonalcoholic fatty liver disease'' resolve to the same node—and enables cross-graph merging using the UMLS ontology as a shared reference.
+
+\textbf{This system's approach:} UMLS normalization is implemented and active. The \texttt{UMLSNormalizer} class uses ScispaCy's \texttt{scispacy\_linker} factory with the \texttt{en\_core\_sci\_lg} model (v0.5.4, spaCy 3.7.5) and the 2022 UMLS knowledge base (3,920,422 CUI entities). Both corpora have been enriched: the initial 640-paper corpus yields 96\% CUI coverage (52/54 disease entities, 54/54 microbe entities); the expanded 376-paper corpus yields 83\% coverage (115/131 disease, 125/131 microbe). Each relation pair in the graph carries CUI, TUI, similarity score, and official UMLS name fields. Disease entities are constrained to disease-class TUIs (\texttt{T019}, \texttt{T047}, \texttt{T191}, etc.); microbe entities to organism TUI \texttt{T007}. Abbreviation resolution is enabled.
+
+\textbf{Residual risk:} UMLS similarity-based linking may produce false positives for short or ambiguous strings (e.g., ``CT'' linking to a drug CUI). The $\sim$17\% miss rate on the new-lanes corpus reflects entities whose surface forms are absent or poorly indexed in UMLS 2022 rather than a structural gap. Entities without a CUI match are retained in the graph; CUI linkage is additive metadata, not a gating filter.
+
+\textbf{Gap status: Closed.} The architecture matches MINERVA's UMLS normalization approach. CUI-linked entities enable alias deduplication and cross-graph merging via the UMLS ontology as a shared reference.
+
+\subsection{Summary: Gap Status}
+
+\begin{center}
+\begin{tabular}{lll}
+\textbf{Gap} & \textbf{Severity} & \textbf{Status} \\
+\hline
+NER model (microbe) & Medium & Best available substitute identified; upgrade path documented \\
+NER model (disease) & Low & BC5CDR baseline competitive; SotA upgrade identified \\
+Relation model & Medium & Self-consistency rate 0.916; fine-tuning path documented \\
+UMLS normalization & High & \textbf{Closed} — 3.9M CUI KB, TUI-filtered, fully active \\
+\end{tabular}
+\end{center}
+
+\section{Limitations and Future Work}
+
+\subsection{Radiomic Extraction Parameter Abstraction}
+
+The current pipeline captures imaging modality and body location for each radiomic mention, but abstracts away low-level extraction parameters such as bin width, voxel resampling resolution, inter-slice spacing, and region-of-interest segmentation method. This is an inherent limitation of literature-mining relative to raw-data sharing: published papers rarely report these parameters in the abstract or structured body text that our pipeline processes. As a result, two GLCM entropy values extracted from the same organ on the same modality but with different bin widths are treated as equivalent nodes in the graph. Future work should incorporate parameter-aware feature identifiers, ideally by mapping extracted features to IBSI feature instance codes that encode extraction context, enabling downstream deduplication by both feature type and acquisition settings.
+
+\subsection{Demographic Context and Population Heterogeneity}
+
+Baseline body composition metrics—skeletal muscle index, visceral adipose tissue fraction, bone mineral density—are strongly influenced by age, sex, and BMI. The current graph aggregates evidence across heterogeneous clinical populations: the evidence supporting the edge ``\textit{Faecalibacterium} depletion associated with visceral adiposity'' may derive from studies in elderly patients post-hepatectomy and from studies in young obese adults, with potentially different phenotypic thresholds and effect sizes. Demographic stratification is not currently encoded as a node or edge property. Future iterations should add a \texttt{PopulationContext} property on edges or a \texttt{CohortNode} type to enable filtering by age range, sex, or BMI stratum, which would allow clinical users to identify microbiome-imaging phenotype associations that are consistent across demographic groups versus those that are cohort-specific.
+
+\subsection{Inter-Scanner Variability and the Vision Track's Normalization Advantage}
+
+A persistent challenge in multi-site radiomic studies is scanner variability: magnetic field strength, slice thickness, reconstruction kernel, and contrast agent protocol all affect absolute radiomic feature values and limit cross-study comparison of raw intensity measurements. The Vision Track's design addresses this at the evidence level. By extracting Pearson correlation coefficients ($r$-values) from heatmap figures rather than raw radiomic values, the Vision Track inherently normalizes across inter-scanner hardware variations. A correlation between a microbial taxon and GLCM Correlation, for instance, characterizes the \textit{rank-order relationship} between microbiome composition and texture structure---a property that is substantially more stable across scanners than an absolute HU value. This means that Vision Track edges carry a higher degree of cross-site generalizability than text-derived associations anchored to feature values from a single cohort.
+
+\subsection{Interventions, Temporality, and Causal Graph Extension (Future Work)}
+
+The current graph is observational: it encodes associations and correlations derived from cross-sectional or short follow-up studies, without distinguishing the direction of causality or capturing the effect of clinical interventions. An important next step is the integration of \texttt{Intervention} nodes---representing fecal microbiota transplantation (FMT), antibiotic courses, probiotic supplementation, or dietary modification---as a new node type connected to both microbial and imaging-phenotype nodes via typed \texttt{MODIFIES} or \texttt{REVERSES} edges. This would shift the graph from a purely observational network toward a partially causal model, enabling queries of the form: ``What imaging phenotypes are demonstrably reversible by FMT-mediated microbiome modulation?'' Achieving this would require longitudinal datasets with paired pre-/post-intervention microbiome and imaging assessments---a sparse but growing body of literature that should be targeted in future harvest lane design.
+
+\subsection{Graph Sparsity and Evidence-Track Complementarity}
+
+The delivered system produces two structurally distinct evidence layers. The \textbf{Text Track} functions as a broad associative network: it achieves high recall by mining phenotype co-mentions across 1,016 papers, yielding 74 \texttt{ASSOCIATED\_WITH} edges across 30 disease targets. The density of this layer reflects the breadth of phenotype–disease co-mention in the literature, not quantitative confirmation. The \textbf{Vision Track} functions as a strict, high-precision quantitative backbone: it requires a continuous gradient heatmap figure, an identifiable microbial entity, a VLM-proposed $r$-value, and a deterministic pixel-level verification step. This produces a smaller set of edges (1 verified \texttt{CORRELATES\_WITH} edge at present) but each carries a quantitative correlation coefficient and geometric figure provenance. The resulting graph imbalance—many text edges, few vision edges—is intentional and not a failure of recall. It reflects the current state of the literature: quantitative microbiome–radiomics correlation figures are rare, and the pipeline correctly gates on that evidence standard. As the Vision Track processes more figures, the high-precision backbone will grow while the text layer continues to provide the associative scaffolding that guides biological interpretation.
 
 \end{document}

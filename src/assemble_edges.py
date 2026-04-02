@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import sys
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -604,10 +605,18 @@ def build_microbe_disease_edges(
     paper_index: dict[str, dict[str, Any]],
     resolver: ImpactFactorResolver | None,
 ) -> tuple[list[MicrobeDiseaseEdge], int]:
-    edges: list[MicrobeDiseaseEdge] = []
+    """Build cross-paper aggregated microbe-disease edges with weighted evidence model.
+
+    Contradictory evidence (Paper A: positive, Paper B: negative for same pair) is handled
+    mathematically rather than emitting duplicate conflicting edges:
+      - positive_support / negative_support: count of papers in each direction
+      - net_confidence = (pos - neg) / (pos + neg)  range [-1, +1]
+      - final direction determined by the net sign; balanced pairs (net == 0) are skipped
+    """
     rejected = 0
 
-    dedup: dict[tuple[str, str, str, str], MicrobeDiseaseEdge] = {}
+    # Per-paper validated rows, keyed by (subject_node_type, subject_node, disease)
+    cross_paper: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
 
     for relation in relation_aggregated:
         final_label = str(relation.get("final_label") or "").lower()
@@ -636,38 +645,65 @@ def build_microbe_disease_edges(
             continue
 
         subject_node_type = str(relation.get("subject_node_type") or "Microbe")
-        graph_rel_type = _LABEL_TO_REL_TYPE[final_label]
-        evidence = str(relation.get("evidence") or "").strip()
-        confidence = float(relation.get("confidence") or 0.7)
-        meta = _paper_metadata(pmid, paper_index, resolver)
+        key = (subject_node_type, cleaned_subject.canonical, disease)
+        cross_paper[key].append({
+            "label": final_label,
+            "pmid": pmid,
+            "evidence": str(relation.get("evidence") or "").strip(),
+            "confidence": float(relation.get("confidence") or 0.7),
+            "meta": _paper_metadata(pmid, paper_index, resolver),
+        })
 
-        edge = MicrobeDiseaseEdge(
-            edge_id=_edge_id("microbe-disease", pmid, cleaned_subject.canonical, disease, final_label),
-            pmid=pmid,
-            subject_node_type=subject_node_type,
-            subject_node=cleaned_subject.canonical,
-            object_node_type="Disease",
-            object_node=disease,
-            graph_rel_type=graph_rel_type,
-            relation_direction=final_label,
-            evidence=evidence,
-            confidence=confidence,
-            evidence_type="text_model_verified",
-            assertion_level="direct_evidence",
-            pmcid=meta["pmcid"],
-            journal=meta["journal"],
-            title=meta["title"],
-            publication_year=meta["publication_year"],
+    edges: list[MicrobeDiseaseEdge] = []
+    for (subject_node_type, subject_node, disease), rows in cross_paper.items():
+        positive_rows = [r for r in rows if r["label"] == "positive"]
+        negative_rows = [r for r in rows if r["label"] == "negative"]
+        positive_support = len(positive_rows)
+        negative_support = len(negative_rows)
+        net = positive_support - negative_support
+
+        if net == 0:
+            # Contradictory and balanced — skip rather than assert an unreliable direction.
+            rejected += len(rows)
+            continue
+
+        final_label = "positive" if net > 0 else "negative"
+        graph_rel_type = _LABEL_TO_REL_TYPE[final_label]
+        net_confidence = round(net / (positive_support + negative_support), 3)
+
+        majority_rows = positive_rows if net > 0 else negative_rows
+        best_row = max(majority_rows, key=lambda r: r["confidence"])
+        avg_confidence = round(sum(r["confidence"] for r in majority_rows) / len(majority_rows), 3)
+
+        all_pmids = sorted({r["pmid"] for r in rows})
+        all_evidence = " ||| ".join(sorted({r["evidence"] for r in rows if r["evidence"]}))
+
+        edges.append(
+            MicrobeDiseaseEdge(
+                edge_id=_edge_id("microbe-disease", subject_node_type, subject_node, disease, final_label),
+                pmid=best_row["pmid"],
+                subject_node_type=subject_node_type,
+                subject_node=subject_node,
+                object_node_type="Disease",
+                object_node=disease,
+                graph_rel_type=graph_rel_type,
+                relation_direction=final_label,
+                evidence=all_evidence,
+                confidence=avg_confidence,
+                evidence_type="text_model_verified",
+                assertion_level="direct_evidence",
+                positive_support=positive_support,
+                negative_support=negative_support,
+                net_confidence=net_confidence,
+                supporting_pmids=",".join(all_pmids),
+                pmcid=best_row["meta"]["pmcid"],
+                journal=best_row["meta"]["journal"],
+                title=best_row["meta"]["title"],
+                publication_year=best_row["meta"]["publication_year"],
+            )
         )
 
-        key = (pmid, cleaned_subject.canonical, disease, final_label)
-        prev = dedup.get(key)
-        if prev is None:
-            dedup[key] = edge
-        elif edge.confidence > prev.confidence:
-            dedup[key] = edge
-
-    return list(dedup.values()), rejected
+    return edges, rejected
 
 
 def _resolve_proposal_verification(
@@ -789,7 +825,7 @@ def build_edge_candidates(
 
     all_edges = text_edges + vision_edges
 
-    dedup: dict[tuple[str, str, str, str, str, str], EdgeCandidate] = {}
+    dedup: dict[tuple[str, str, str, str, str, str, str], EdgeCandidate] = {}
     for edge in all_edges:
         key = (
             edge.pmid,
@@ -1061,6 +1097,10 @@ def _neo4j_row_from_microbe_disease_edge(edge: "MicrobeDiseaseEdge") -> dict[str
         "evidence": edge.evidence,
         "confidence": edge.confidence,
         "verification_passed": True,
+        "positive_support": edge.positive_support,
+        "negative_support": edge.negative_support,
+        "net_confidence": edge.net_confidence,
+        "supporting_pmids": edge.supporting_pmids or "",
     }
 
 
@@ -1089,6 +1129,10 @@ def _write_neo4j_relationships_csv(
         "evidence",
         "confidence",
         "verification_passed",
+        "positive_support",
+        "negative_support",
+        "net_confidence",
+        "supporting_pmids",
     ]
 
     row_count = 0
