@@ -18,10 +18,9 @@ if __package__ is None or __package__ == "":
 
 from src.artifact_utils import read_jsonl, write_jsonl, write_manifest
 from src.schema_utils import SchemaValidationError, load_schema, validate_record
-from src.verify_heatmap import verify_heatmap_r_value
 
 DEFAULT_MODEL_ID = "Qwen/Qwen2.5-VL-7B-Instruct"
-DEFAULT_PROMPT_ID = "qwen_heatmap_v1_json"
+DEFAULT_PROMPT_ID = "qwen_heatmap_v2_json"
 
 
 @dataclass
@@ -33,7 +32,6 @@ class ProposerOptions:
     api_key: str | None
     temperature: float
     max_tokens: int
-    allow_fallback: bool
     device: str = "cpu"
 
 
@@ -104,14 +102,101 @@ def _extract_first_json_object(text: str) -> dict[str, Any]:
     return parsed
 
 
-def _build_prompt(caption: str) -> str:
+def _build_prompt_heatmap(caption: str) -> str:
     return (
-        "Extract one numeric correlation coefficient from this heatmap figure. "
-        "Return JSON only with keys: candidate_r, panel_id, bbox, legend_bbox, heatmap_bbox, modality, microbe, radiomic_feature, disease. "
-        "candidate_r must be a number in [-1, 1]. "
-        "bbox/legend_bbox/heatmap_bbox must be [x,y,w,h] or null. "
-        f"Figure caption/context: {caption}"
+        "You are analyzing a biomedical gradient correlation heatmap figure.\n\n"
+        "Task:\n"
+        "1. Identify which axis contains MICROBIAL TAXA (bacteria, fungi, or archaea — "
+        "genus or species names such as Bacteroides, Prevotella nigrescens, Fusobacterium).\n"
+        "2. Identify which axis contains RADIOMIC or IMAGING FEATURES (e.g., GLCM entropy, "
+        "wavelet energy, first-order kurtosis, LAA%, wall thickness, liver fat fraction, "
+        "skeletal muscle index, shape features).\n"
+        "3. Find the cell with the highest absolute Pearson or Spearman r-value where one "
+        "axis is a microbial taxon and the other is a radiomic/imaging feature.\n"
+        "4. If the figure has multiple panels (A, B, etc.), process each panel and return "
+        "the strongest microbe-feature correlation found.\n\n"
+        "Return ONLY a single valid JSON object — no markdown, no explanation:\n"
+        "{\n"
+        '  "candidate_r": <number in [-1, 1], or null if no microbe-feature pair found>,\n'
+        '  "effect_type": "correlation_r",\n'
+        '  "ci_lower": null, "ci_upper": null, "p_value": null,\n'
+        '  "panel_id": <"A", "B", "main", or other panel label>,\n'
+        '  "microbe": <exact microbial taxon name COPIED from the axis label — do not abbreviate>,\n'
+        '  "radiomic_feature": <exact feature name COPIED from the axis label — do not abbreviate>,\n'
+        '  "disease": <disease mentioned in figure title or caption, or null>,\n'
+        '  "modality": <imaging modality such as CT, MRI, DXA, PET, or null>,\n'
+        '  "bbox": <[x,y,w,h] bounding box of the strongest cell, or null>,\n'
+        '  "heatmap_bbox": <[x,y,w,h] of the heatmap matrix area excluding legend, or null>,\n'
+        '  "legend_bbox": <[x,y,w,h] of the color scale gradient legend bar, or null>\n'
+        "}\n\n"
+        "IMPORTANT: Copy axis label text EXACTLY as it appears in the figure — do not "
+        "paraphrase or abbreviate. If no microbial taxon is present on any axis, set "
+        "candidate_r and microbe to null.\n\n"
+        f"Figure caption: {caption}"
     )
+
+
+def _build_prompt_forest(caption: str) -> str:
+    return (
+        "You are analyzing a biomedical forest plot figure.\n\n"
+        "Task: Find the row where the subject is a MICROBIAL TAXON (bacteria/fungi/archaea — "
+        "genus or species name) and the outcome is a RADIOMIC FEATURE, IMAGING PHENOTYPE, or DISEASE. "
+        "If multiple such rows exist, return the one with the most extreme effect size (farthest from null).\n\n"
+        "Return ONLY a single valid JSON object — no markdown, no explanation:\n"
+        "{\n"
+        '  "candidate_r": <center OR/HR/β value as a number, or null if no microbe row found>,\n'
+        '  "effect_type": <"odds_ratio", "hazard_ratio", "beta_coefficient", or "correlation_r">,\n'
+        '  "ci_lower": <lower bound of 95% CI as a number, or null>,\n'
+        '  "ci_upper": <upper bound of 95% CI as a number, or null>,\n'
+        '  "p_value": <p-value as a number, or null>,\n'
+        '  "panel_id": <"A", "B", "main", etc.>,\n'
+        '  "microbe": <exact microbial taxon COPIED from the row label — do not abbreviate>,\n'
+        '  "radiomic_feature": <exact feature/phenotype COPIED from column/outcome label, or null>,\n'
+        '  "disease": <disease outcome if the object is a disease, or null>,\n'
+        '  "modality": <imaging modality or null>,\n'
+        '  "bbox": null, "heatmap_bbox": null, "legend_bbox": null\n'
+        "}\n\n"
+        "IMPORTANT: For OR/HR, null value = 1.0. Copy all labels EXACTLY. "
+        "If no microbial taxon is a subject in any row, set candidate_r and microbe to null.\n\n"
+        f"Figure caption: {caption}"
+    )
+
+
+def _build_prompt_scatter(caption: str) -> str:
+    return (
+        "You are analyzing a biomedical scatter plot figure showing a correlation.\n\n"
+        "Task:\n"
+        "1. Identify whether one axis is a MICROBIAL TAXON (bacteria/fungi genus or species) "
+        "and the other is a RADIOMIC or IMAGING FEATURE.\n"
+        "2. Extract the annotated r-value or ρ-value (e.g., 'r = 0.65', 'ρ = -0.42') "
+        "visible in the figure panel.\n"
+        "3. If multiple panels, return the strongest microbe-feature correlation.\n\n"
+        "Return ONLY a single valid JSON object — no markdown, no explanation:\n"
+        "{\n"
+        '  "candidate_r": <annotated r/ρ value in [-1, 1], or null if not found>,\n'
+        '  "effect_type": "correlation_r",\n'
+        '  "ci_lower": null, "ci_upper": null,\n'
+        '  "p_value": <annotated p-value as number, or null>,\n'
+        '  "panel_id": <"A", "B", "main", etc.>,\n'
+        '  "microbe": <exact taxon name from axis label, or null>,\n'
+        '  "radiomic_feature": <exact feature name from axis label, or null>,\n'
+        '  "disease": <disease if applicable, or null>,\n'
+        '  "modality": <CT, MRI, DXA, etc., or null>,\n'
+        '  "bbox": null, "heatmap_bbox": null, "legend_bbox": null\n'
+        "}\n\n"
+        "IMPORTANT: Copy label text EXACTLY. If no r/ρ annotation is visible or no "
+        "microbial taxon is on an axis, set candidate_r and microbe to null.\n\n"
+        f"Figure caption: {caption}"
+    )
+
+
+def _build_prompt(caption: str, topology: str = "heatmap") -> str:
+    if topology == "forest_plot":
+        return _build_prompt_forest(caption)
+    if topology in {"scatter_plot", "scatter"}:
+        return _build_prompt_scatter(caption)
+    # dot_plot and unknown fall back to heatmap-style extraction
+    return _build_prompt_heatmap(caption)
 
 
 def _encode_image_data_uri(image_path: str) -> str:
@@ -139,6 +224,7 @@ def _call_qwen_openai_compatible(
     *,
     image_path: str,
     caption: str,
+    topology: str = "heatmap",
     options: ProposerOptions,
 ) -> str:
     if not options.api_base_url:
@@ -157,7 +243,7 @@ def _call_qwen_openai_compatible(
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": _build_prompt(caption)},
+                    {"type": "text", "text": _build_prompt(caption, topology)},
                     {"type": "image_url", "image_url": {"url": image_uri}},
                 ],
             },
@@ -257,10 +343,11 @@ def _call_qwen_local(
     *,
     image_path: str,
     caption: str,
+    topology: str = "heatmap",
     options: ProposerOptions,
 ) -> str:
     pipe = _get_qwen_local_pipe(options.model_id, options.device)
-    prompt = _build_prompt(caption)
+    prompt = _build_prompt(caption, topology)
 
     attempts: list[dict[str, Any]] = [
         {
@@ -310,7 +397,9 @@ def _parse_qwen_output(raw_response: str) -> dict[str, Any]:
     candidate_r = _coerce_float(
         obj.get("candidate_r", obj.get("proposed_r", obj.get("r_value", obj.get("r"))))
     )
-    if candidate_r is not None:
+    # For correlation_r, clamp to [-1, 1]. For OR/HR, preserve the value unclamped.
+    effect_type = str(obj.get("effect_type") or "correlation_r")
+    if candidate_r is not None and effect_type == "correlation_r":
         candidate_r = max(-1.0, min(1.0, candidate_r))
 
     panel_id = str(obj.get("panel_id") or "main")
@@ -318,8 +407,16 @@ def _parse_qwen_output(raw_response: str) -> dict[str, Any]:
     if modality is not None:
         modality = str(modality)
 
+    ci_lower = _coerce_float(obj.get("ci_lower"))
+    ci_upper = _coerce_float(obj.get("ci_upper"))
+    p_value = _coerce_float(obj.get("p_value"))
+
     return {
         "candidate_r": candidate_r,
+        "effect_type": effect_type,
+        "ci_lower": ci_lower,
+        "ci_upper": ci_upper,
+        "p_value": p_value,
         "panel_id": panel_id,
         "bbox": _coerce_bbox(obj.get("bbox")),
         "legend_bbox": _coerce_bbox(obj.get("legend_bbox")),
@@ -331,50 +428,6 @@ def _parse_qwen_output(raw_response: str) -> dict[str, Any]:
         "radiomic_feature": obj.get("radiomic_feature"),
         "disease": obj.get("disease"),
     }
-
-
-def _heuristic_proposal(image_path: str) -> tuple[float | None, list[int] | None, str]:
-    candidates = [round(-1.0 + 0.05 * i, 3) for i in range(41)]
-    best_result: dict[str, Any] | None = None
-    best_r: float | None = None
-    best_score: tuple[float, float] | None = None
-
-    for candidate in candidates:
-        try:
-            result = verify_heatmap_r_value(
-                proposed_r=candidate,
-                image_path=image_path,
-                tolerance=0.06,
-                min_support_pixels=15,
-                min_support_fraction=0.0002,
-            )
-        except Exception as exc:
-            payload = {"heuristic_error": str(exc)}
-            return None, None, json.dumps(payload, ensure_ascii=True)
-
-        support_fraction = float(result.get("support_fraction") or 0.0)
-        min_abs_error = result.get("min_abs_error")
-        distance = float(min_abs_error) if min_abs_error is not None else 9.0
-        score = (support_fraction, -distance)
-
-        if best_score is None or score > best_score:
-            best_score = score
-            best_result = result
-            best_r = candidate
-
-    if best_result is None:
-        return None, None, json.dumps({"heuristic_error": "no_result"}, ensure_ascii=True)
-
-    legend_bbox = best_result.get("legend_bbox")
-    if not isinstance(legend_bbox, list) or len(legend_bbox) != 4:
-        legend_bbox = None
-
-    payload = {
-        "method": "verify_heatmap_grid_search",
-        "candidate_count": len(candidates),
-        "best_result": best_result,
-    }
-    return best_r, legend_bbox, json.dumps(payload, ensure_ascii=True)
 
 
 def _coerce_str_or_none(value: Any) -> str | None:
@@ -389,6 +442,7 @@ def _propose_for_figure(figure: dict[str, Any], options: ProposerOptions) -> dic
     figure_id = str(figure.get("figure_id") or "")
     image_path = _coerce_str_or_none(figure.get("image_path"))
     caption = str(figure.get("caption") or "")
+    topology = str(figure.get("topology") or "heatmap")
     panel_id = "main"
 
     base = {
@@ -396,7 +450,12 @@ def _propose_for_figure(figure: dict[str, Any], options: ProposerOptions) -> dic
         "pmid": pmid,
         "figure_id": figure_id,
         "panel_id": panel_id,
+        "topology": topology,
         "candidate_r": None,
+        "effect_type": None,
+        "ci_lower": None,
+        "ci_upper": None,
+        "p_value": None,
         "proposed_r": None,
         "bbox": None,
         "legend_bbox": None,
@@ -426,14 +485,12 @@ def _propose_for_figure(figure: dict[str, Any], options: ProposerOptions) -> dic
         base["error"] = "image_path_not_found"
         return base
 
-    attempted_model = False
-
     if options.backend == "qwen_local":
-        attempted_model = True
         try:
             raw_response = _call_qwen_local(
                 image_path=image_path,
                 caption=caption,
+                topology=topology,
                 options=options,
             )
             parsed = _parse_qwen_output(raw_response)
@@ -449,11 +506,11 @@ def _propose_for_figure(figure: dict[str, Any], options: ProposerOptions) -> dic
             base["status"] = "model_error"
 
     if options.backend == "qwen_api":
-        attempted_model = True
         try:
             raw_response = _call_qwen_openai_compatible(
                 image_path=image_path,
                 caption=caption,
+                topology=topology,
                 options=options,
             )
             parsed = _parse_qwen_output(raw_response)
@@ -469,12 +526,12 @@ def _propose_for_figure(figure: dict[str, Any], options: ProposerOptions) -> dic
             base["status"] = "model_error"
 
     if options.backend == "auto":
-        attempted_model = True
         local_error = None
         try:
             raw_response = _call_qwen_local(
                 image_path=image_path,
                 caption=caption,
+                topology=topology,
                 options=options,
             )
             parsed = _parse_qwen_output(raw_response)
@@ -493,6 +550,7 @@ def _propose_for_figure(figure: dict[str, Any], options: ProposerOptions) -> dic
                 raw_response = _call_qwen_openai_compatible(
                     image_path=image_path,
                     caption=caption,
+                    topology=topology,
                     options=options,
                 )
                 parsed = _parse_qwen_output(raw_response)
@@ -510,23 +568,7 @@ def _propose_for_figure(figure: dict[str, Any], options: ProposerOptions) -> dic
             base["error"] = local_error
             base["status"] = "model_error"
 
-    if options.backend in {"auto", "heuristic", "qwen_api", "qwen_local"}:
-        if attempted_model and not options.allow_fallback and options.backend in {"auto", "qwen_api", "qwen_local"}:
-            return base
-
-        candidate_r, legend_bbox, raw = _heuristic_proposal(image_path)
-        base["candidate_r"] = candidate_r
-        base["proposed_r"] = candidate_r
-        base["legend_bbox"] = legend_bbox
-        base["raw_response"] = raw
-        base["status"] = "ok" if candidate_r is not None else "heuristic_error"
-        if attempted_model and base.get("error"):
-            base["status"] = "fallback_heuristic"
-        base["backend"] = "heuristic"
-        base["model_id"] = options.model_id if attempted_model else "deterministic_heuristic"
-        return base
-
-    if options.backend in {"qwen_api", "qwen_local"} and base["status"] == "model_error":
+    if base["status"] == "model_error":
         return base
 
     base["status"] = "unsupported_backend"
@@ -541,12 +583,15 @@ def run_proposer(
     min_topology_confidence: float,
     include_non_heatmap: bool,
 ) -> list[dict[str, Any]]:
+    # Topologies that the Vision Track can extract quantitative associations from.
+    QUALIFYING_TOPOLOGIES = {"heatmap", "forest_plot", "scatter_plot", "dot_plot"}
+
     outputs: list[dict[str, Any]] = []
     for fig in figures:
         topology = str(fig.get("topology") or "unknown")
         conf = float(fig.get("topology_confidence") or 0.0)
 
-        if topology != "heatmap" and not include_non_heatmap:
+        if topology not in QUALIFYING_TOPOLOGIES and not include_non_heatmap:
             continue
         if conf < min_topology_confidence:
             continue
@@ -563,7 +608,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--figures", default="artifacts/figures.jsonl")
     parser.add_argument("--output", default="artifacts/vision_proposals.jsonl")
     parser.add_argument("--manifest-dir", default="artifacts/manifests")
-    parser.add_argument("--backend", choices=["auto", "qwen_local", "qwen_api", "heuristic"], default="auto")
+    parser.add_argument("--backend", choices=["auto", "qwen_local", "qwen_api"], default="auto")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
     parser.add_argument("--prompt-id", default=DEFAULT_PROMPT_ID)
     parser.add_argument(
@@ -577,7 +622,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--temperature", type=float, default=0.1)
     parser.add_argument("--max-tokens", type=int, default=180)
     parser.add_argument("--device", default="cpu")
-    parser.add_argument("--disable-fallback", action="store_true")
     parser.add_argument("--min-topology-confidence", type=float, default=0.1)
     parser.add_argument("--include-non-heatmap", action="store_true")
     parser.add_argument("--validate-schema", action="store_true")
@@ -598,7 +642,6 @@ def main(argv: list[str] | None = None) -> int:
         api_key=(args.api_key or None),
         temperature=args.temperature,
         max_tokens=args.max_tokens,
-        allow_fallback=not args.disable_fallback,
         device=args.device,
     )
 
@@ -623,7 +666,6 @@ def main(argv: list[str] | None = None) -> int:
         "figures_in": len(figures),
         "proposals_out": count,
         "status_ok": sum(1 for p in proposals if p.get("status") == "ok"),
-        "status_fallback_heuristic": sum(1 for p in proposals if p.get("status") == "fallback_heuristic"),
         "status_model_error": sum(1 for p in proposals if p.get("status") == "model_error"),
         "status_missing_image": sum(1 for p in proposals if p.get("status") == "missing_image"),
     }
@@ -639,7 +681,6 @@ def main(argv: list[str] | None = None) -> int:
             "temperature": args.temperature,
             "max_tokens": args.max_tokens,
             "device": args.device,
-            "fallback_enabled": not args.disable_fallback,
             "min_topology_confidence": args.min_topology_confidence,
             "include_non_heatmap": args.include_non_heatmap,
         },

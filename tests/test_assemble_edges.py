@@ -544,7 +544,7 @@ class TestMicrobeDiseaseEdges(unittest.TestCase):
         )
         self.assertEqual(rejected, 0)
         self.assertEqual(len(edges), 1)
-        self.assertEqual(edges[0].graph_rel_type, "POSITIVELY_ASSOCIATED_WITH")
+        self.assertEqual(edges[0].graph_rel_type, "POSITIVELY_CORRELATED_WITH")
         self.assertEqual(edges[0].relation_direction, "positive")
         self.assertEqual(edges[0].subject_node, "bifidobacterium")
         self.assertEqual(edges[0].object_node, "obesity")
@@ -559,7 +559,7 @@ class TestMicrobeDiseaseEdges(unittest.TestCase):
         )
         self.assertEqual(rejected, 0)
         self.assertEqual(len(edges), 1)
-        self.assertEqual(edges[0].graph_rel_type, "NEGATIVELY_ASSOCIATED_WITH")
+        self.assertEqual(edges[0].graph_rel_type, "NEGATIVELY_CORRELATED_WITH")
         self.assertEqual(edges[0].relation_direction, "negative")
 
     def test_unrelated_label_rejected(self) -> None:
@@ -605,8 +605,8 @@ class TestMicrobeDiseaseEdges(unittest.TestCase):
         self.assertEqual(rejected, 0)
         self.assertEqual(len(edges), 2)
         rel_types = {e.graph_rel_type for e in edges}
-        self.assertIn("POSITIVELY_ASSOCIATED_WITH", rel_types)
-        self.assertIn("NEGATIVELY_ASSOCIATED_WITH", rel_types)
+        self.assertIn("POSITIVELY_CORRELATED_WITH", rel_types)
+        self.assertIn("NEGATIVELY_CORRELATED_WITH", rel_types)
 
     def test_deduplication_merges_same_pair_cross_paper(self) -> None:
         # Two papers both reporting positive for the same (microbe, disease) pair.

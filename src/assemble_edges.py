@@ -595,8 +595,8 @@ def build_bridge_hypotheses(
 
 
 _LABEL_TO_REL_TYPE = {
-    "positive": "POSITIVELY_ASSOCIATED_WITH",
-    "negative": "NEGATIVELY_ASSOCIATED_WITH",
+    "positive": "POSITIVELY_CORRELATED_WITH",
+    "negative": "NEGATIVELY_CORRELATED_WITH",
 }
 
 

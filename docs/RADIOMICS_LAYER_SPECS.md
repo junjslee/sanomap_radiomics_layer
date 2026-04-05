@@ -15,7 +15,8 @@ The graph supports these direct-evidence relations:
 - `(RadiomicFeature)-[:ACQUIRED_VIA]->(ImagingModality)`
 - `(BodyCompositionFeature)-[:ACQUIRED_VIA]->(ImagingModality)`
 - `(ImagingModality)-[:REPRESENTED_BY]->(ImageRef)`
-- `(Microbe)-[:CORRELATES_WITH_DISEASE]->(Disease)` (signed polarity via relation extraction)
+- `(Microbe)-[:POSITIVELY_CORRELATED_WITH]->(Disease)` (RO:0002328, positive polarity via relation extraction)
+- `(Microbe)-[:NEGATIVELY_CORRELATED_WITH]->(Disease)` (RO:0002329, negative polarity via relation extraction)
 
 ## Node Types
 - `Microbe`: taxon-specific entities such as `Fusobacterium nucleatum` or `Akkermansia`.

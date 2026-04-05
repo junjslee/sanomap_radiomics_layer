@@ -32,7 +32,7 @@
     "object_node": {"type": "string"},
     "graph_rel_type": {
       "type": "string",
-      "enum": ["POSITIVELY_ASSOCIATED_WITH", "NEGATIVELY_ASSOCIATED_WITH"]
+      "enum": ["POSITIVELY_CORRELATED_WITH", "NEGATIVELY_CORRELATED_WITH"]
     },
     "relation_direction": {
       "type": "string",

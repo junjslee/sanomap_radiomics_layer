@@ -44,6 +44,20 @@ FOREST_KEYWORDS = {
     "meta analysis",
     "ci",
 }
+SCATTER_KEYWORDS = {
+    "scatter plot",
+    "scatter",
+    "scatterplot",
+    "correlation scatter",
+    "pearson correlation",
+    "spearman correlation",
+}
+DOT_PLOT_KEYWORDS = {
+    "dot plot",
+    "dotplot",
+    "lollipop",
+    "bubble plot",
+}
 
 
 def _normalize_text(text: str) -> str:
@@ -101,11 +115,15 @@ def _image_heuristics(image_path: Path) -> tuple[float, float, list[str]]:
 def classify_figure(caption: str, image_path: Path | None = None) -> tuple[str, float, list[str]]:
     heat_hits = _find_keyword_hits(caption, HEATMAP_KEYWORDS)
     forest_hits = _find_keyword_hits(caption, FOREST_KEYWORDS)
+    scatter_hits = _find_keyword_hits(caption, SCATTER_KEYWORDS)
+    dot_hits = _find_keyword_hits(caption, DOT_PLOT_KEYWORDS)
 
     heat_score = min(1.0, 0.2 * len(heat_hits))
     forest_score = min(1.0, 0.2 * len(forest_hits))
+    scatter_score = min(1.0, 0.25 * len(scatter_hits))
+    dot_score = min(1.0, 0.25 * len(dot_hits))
     hits: list[str] = []
-    hits.extend(f"kw:{h}" for h in heat_hits + forest_hits)
+    hits.extend(f"kw:{h}" for h in heat_hits + forest_hits + scatter_hits + dot_hits)
 
     if image_path is not None:
         matrix_score, image_forest_score, image_hits = _image_heuristics(image_path)
@@ -113,10 +131,15 @@ def classify_figure(caption: str, image_path: Path | None = None) -> tuple[str, 
         forest_score = max(forest_score, image_forest_score)
         hits.extend(image_hits)
 
-    if heat_score == 0.0 and forest_score == 0.0:
+    best = max(heat_score, forest_score, scatter_score, dot_score)
+    if best == 0.0:
         return "unknown", 0.0, hits
-    if heat_score >= forest_score:
+    if heat_score == best:
         return "heatmap", round(heat_score, 3), hits
+    if scatter_score == best:
+        return "scatter_plot", round(scatter_score, 3), hits
+    if dot_score == best:
+        return "dot_plot", round(dot_score, 3), hits
     return "forest_plot", round(forest_score, 3), hits
 
 

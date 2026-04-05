@@ -49,7 +49,7 @@
         "pending",
         "ok",
         "model_error",
-        "fallback_heuristic",
+        
         "heuristic_error",
         "missing_image",
         "unsupported_backend"

@@ -270,18 +270,18 @@ MATCH (src:RadiomicFeature {name: 'first_order_mean'}), (tgt:BodyLocation {name:
 MATCH (src:RadiomicFeature {name: 'first_order_mean'}), (tgt:BodyLocation {name: 'heart'}) MERGE (src)-[:MEASURED_AT {pmid: '33494210'}]->(tgt);
 MATCH (src:BodyCompositionFeature {name: 'subcutaneous_adipose_tissue'}), (tgt:ImagingModality {name: 'US'}) MERGE (src)-[:ACQUIRED_VIA {pmid: '29131365'}]->(tgt);
 MATCH (src:ImagingModality {name: 'CT'}), (tgt:ImageRef {name: 'imageref:89b1e3b5e8a4e447'}) MERGE (src)-[:REPRESENTED_BY {}]->(tgt);
-MATCH (src:Microbe {name: 'proteobacteria'}), (tgt:Disease {name: 'cirrhosis'}) MERGE (src)-[:POSITIVELY_ASSOCIATED_WITH {pmid: '39539377', confidence: 0.7}]->(tgt);
-MATCH (src:Microbe {name: 'lactobacillus - based probiotics'}), (tgt:Disease {name: 'inflammatory bowel disease'}) MERGE (src)-[:NEGATIVELY_ASSOCIATED_WITH {pmid: '37998334', confidence: 0.7}]->(tgt);
-MATCH (src:Microbe {name: 'bacteroidetes'}), (tgt:Disease {name: 'inflammatory bowel disease'}) MERGE (src)-[:NEGATIVELY_ASSOCIATED_WITH {pmid: '37998334', confidence: 0.7}]->(tgt);
-MATCH (src:Microbe {name: 'peptostreptococcus stomatis'}), (tgt:Disease {name: 'cirrhosis'}) MERGE (src)-[:POSITIVELY_ASSOCIATED_WITH {pmid: '36536957', confidence: 0.7}]->(tgt);
-MATCH (src:Microbe {name: 'ruminococcus'}), (tgt:Disease {name: 'cirrhosis'}) MERGE (src)-[:POSITIVELY_ASSOCIATED_WITH {pmid: '36536957', confidence: 0.7}]->(tgt);
-MATCH (src:Microbe {name: 'bifidobacterium bifidum'}), (tgt:Disease {name: 'obesity'}) MERGE (src)-[:NEGATIVELY_ASSOCIATED_WITH {pmid: '36358288', confidence: 0.7}]->(tgt);
-MATCH (src:Microbe {name: 'bifidobacterium lactis'}), (tgt:Disease {name: 'obesity'}) MERGE (src)-[:NEGATIVELY_ASSOCIATED_WITH {pmid: '36358288', confidence: 0.7}]->(tgt);
-MATCH (src:Microbe {name: 'proteobacteria'}), (tgt:Disease {name: 'cirrhosis'}) MERGE (src)-[:POSITIVELY_ASSOCIATED_WITH {pmid: '35978666', confidence: 0.7}]->(tgt);
-MATCH (src:Microbe {name: 'catenibacterium'}), (tgt:Disease {name: 'cirrhosis'}) MERGE (src)-[:NEGATIVELY_ASSOCIATED_WITH {pmid: '35978666', confidence: 0.7}]->(tgt);
-MATCH (src:Microbe {name: 'actinobacteria species'}), (tgt:Disease {name: 'obesity'}) MERGE (src)-[:NEGATIVELY_ASSOCIATED_WITH {pmid: '35126309', confidence: 0.7}]->(tgt);
-MATCH (src:Microbe {name: 'dysosmobacter'}), (tgt:Disease {name: 'obesity'}) MERGE (src)-[:NEGATIVELY_ASSOCIATED_WITH {pmid: '34108237', confidence: 0.7}]->(tgt);
-MATCH (src:Microbe {name: 'lactobacillus - containing probiotic'}), (tgt:Disease {name: 'systemic inflammation'}) MERGE (src)-[:NEGATIVELY_ASSOCIATED_WITH {pmid: '33633246', confidence: 0.7}]->(tgt);
+MATCH (src:Microbe {name: 'proteobacteria'}), (tgt:Disease {name: 'cirrhosis'}) MERGE (src)-[:POSITIVELY_CORRELATED_WITH {pmid: '39539377', confidence: 0.7}]->(tgt);
+MATCH (src:Microbe {name: 'lactobacillus - based probiotics'}), (tgt:Disease {name: 'inflammatory bowel disease'}) MERGE (src)-[:NEGATIVELY_CORRELATED_WITH {pmid: '37998334', confidence: 0.7}]->(tgt);
+MATCH (src:Microbe {name: 'bacteroidetes'}), (tgt:Disease {name: 'inflammatory bowel disease'}) MERGE (src)-[:NEGATIVELY_CORRELATED_WITH {pmid: '37998334', confidence: 0.7}]->(tgt);
+MATCH (src:Microbe {name: 'peptostreptococcus stomatis'}), (tgt:Disease {name: 'cirrhosis'}) MERGE (src)-[:POSITIVELY_CORRELATED_WITH {pmid: '36536957', confidence: 0.7}]->(tgt);
+MATCH (src:Microbe {name: 'ruminococcus'}), (tgt:Disease {name: 'cirrhosis'}) MERGE (src)-[:POSITIVELY_CORRELATED_WITH {pmid: '36536957', confidence: 0.7}]->(tgt);
+MATCH (src:Microbe {name: 'bifidobacterium bifidum'}), (tgt:Disease {name: 'obesity'}) MERGE (src)-[:NEGATIVELY_CORRELATED_WITH {pmid: '36358288', confidence: 0.7}]->(tgt);
+MATCH (src:Microbe {name: 'bifidobacterium lactis'}), (tgt:Disease {name: 'obesity'}) MERGE (src)-[:NEGATIVELY_CORRELATED_WITH {pmid: '36358288', confidence: 0.7}]->(tgt);
+MATCH (src:Microbe {name: 'proteobacteria'}), (tgt:Disease {name: 'cirrhosis'}) MERGE (src)-[:POSITIVELY_CORRELATED_WITH {pmid: '35978666', confidence: 0.7}]->(tgt);
+MATCH (src:Microbe {name: 'catenibacterium'}), (tgt:Disease {name: 'cirrhosis'}) MERGE (src)-[:NEGATIVELY_CORRELATED_WITH {pmid: '35978666', confidence: 0.7}]->(tgt);
+MATCH (src:Microbe {name: 'actinobacteria species'}), (tgt:Disease {name: 'obesity'}) MERGE (src)-[:NEGATIVELY_CORRELATED_WITH {pmid: '35126309', confidence: 0.7}]->(tgt);
+MATCH (src:Microbe {name: 'dysosmobacter'}), (tgt:Disease {name: 'obesity'}) MERGE (src)-[:NEGATIVELY_CORRELATED_WITH {pmid: '34108237', confidence: 0.7}]->(tgt);
+MATCH (src:Microbe {name: 'lactobacillus - containing probiotic'}), (tgt:Disease {name: 'systemic inflammation'}) MERGE (src)-[:NEGATIVELY_CORRELATED_WITH {pmid: '33633246', confidence: 0.7}]->(tgt);
 
 // --- Verify import ---
 MATCH (n) RETURN labels(n)[0] AS label, count(n) AS count ORDER BY count DESC;

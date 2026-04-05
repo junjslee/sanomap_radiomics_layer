@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>SanoMap Radiomics Layer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
       :root {
         --bg: #020617;
@@ -438,7 +439,7 @@
       <div class="nav-links">
         <a href="knowledge_map.md">Schema</a>
         <a href="explorer/index.html">Explorer</a>
-        <a href="proposal/proposal_sanomap_minerva_extension.tex">Proposal</a>
+        <a href="proposal/report_sanomap_radiomics_layer.tex">Report</a>
         <a href="https://github.com/junjslee/sanomap_radiomics_layer" target="_blank">GitHub</a>
       </div>
     </nav>
@@ -461,8 +462,8 @@
     <!-- STATS -->
     <div class="stats-row">
       <div class="stat">
-        <span class="stat-value">640</span>
-        <span class="stat-label">Papers in corpus</span>
+        <span class="stat-value">1,016</span>
+        <span class="stat-label">Papers in corpus (6 query lanes)</span>
       </div>
       <div class="stat">
         <span class="stat-value">8</span>
@@ -473,8 +474,8 @@
         <span class="stat-label">Edge types</span>
       </div>
       <div class="stat">
-        <span class="stat-value">9</span>
-        <span class="stat-label">Validated microbe–disease pairs</span>
+        <span class="stat-value">29</span>
+        <span class="stat-label">Signed microbe–disease pairs</span>
       </div>
       <div class="stat">
         <span class="stat-value">156</span>
@@ -526,7 +527,7 @@
         </div>
         <div class="schema-chain">
           <span class="node">Microbe</span>
-          <span class="edge">─[:CORRELATES_WITH_DISEASE]─▶</span>
+          <span class="edge">─[:POSITIVELY_CORRELATED_WITH|NEGATIVELY_CORRELATED_WITH]─▶</span>
           <span class="node node-green">Disease</span>
         </div>
       </div>
@@ -770,6 +771,135 @@
         </table>
       </div>
     </section>
+
+    <!-- CORPUS TIMELINE -->
+    <section>
+      <div class="section-label">Corpus Growth</div>
+      <h2>Literature coverage by year · 1,016 papers across 6 query lanes</h2>
+      <p class="section-sub">
+        The initial 640-paper corpus spanned 3 query lanes (strict radiomics, adjacent imaging, body composition).
+        Four domain-specific lanes were added: liver radiomics, bone DXA, lung CT phenotypes, and colorectal imaging.
+      </p>
+      <div class="schema-block" style="padding: 1.5rem;">
+        <canvas id="timelineChart" height="90"></canvas>
+      </div>
+    </section>
+
+    <!-- EDGE DISTRIBUTION -->
+    <section>
+      <div class="section-label">Graph Statistics</div>
+      <h2>183 graph rows · 7 edge types · direct evidence only</h2>
+      <p class="section-sub">
+        Every edge carries a source PMID and evidence string. Text-derived edges use
+        <code style="font-family:monospace;font-size:0.82rem;color:var(--accent2);background:rgba(129,140,248,.1);padding:.1rem .3rem;border-radius:4px;">ASSOCIATED_WITH</code>;
+        Vision Track-verified edges use
+        <code style="font-family:monospace;font-size:0.82rem;color:var(--accent);background:rgba(56,189,248,.1);padding:.1rem .3rem;border-radius:4px;">CORRELATES_WITH</code>.
+        Bridge hypotheses are excluded from graph import.
+      </p>
+      <div class="schema-block" style="padding: 1.5rem;">
+        <canvas id="edgeChart" height="120"></canvas>
+      </div>
+    </section>
+
+    <!-- MICROBE-DISEASE ASSOCIATIONS -->
+    <section>
+      <div class="section-label">Microbe–Disease Associations</div>
+      <h2>12 signed microbe–disease pairs from Gemini self-consistency extraction</h2>
+      <p class="section-sub">
+        Each pair was extracted with Gemini 2.5 Flash-Lite using 7-sample self-consistency (full agreement required).
+        Sign direction: positive (enrichment associated with disease) or negative (depletion / protective association).
+      </p>
+      <div class="schema-block" style="overflow-x:auto;">
+        <table class="val-table">
+          <thead>
+            <tr><th>Microbe</th><th>Direction</th><th>Disease</th><th>PMID</th><th>Confidence</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Proteobacteria</td><td><span class="pill" style="background:rgba(251,113,133,.12);color:#fb7185;">POSITIVE</span></td><td>Cirrhosis</td><td>39539377</td><td>0.70</td></tr>
+            <tr><td>Proteobacteria</td><td><span class="pill" style="background:rgba(251,113,133,.12);color:#fb7185;">POSITIVE</span></td><td>Cirrhosis</td><td>35978666</td><td>0.70</td></tr>
+            <tr><td>Peptostreptococcus stomatis</td><td><span class="pill" style="background:rgba(251,113,133,.12);color:#fb7185;">POSITIVE</span></td><td>Cirrhosis</td><td>36536957</td><td>0.70</td></tr>
+            <tr><td>Ruminococcus</td><td><span class="pill" style="background:rgba(251,113,133,.12);color:#fb7185;">POSITIVE</span></td><td>Cirrhosis</td><td>36536957</td><td>0.70</td></tr>
+            <tr><td>Lactobacillus-based probiotics</td><td><span class="pill" style="background:rgba(52,211,153,.12);color:var(--green);">NEGATIVE</span></td><td>Inflammatory bowel disease</td><td>37998334</td><td>0.70</td></tr>
+            <tr><td>Bacteroidetes</td><td><span class="pill" style="background:rgba(52,211,153,.12);color:var(--green);">NEGATIVE</span></td><td>Inflammatory bowel disease</td><td>37998334</td><td>0.70</td></tr>
+            <tr><td>Bifidobacterium bifidum</td><td><span class="pill" style="background:rgba(52,211,153,.12);color:var(--green);">NEGATIVE</span></td><td>Obesity</td><td>36358288</td><td>0.70</td></tr>
+            <tr><td>Bifidobacterium lactis</td><td><span class="pill" style="background:rgba(52,211,153,.12);color:var(--green);">NEGATIVE</span></td><td>Obesity</td><td>36358288</td><td>0.70</td></tr>
+            <tr><td>Catenibacterium</td><td><span class="pill" style="background:rgba(52,211,153,.12);color:var(--green);">NEGATIVE</span></td><td>Cirrhosis</td><td>35978666</td><td>0.70</td></tr>
+            <tr><td>Actinobacteria species</td><td><span class="pill" style="background:rgba(52,211,153,.12);color:var(--green);">NEGATIVE</span></td><td>Obesity</td><td>35126309</td><td>0.70</td></tr>
+            <tr><td>Dysosmobacter</td><td><span class="pill" style="background:rgba(52,211,153,.12);color:var(--green);">NEGATIVE</span></td><td>Obesity</td><td>34108237</td><td>0.70</td></tr>
+            <tr><td>Lactobacillus-containing probiotic</td><td><span class="pill" style="background:rgba(52,211,153,.12);color:var(--green);">NEGATIVE</span></td><td>Systemic inflammation</td><td>33633246</td><td>0.70</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <script>
+    // Shared dark theme Chart.js defaults
+    Chart.defaults.color = 'rgba(241,245,249,0.55)';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.07)';
+    Chart.defaults.font.family = "'Avenir Next','Trebuchet MS','Segoe UI',sans-serif";
+
+    // 1. CORPUS TIMELINE
+    new Chart(document.getElementById('timelineChart'), {
+      type: 'bar',
+      data: {
+        labels: ['2011','2013','2014','2015','2016','2017','2018','2019','2020','2021','2022','2023','2024','2025','2026'],
+        datasets: [{
+          label: 'Papers',
+          data: [2,1,3,4,8,15,13,18,34,38,29,36,78,174,43],
+          backgroundColor: 'rgba(56,189,248,0.55)',
+          borderColor: 'rgba(56,189,248,0.85)',
+          borderWidth: 1,
+          borderRadius: 3,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} papers` } }
+        },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true }
+        }
+      }
+    });
+
+    // 2. EDGE DISTRIBUTION
+    new Chart(document.getElementById('edgeChart'), {
+      type: 'bar',
+      data: {
+        labels: ['ASSOCIATED_WITH','MEASURED_AT','ACQUIRED_VIA','NEGATIVELY_CORRELATED_WITH','POSITIVELY_CORRELATED_WITH','CORRELATES_WITH','REPRESENTED_BY'],
+        datasets: [{
+          label: 'Rows in Neo4j CSV',
+          data: [74, 56, 22, 15, 14, 1, 1],
+          backgroundColor: [
+            'rgba(56,189,248,0.55)',
+            'rgba(129,140,248,0.55)',
+            'rgba(129,140,248,0.45)',
+            'rgba(52,211,153,0.55)',
+            'rgba(251,113,133,0.55)',
+            'rgba(56,189,248,0.85)',
+            'rgba(129,140,248,0.35)',
+          ],
+          borderWidth: 0,
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x} rows` } }
+        },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true },
+          y: { grid: { display: false }, ticks: { font: { family: 'monospace', size: 11 } } }
+        }
+      }
+    });
+    </script>
 
     <!-- FOOTER -->
     <footer>

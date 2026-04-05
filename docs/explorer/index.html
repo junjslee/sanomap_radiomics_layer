@@ -365,8 +365,8 @@
           <span class="legend-section">Edges</span>
           <div class="legend-item"><div class="legend-line" style="background:#64748b"></div>ASSOCIATED_WITH (text)</div>
           <div class="legend-item"><div class="legend-line" style="background:#2dd4bf"></div>CORRELATES_WITH (Vision Track)</div>
-          <div class="legend-item"><div class="legend-line" style="background:#4ade80"></div>POSITIVELY_ASSOCIATED_WITH</div>
-          <div class="legend-item"><div class="legend-line" style="background:#f87171"></div>NEGATIVELY_ASSOCIATED_WITH</div>
+          <div class="legend-item"><div class="legend-line" style="background:#4ade80"></div>POSITIVELY_CORRELATED_WITH</div>
+          <div class="legend-item"><div class="legend-line" style="background:#f87171"></div>NEGATIVELY_CORRELATED_WITH</div>
           <div class="legend-item"><div class="legend-line" style="background:#6366f1"></div>MEASURED_AT / ACQUIRED_VIA</div>
           <div class="legend-item"><div class="legend-line" style="background:#fbbf24"></div>REPRESENTED_BY</div>
         </div>
@@ -418,8 +418,8 @@
       const EDGE_COLORS = {
         ASSOCIATED_WITH:             '#64748b',
         CORRELATES_WITH:             '#2dd4bf',
-        POSITIVELY_ASSOCIATED_WITH:  '#4ade80',
-        NEGATIVELY_ASSOCIATED_WITH:  '#f87171',
+        POSITIVELY_CORRELATED_WITH:  '#4ade80',
+        NEGATIVELY_CORRELATED_WITH:  '#f87171',
         MEASURED_AT:                 '#6366f1',
         ACQUIRED_VIA:                '#818cf8',
         REPRESENTED_BY:              '#fbbf24',
@@ -427,7 +427,7 @@
 
       const EDGE_FILTER_RELS = {
         all:            null,
-        microbe_disease:['POSITIVELY_ASSOCIATED_WITH','NEGATIVELY_ASSOCIATED_WITH','CORRELATES_WITH'],
+        microbe_disease:['POSITIVELY_CORRELATED_WITH','NEGATIVELY_CORRELATED_WITH','CORRELATES_WITH'],
         feature_disease:['ASSOCIATED_WITH'],
         backbone:       ['MEASURED_AT','ACQUIRED_VIA','REPRESENTED_BY'],
       };

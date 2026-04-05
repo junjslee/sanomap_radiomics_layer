@@ -79,7 +79,7 @@ These audit artifacts are not written as asserted graph edges.
 - GitHub work surface:
   code, docs, tests, and handoff state are tracked in this repository
 - Living proposal source:
-  [docs/proposal/proposal_sanomap_minerva_extension.tex](docs/proposal/proposal_sanomap_minerva_extension.tex)
+  [docs/proposal/report_sanomap_radiomics_layer.tex](docs/proposal/report_sanomap_radiomics_layer.tex)
 
 ## Why This Extension Exists
 

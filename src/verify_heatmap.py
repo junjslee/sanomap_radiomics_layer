@@ -300,6 +300,72 @@ def _verification_id(*parts: str) -> str:
     return hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()[:16]
 
 
+def verify_forest_plot_association(
+    effect_size: float,
+    ci_lower: float | None,
+    ci_upper: float | None,
+    effect_type: str = "odds_ratio",
+    null_value: float | None = None,
+) -> dict[str, Any]:
+    """CI-based verification for forest plots.
+
+    Verified when the confidence interval does not cross the null value:
+    - OR / HR: null = 1.0
+    - beta / correlation: null = 0.0
+    """
+    if null_value is None:
+        null_value = 1.0 if effect_type in {"odds_ratio", "hazard_ratio"} else 0.0
+
+    if ci_lower is None or ci_upper is None:
+        return {
+            "verified": False,
+            "pass_fail": False,
+            "proposed_r": float(effect_size),
+            "reason": "missing_ci",
+            "reason_code": "missing_ci",
+            "observed_range": [0.0, 0.0],
+            "distance_metric": None,
+            "nearest_r": None,
+            "min_abs_error": None,
+            "support_pixels": 0,
+            "required_support": 0,
+            "support_fraction": 0.0,
+            "legend_bbox": None,
+            "orientation": None,
+            "pixel_count": 0,
+            "diagnostics": {"effect_type": effect_type, "null_value": null_value},
+        }
+
+    ci_crosses_null = ci_lower <= null_value <= ci_upper
+    verified = not ci_crosses_null
+    reason = "ci_excludes_null" if verified else "ci_crosses_null"
+
+    return {
+        "verified": bool(verified),
+        "pass_fail": bool(verified),
+        "proposed_r": float(effect_size),
+        "reason": reason,
+        "reason_code": reason,
+        "observed_range": [float(ci_lower), float(ci_upper)],
+        "distance_metric": None,
+        "nearest_r": float(effect_size),
+        "min_abs_error": abs(effect_size - null_value),
+        "support_pixels": 0,
+        "required_support": 0,
+        "support_fraction": 0.0,
+        "legend_bbox": None,
+        "orientation": None,
+        "pixel_count": 0,
+        "diagnostics": {
+            "effect_type": effect_type,
+            "null_value": null_value,
+            "ci_lower": float(ci_lower),
+            "ci_upper": float(ci_upper),
+            "ci_crosses_null": bool(ci_crosses_null),
+        },
+    }
+
+
 def _failure_payload(
     *,
     proposed_r: float,
@@ -468,12 +534,31 @@ def _verification_from_proposal(
     except (TypeError, ValueError):
         candidate_r = None
 
+    topology = str(proposal.get("topology") or "heatmap")
+
     if candidate_r is None:
         result = _failure_payload(
             proposed_r=0.0,
             reason_code="missing_candidate_r",
             r_min=r_min,
             r_max=r_max,
+        )
+    elif topology == "forest_plot":
+        # CI-based verification — no pixel analysis needed
+        effect_type = str(proposal.get("effect_type") or "odds_ratio")
+        ci_lower_raw = proposal.get("ci_lower")
+        ci_upper_raw = proposal.get("ci_upper")
+        try:
+            ci_lower = float(ci_lower_raw) if ci_lower_raw is not None else None
+            ci_upper = float(ci_upper_raw) if ci_upper_raw is not None else None
+        except (TypeError, ValueError):
+            ci_lower = None
+            ci_upper = None
+        result = verify_forest_plot_association(
+            effect_size=candidate_r,
+            ci_lower=ci_lower,
+            ci_upper=ci_upper,
+            effect_type=effect_type,
         )
     else:
         image_path = proposal.get("image_path") or figure_lookup.get(figure_id)
