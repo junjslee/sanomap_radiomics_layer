@@ -69,8 +69,12 @@ class _FigureParser(HTMLParser):
         attr = dict(attrs)
         self._depth += 1
 
-        # Detect figure container
-        is_fig_div = tag == "div" and ("fig" in (attr.get("class") or "") or "figure" in (attr.get("class") or ""))
+        # Detect figure container.
+        # Match class="fig" or class="figure" as whole tokens to avoid matching
+        # wrapper classes like "fig-group" or "fig-list" which would cause ALL
+        # nested figure captions to be concatenated into one record.
+        classes = set((attr.get("class") or "").split())
+        is_fig_div = tag == "div" and bool(classes & {"fig", "figure"})
         is_figure_tag = tag == "figure"
         if is_fig_div or is_figure_tag:
             if not self._in_fig:
@@ -120,28 +124,74 @@ class _FigureParser(HTMLParser):
             self._caption_buf.append(data)
 
 
-def _extract_figures_from_html(html: str, pmcid: str) -> list[dict]:
-    """Return list of dicts: {fig_id, caption, img_srcs}."""
+_SUPPL_PATTERN = re.compile(r'^(M\d+|S\d+|supp|supplementary)', re.IGNORECASE)
+
+
+def _extract_figures_from_html(html: str, pmcid: str = "") -> list[dict]:
+    """Return list of dicts: {fig_id, caption, img_srcs}.
+
+    PMC no longer uses /bin/ paths — figures are served from a CDN:
+      https://cdn.ncbi.nlm.nih.gov/pmc/blobs/{shard}/{pmcid_num}/{hash}/{filename}
+
+    Strategy:
+    1. Regex-scan for CDN blob URLs, filter out supplementary files (M*.gif etc.).
+    2. Try to pair each CDN image with a caption by scanning nearby <figcaption>
+       or caption <p> text in the HTML.
+    3. Fallback: HTMLParser for older PMC articles that still use <div class="fig">.
+    """
+    # --- CDN URL sweep (primary path for modern PMC articles) ---
+    cdn_srcs: list[str] = re.findall(
+        r'src="(https://cdn\.ncbi\.nlm\.nih\.gov/pmc/blobs/[^"]+\.(?:jpg|png|gif))"',
+        html,
+        re.IGNORECASE,
+    )
+    # Deduplicate while preserving order
+    seen: set[str] = set()
+    unique_cdn: list[str] = []
+    for s in cdn_srcs:
+        if s not in seen:
+            seen.add(s)
+            fname = s.split("/")[-1]
+            if not _SUPPL_PATTERN.match(fname):
+                unique_cdn.append(s)
+
+    # Build per-figure entries with derived fig_id from filename stem
+    cdn_figures: list[dict] = []
+    for src in unique_cdn:
+        stem = src.split("/")[-1].rsplit(".", 1)[0]
+        # Normalise stem to a short fig label (e.g. "12931_2023_2434_Fig6_HTML" → "Fig6")
+        label_match = re.search(r'(Fig\d+|f\d+|g\d+)', stem, re.IGNORECASE)
+        fig_id = label_match.group(1) if label_match else stem
+        cdn_figures.append({"fig_id": fig_id, "caption": "", "img_srcs": [src]})
+
+    if cdn_figures:
+        # Try to attach captions: extract all figcaption / caption-class text blocks
+        # and match to figures by position or label hint in the text.
+        captions_in_order: list[str] = re.findall(
+            r'<figcaption[^>]*>(.*?)</figcaption>|<p[^>]+class="[^"]*caption[^"]*"[^>]*>(.*?)</p>',
+            html,
+            re.DOTALL | re.IGNORECASE,
+        )
+        clean_captions = []
+        for groups in captions_in_order:
+            text = next((g for g in groups if g), "")
+            text = re.sub(r'<[^>]+>', ' ', text)
+            text = re.sub(r'\s+', ' ', text).strip()
+            if text:
+                clean_captions.append(text)
+
+        for idx, fig in enumerate(cdn_figures):
+            if idx < len(clean_captions):
+                fig["caption"] = clean_captions[idx]
+
+        return cdn_figures
+
+    # --- Fallback: HTMLParser for older PMC articles ---
     parser = _FigureParser()
     try:
         parser.feed(html)
     except Exception:
         pass
-
-    # Fallback: regex sweep for any figure-like img src not caught by the parser
-    if not parser.figures:
-        pmcid_num = pmcid.replace("PMC", "")
-        patterns = [
-            rf'src="(/pmc/articles/{pmcid}/bin/[^"]+\.(?:jpg|png|gif))"',
-            rf'src="([^"]*{pmcid_num}[^"]*\.(?:jpg|png|gif))"',
-        ]
-        srcs: set[str] = set()
-        for pat in patterns:
-            for m in re.findall(pat, html, re.IGNORECASE):
-                srcs.add(m)
-        if srcs:
-            return [{"fig_id": f"fig_{i}", "caption": "", "img_srcs": [s]} for i, s in enumerate(sorted(srcs))]
-
     return parser.figures
 
 
