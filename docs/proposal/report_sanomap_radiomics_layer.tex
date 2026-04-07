@@ -78,7 +78,7 @@ The direct-evidence edge policy, designed to be semantically compatible with MIN
     \item \texttt{(RadiomicFeature)-[:MEASURED\_AT]->(BodyLocation)} — anatomical grounding
     \item \texttt{(RadiomicFeature)-[:ACQUIRED\_VIA]->(ImagingModality)} — modality provenance
     \item \texttt{(ImagingModality)-[:REPRESENTED\_BY]->(ImageRef)} — figure-level citation
-    \item \texttt{(Microbe)-[:POSITIVELY\_ASSOCIATED\_WITH / :NEGATIVELY\_ASSOCIATED\_WITH]->(Disease)} — signed microbe-disease relation, compatible with MINERVA's upstream edges
+    \item \texttt{(Microbe)-[:POSITIVELY\_CORRELATED\_WITH / :NEGATIVELY\_CORRELATED\_WITH]->(Disease)} — signed microbe-disease relation, compatible with MINERVA's upstream edges
 \end{itemize}
 
 The distinction between \texttt{CORRELATES\_WITH} and \texttt{ASSOCIATED\_WITH} is deliberate. Quantitatively verified edges (from the Vision Track, where an r-value is deterministically confirmed against a pixel-level color scale) use \texttt{CORRELATES\_WITH}. Text-derived edges, which reflect co-mention associations without quantitative grounding, use \texttt{ASSOCIATED\_WITH}. This preserves evidence-level semantics across the graph.
