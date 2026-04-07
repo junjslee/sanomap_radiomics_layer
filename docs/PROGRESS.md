@@ -1,16 +1,18 @@
 # Progress
 
 ## Last Updated
-2026-04-07 — Full 74-PMCID Vision Track corpus run complete. 2nd verified CORRELATES_WITH edge added. UMLS CUIs merged into Neo4j CSVs. Proposal PDF tex updated with final stats.
+2026-04-07 — Three-hop path closed. Text-derived microbe→feature CORRELATES_WITH edges connect 3 microbes to features with downstream disease edges, yielding 62 end-to-end Microbe→Feature→Disease paths.
 
 ## Current Metrics (1,016-paper expanded corpus — final)
 - Papers: **1,016** (640 initial + 376 net-new from 4 new query lanes)
 - Phenotype mentions: 5,721 (initial corpus)
 - ASSOCIATED_WITH edges (phenotype→disease): **74** (72 initial + 2 from new lanes)
 - Microbe-disease edges (signed): **29** total — 14 POSITIVELY_CORRELATED_WITH, 15 NEGATIVELY_CORRELATED_WITH
-- CORRELATES_WITH edges (Vision Track): **2** — Prevotella nigrescens→GLCM_Correlation (PMC10605408), Firmicutes→Total fat% (PMC6178902, r=-0.95, verified nearest=-0.906, support=1.0)
+- CORRELATES_WITH edges: **9** total — 2 Vision Track (pixel-verified), 7 Text Track (Gemini 7/7 self-consistency)
+  - **3 close three-hop paths**: Ruminococcus→sarcopenia (37 diseases), Peptostreptococcus stomatis→skeletal_muscle_index (7 diseases), Eubacterium→visceral_adipose_tissue (18 diseases)
+  - **62 end-to-end Microbe→Feature→Disease traversable paths**
 - BodyLocation nodes: 18, ImagingModality nodes: 5, ImageRef nodes: 1
-- Total Neo4j export rows: **184**
+- Total Neo4j export rows: **191**
 - Tests passing: **46** (Vision Track + edge assembly; full suite 156)
 - Gemini self-consistency rate (new corpus): **0.916**
 - UMLS CUIs: merged into neo4j_relationships_microbe_expanded.csv, new_lanes.csv, microbe_merged.csv (29/29 Microbe→Disease rows enriched)

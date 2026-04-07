@@ -3,9 +3,10 @@
 Operational handoff. Update whenever priority, blocker, or milestone changes.
 
 ## Current State (2026-04-07)
-- Vision Track: **full corpus run complete** — 74 PMCIDs processed, 2 verified CORRELATES_WITH edges in graph
-- Neo4j CSV: 184 rows — UMLS CUIs merged into all relationship CSVs
-- Proposal PDF: tex updated with final stats; pending compile (needs pdflatex)
+- **Three-hop path CLOSED** — 62 end-to-end Microbe→Feature→Disease traversable paths
+- CORRELATES_WITH edges: **9** total (2 Vision Track + 7 Text Track)
+- Neo4j CSV: **191** rows — UMLS CUIs merged into all relationship CSVs
+- Proposal PDF: tex updated with final stats; pending compile (needs `pdflatex` via `brew install --cask basictex`)
 - 46 tests passing (`conda run -n base python -m pytest tests/test_propose_vision_qwen.py tests/test_assemble_edges.py -v`)
 - `.env` file contains `GEMINI_API_KEY` but is NOT auto-loaded — must source before `conda run`
 
