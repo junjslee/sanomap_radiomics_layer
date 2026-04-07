@@ -2,9 +2,10 @@
 
 Operational handoff. Update whenever priority, blocker, or milestone changes.
 
-## Current State (2026-04-03)
-- Vision Track: **code complete** for heatmap, forest_plot, scatter_plot, dot_plot
-- Pipeline orchestrator: `scripts/run_vision_pipeline.py` — fetch → classify → propose → verify
+## Current State (2026-04-07)
+- Vision Track: **full corpus run complete** — 74 PMCIDs processed, 2 verified CORRELATES_WITH edges in graph
+- Neo4j CSV: 184 rows — UMLS CUIs merged into all relationship CSVs
+- Proposal PDF: tex updated with final stats; pending compile (needs pdflatex)
 - 46 tests passing (`conda run -n base python -m pytest tests/test_propose_vision_qwen.py tests/test_assemble_edges.py -v`)
 - `.env` file contains `GEMINI_API_KEY` but is NOT auto-loaded — must source before `conda run`
 
@@ -21,9 +22,24 @@ Scripts use `os.environ.get("GEMINI_API_KEY")` — no dotenv loading. Source bef
 set -a && source .env && set +a
 ```
 
-## Priority 1: Run Vision Track on Real Corpus
+## ~~Priority 1: Run Vision Track on Real Corpus~~ — DONE (2026-04-07)
+Full corpus run complete. Outputs: `artifacts/vision_proposals_pipeline.jsonl`, `artifacts/verification_results_pipeline.jsonl`. 2nd verified edge added to `neo4j_relationships_microbe_expanded.csv`.
 
-**Before full run — benchmark flash-lite vs flash on 3 papers:**
+## Priority 1: Compile Proposal PDF
+
+**Install pdflatex (requires your password — run in Terminal):**
+```bash
+brew install --cask basictex
+# restart terminal, then:
+```
+**Compile:**
+```bash
+cd docs/proposal
+pdflatex report_sanomap_radiomics_layer.tex
+```
+Note: model name in tex was `gemini-2.5-flash-lite-preview` in NEXT_STEPS — **corrected** everywhere now.
+
+## ~~Old Priority 1 archive~~ — Benchmark flash-lite vs flash on 3 papers:**
 ```bash
 set -a && source .env && set +a
 conda run -n base python scripts/run_vision_pipeline.py \
