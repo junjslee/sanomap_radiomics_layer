@@ -179,10 +179,20 @@ def _find_feature_in_text(text_lower: str) -> tuple[str, str] | None:
 
 def _extract_candidates(
     entity_sentences_paths: list[Path],
+    *,
+    microbe_gate: Any = None,
+    dropped_log: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Scan entity sentences for microbe + feature co-occurrences."""
+    """Scan entity sentences for microbe + feature co-occurrences.
+
+    If `microbe_gate` is supplied (an EntityGate from src.umls_validator),
+    each microbe surface form is evaluated against UMLS TUI grounding
+    BEFORE being admitted as a candidate. Dropped microbes are appended
+    to `dropped_log` (when supplied) for audit.
+    """
     candidates: list[dict[str, Any]] = []
     seen: set[tuple[str, str, str]] = set()  # (pmid, microbe, feature)
+    grounded_cache: dict[str, Any] = {}
 
     for path in entity_sentences_paths:
         if not path.exists():
@@ -212,19 +222,44 @@ def _extract_candidates(
                     if mtext_clean == canonical.replace("_", " "):
                         continue
 
+                    # UMLS TUI gate (Task 1) — applied per unique microbe surface
+                    if microbe_gate is not None:
+                        cached = grounded_cache.get(mtext_clean)
+                        if cached is None:
+                            cached = microbe_gate.evaluate(mtext)
+                            grounded_cache[mtext_clean] = cached
+                        if not cached.accepted:
+                            if dropped_log is not None:
+                                dropped_log.append({
+                                    "pmid": pmid,
+                                    "surface": mtext,
+                                    "feature_canonical": canonical,
+                                    "drop_reason": cached.drop_reason,
+                                    "grounding": cached.as_dict(),
+                                    "source_file": path.name,
+                                })
+                            continue
+
                     dedup_key = (pmid, mtext_clean, canonical)
                     if dedup_key in seen:
                         continue
                     seen.add(dedup_key)
 
-                    candidates.append({
+                    rec: dict[str, Any] = {
                         "pmid": pmid,
                         "microbe": mtext_clean,
                         "feature_canonical": canonical,
                         "feature_node_type": node_type,
                         "sentence": sentence,
                         "source_file": path.name,
-                    })
+                    }
+                    if microbe_gate is not None:
+                        cached = grounded_cache[mtext_clean]
+                        rec["microbe_cui"] = cached.cui
+                        rec["microbe_tui"] = cached.tui
+                        rec["microbe_umls_similarity"] = cached.similarity
+                        rec["microbe_official_name"] = cached.official_name
+                    candidates.append(rec)
 
     return candidates
 
@@ -257,6 +292,20 @@ def main() -> int:
         "--dry-run", action="store_true",
         help="Show candidates without calling API",
     )
+    parser.add_argument(
+        "--umls-gate", action="store_true",
+        help="Filter microbe surface forms through UMLS TUI gate before "
+             "relation classification (Task 1). MUST run from Terminal.app, "
+             "not VSCode/Claude Code subprocesses (scispacy KB load is ~5GB).",
+    )
+    parser.add_argument(
+        "--umls-min-similarity", type=float, default=0.85,
+        help="Minimum UMLS similarity for microbe acceptance (default 0.85)",
+    )
+    parser.add_argument(
+        "--dropped-output", default="artifacts/microbe_feature_relations_dropped.jsonl",
+        help="Path for entities dropped by UMLS gate (audit lane)",
+    )
     args = parser.parse_args()
 
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
@@ -264,11 +313,41 @@ def main() -> int:
         print("ERROR: GEMINI_API_KEY not set", file=sys.stderr)
         return 1
 
-    # Step 1: Extract candidates
+    # Step 1: Extract candidates (optionally with UMLS TUI gate)
     paths = [Path(p) for p in args.entity_sentences]
+    microbe_gate = None
+    dropped_log: list[dict[str, Any]] = []
+    if args.umls_gate:
+        print("[0/3] Loading UMLS KB (scispacy en_core_sci_lg + UMLS linker, ~5GB, ~30s)...")
+        # Defer imports so the script can run without scispacy when --umls-gate is off.
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from src.text_ner_minerva import UMLSNormalizer
+        from src.umls_validator import make_microbe_gate
+        normalizer = UMLSNormalizer(enabled=True)
+        if not normalizer.available:
+            print("ERROR: UMLS linker not available. Check scispacy install.",
+                  file=sys.stderr)
+            return 1
+        microbe_gate = make_microbe_gate(normalizer,
+                                         min_similarity=args.umls_min_similarity)
+        print(f"  UMLS gate ready (TUIs={sorted(microbe_gate.accepted_tuis)}, "
+              f"deny={len(microbe_gate.deny_cuis)} CUIs, "
+              f"min_sim={microbe_gate.min_similarity})")
+
     print(f"[1/3] Scanning {len(paths)} entity sentence files for microbe + feature co-occurrences")
-    candidates = _extract_candidates(paths)
-    print(f"  Found {len(candidates)} unique (pmid, microbe, feature) candidates\n")
+    candidates = _extract_candidates(paths, microbe_gate=microbe_gate,
+                                     dropped_log=dropped_log)
+    print(f"  Found {len(candidates)} unique (pmid, microbe, feature) candidates")
+    if microbe_gate is not None:
+        print(f"  UMLS gate dropped {len(dropped_log)} candidates")
+        if dropped_log:
+            dropped_path = Path(args.dropped_output)
+            dropped_path.parent.mkdir(parents=True, exist_ok=True)
+            with dropped_path.open("w") as f:
+                for entry in dropped_log:
+                    f.write(json.dumps(entry) + "\n")
+            print(f"  Dropped audit → {dropped_path}")
+    print()
 
     if not candidates:
         print("No candidates found. Exiting.")
