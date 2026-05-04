@@ -70,11 +70,11 @@
 - Consensus: AND-gate accepts; XOR routes to `artifacts/vision_review_queue.jsonl`.
 - Modal-independence claim: pixel-level color comparison vs. semantic figure interpretation; named in methods as bounded by both verifiers' shared dependence on image quality.
 
-### Task 4 — Gold-Label Benchmark (Pending)
-- 150-instance stratified gold set: 15 accepted + 50 near-miss + 35 hard-negative + 30 recall-probe + 20 random.
-- Annotation schema in `docs/benchmark/annotation_schema.md` (to be drafted before annotation begins).
-- Single-annotator with intra-annotator IAA via 2-week temporal re-labeling; target Cohen's κ ≥ 0.80.
-- Evaluation harness in `src/benchmark/evaluate.py` produces P/R/F1 against the gold set.
+### Task 4 — Gold-Label Benchmark (Implemented; hand-labeling pending)
+- Annotation schema v1.0 locked in `docs/benchmark/annotation_schema.md`: 6-class primary label (associated_positive / associated_negative / associated_unsigned / no_association_explicit / not_associated / unclear), 3 secondary labels (evidence_type / quantitative / confidence), 8 numbered edge-case decisions.
+- Sampling: `src/benchmark/sample_gold_set.py` — 5 strata, deterministic seed 42, reuses production `_extract_candidates`. Produced `artifacts/gold_set_v1_UNLABELED.jsonl` with 66 rows (target was 150; corpus-limited because only 13 substring candidates and 3 extended-keyword sentences exist in `entity_sentences`). The under-target size is the v1 honest constraint; CIs in the report will be ±0.10 instead of ±0.07.
+- Evaluation: `src/benchmark/evaluate.py` — binary P/R/F1 + per-stratum/feature/evidence_type breakdown + Cohen's κ (6-class and binary collapse) for IAA.
+- Single-annotator with intra-annotator IAA via 14-day temporal re-labeling; target Cohen's κ ≥ 0.80 (binary) per Landis & Koch.
 
 ## Inherited State (carried forward)
 - Local CPU-only proof-of-concept plumbing exists; the inherited microbe-disease lane is sufficiently validated for now.

@@ -102,6 +102,22 @@ def test_accepts_eukaryote_fungus_via_t204():
     assert result.accepted is True
 
 
+def test_accepts_virus_via_t005():
+    """Virome future-proofing — T005 was added to the accept set 2026-05-04."""
+    stub = StubNormalizer({
+        "crassphage": {
+            "cui": "C5212385",
+            "tui": "T005",
+            "similarity": 0.91,
+            "official_name": "crAssphage",
+        }
+    })
+    gate = make_microbe_gate(stub)
+    result = gate.evaluate("crAssphage")
+    assert result.accepted is True
+    assert result.tui == "T005"
+
+
 # --------------------------------------------------------------------------- #
 #  Rejection paths — these are the Edge #5 class of failures
 # --------------------------------------------------------------------------- #

@@ -34,11 +34,15 @@ class _Normalizer(Protocol):
 # --------------------------------------------------------------------------- #
 # UMLS Semantic Network reference: https://www.nlm.nih.gov/research/umls/META3_current_semantic_types.html
 #
-# Microbe class: Bacterium, Archaeon, Eukaryote.
+# Microbe class: Bacterium, Archaeon, Eukaryote, Virus.
 #   T204 (Eukaryote) is intentionally broad — it admits fungi/protozoa for
 #   mycobiome and parasite work, but it also admits humans and lab model
 #   organisms. The non-microbe deny-list below is the targeted mitigation.
+#   T005 (Virus) is included for virome future-proofing per operator decision
+#   2026-05-04 — admits viral taxa (e.g. crAssphage, Caudovirales) that appear
+#   in gut-virome literature.
 MICROBE_TUIS_ACCEPT: frozenset[str] = frozenset({
+    "T005",  # Virus
     "T007",  # Bacterium
     "T194",  # Archaeon
     "T204",  # Eukaryote

@@ -1,7 +1,7 @@
 # Progress
 
 ## Last Updated
-2026-05-04 — Four-task structural upgrade landed in scope. Pipeline acceptance is now framed against four stacked gates: (1) UMLS TUI grounding for entity sanitization, (2) BioClinical-ModernBERT dense retrieval replacing `_FEATURE_VOCAB`, (3) dual-verifier consensus (pixel + independent VLM) for Vision Track, (4) gold-label benchmark for measured P/R/F1. Tasks 1–3 implemented this session; Task 4 is the next deliverable.
+2026-05-04 — **All four structural upgrade tasks implemented this session.** Pipeline acceptance is now framed against four stacked gates with full test coverage: (1) UMLS TUI grounding for entity sanitization, (2) BioClinical-ModernBERT dense retrieval replacing `_FEATURE_VOCAB`, (3) dual-verifier consensus (pixel + independent VLM) for Vision Track, (4) gold-label benchmark for measured P/R/F1. Hand-labeling of the gold set is the next user-driven deliverable.
 
 ## Architecture (post-upgrade)
 
@@ -13,7 +13,7 @@ The pipeline is now structured as five independent gates. Each gate is independe
 | Entity sanitization | UMLS TUI grounding — Microbe must ground to T007/T194/T204; gene-function noise rejected | `src/umls_validator.py` (Task 1) | Coverage gap (novel taxa not in UMLS) |
 | Relation acceptance (text) | Gemini 2.5 Flash-Lite, 7-sample temperature-varied self-consistency, full-agreement | `scripts/extract_microbe_feature_relations.py` | Self-correlated; doesn't bound systematic error |
 | Verification (vision) | Pixel HSV verifier AND independent Gemini Vision verifier with verifier-only prompt; AND-consensus | `src/verify_vision_dual.py` (Task 3) | Verifier disagreement → human review queue |
-| Evaluation | Stratified gold-label benchmark, intra-annotator IAA via temporal re-labeling | `src/benchmark/` (Task 4 — pending) | Single-annotator ceiling |
+| Evaluation | Stratified gold-label benchmark, intra-annotator IAA via temporal re-labeling | `src/benchmark/sample_gold_set.py` + `evaluate.py` (Task 4 — implemented; hand-labeling pending) | Single-annotator ceiling; corpus undersizing on rare strata |
 
 ## Known Quality Issues Closed By This Upgrade
 
@@ -35,7 +35,39 @@ The pipeline is now structured as five independent gates. Each gate is independe
 - Gemini self-consistency rate (new corpus): **0.916**
 - UMLS CUIs: merged into neo4j_relationships_microbe_expanded.csv, new_lanes.csv, microbe_merged.csv (29/29 Microbe→Disease rows enriched)
 
-## Session 6 (2026-05-04) — Four-Task Structural Upgrade
+## Session 7 (2026-05-04, late) — Task 4 + Open-Question Resolutions
+
+### Frame
+After Tasks 1–3 landed in Session 6 (early), three open questions were carried into HITL review:
+- Should T005 (Virus) be added to the TUI accept set for virome future-proofing?
+- Should `faiss-cpu` be pinned in dependency tracking?
+- Should the Task 4 annotation schema be drafted this session?
+
+The user resolved all three as **yes** and authorized Task 4 implementation in full (annotation schema + sampling script + evaluation harness). This session executed those.
+
+### Changes Delivered
+- **T005 added** to `MICROBE_TUIS_ACCEPT` in `src/umls_validator.py`. Documented the rationale (gut-virome coverage). New test `test_accepts_virus_via_t005` verifies the path.
+- **`requirements.txt`** created with conservative pinning for the actual transitive dependency surface used by the codebase. `faiss-cpu>=1.8,<2` pinned even though the module's numpy fallback works at current corpus scale.
+- **`docs/benchmark/annotation_schema.md` v1.0** — locked: 6-class primary label, 3 secondary labels, 8 numbered edge-case decisions, IAA protocol with 14-day temporal-relabel window, schema versioning policy.
+- **`src/benchmark/__init__.py` + `sample_gold_set.py`** — stratified sampler with deterministic seed (42). Reuses `_extract_candidates` from the production script so the gold set evaluates against the actual production candidate space. Five strata: accepted_edge, gemini_rejected, vocab_excluded (extended-vocab keywords beyond `_FEATURE_VOCAB`), recall_probe (generic body tokens, no specific feature), random_co_occurrence.
+- **`src/benchmark/evaluate.py`** — binary P/R/F1 + 2×2 confusion matrix + per-stratum + per-feature + per-evidence_type breakdown. Cohen's κ (6-class and binary collapse) for IAA. CLI handles second-pass JSONL for κ computation.
+- **`tests/test_benchmark_sample_gold_set.py`** (15 tests) — fixture-based stratification, exclusivity, seed determinism, abbrev-word-boundary corner cases.
+- **`tests/test_benchmark_evaluate.py`** (31 tests) — label policy, confusion math, prediction lookup, per-stratum/feature aggregation, multi-class breakdown, Cohen's κ across passes.
+
+### Bugs Caught + Fixed
+- **PMI inside PMID false positive**: the original `_has_extended_feature_keyword` substring-matched `pmi` inside `pmid`, polluting the `vocab_excluded` stratum with PubMed-ID metadata sentences. Test surfaced it; fixed with explicit `EXTENDED_KEYWORD_ABBREVS` set requiring `\b` word-boundary matching for short abbreviations (pmi, imat, eat, pdff, asmm, ffmi, glcm).
+
+### Situational Truth (worth flagging upstream)
+- **Gold set lands at 66 rows, not 150.** The corpus has only 187 entity-sentence records and only 13 substring candidates total; the gemini_rejected stratum caps at 5 and vocab_excluded at 3. The 150-row design assumed a richer candidate pool than the production pipeline currently emits. Two paths to recover:
+  - widen `--entity-sentences` inputs to include the broader text-mention files (5,721 mentions) — but those records lack the microbe-NER side, so the sampler would need a re-tagging step.
+  - accept 66 as the v1 gold set size, label it, and note the wider confidence intervals (±0.10 instead of ±0.07 at p≈0.7) in the Limitations section.
+- The user's call. Logged as a P1 open question in NEXT_STEPS.
+
+### Validations
+- `conda run -n base python -m pytest -q` → **280 passed** (44 new this session). No regressions.
+- `python -m src.benchmark.sample_gold_set` against real artifacts → 66 rows written; reproducible under fixed seed.
+
+## Session 6 (2026-05-04) — Four-Task Structural Upgrade (Tasks 1–3)
 
 ### Frame
 The 1,016-paper baseline pipeline was end-to-end functional but carried three named structural weaknesses surfaced during axis-scoping review:
@@ -65,10 +97,11 @@ The 1,016-paper baseline pipeline was end-to-end functional but carried three na
 - Task 4 (gold benchmark) last because it measures the system after Tasks 1–3 land; benchmarking before would measure a known-stale pipeline.
 
 ### Validations
-- New module tests: 16 UMLS validator + 17 feature retrieval + 25 dual verifier = **58 new tests**, all passing.
-- Full suite: **236 passed** (was 156 pre-upgrade) — no regressions.
+- New module tests: 17 UMLS validator (T005 added) + 17 feature retrieval + 25 dual verifier + 15 gold-set sampler + 31 benchmark evaluator = **105 new tests**, all passing.
+- Full suite: **280 passed** (was 156 pre-upgrade) — no regressions.
 - Backward-compat smoke: `scripts/extract_microbe_feature_relations.py --dry-run` (without `--umls-gate`) produces the same 13 candidates as the prior baseline. The Edge #5 surface (`gut bacterial clpb - like gene function`) is visible in the candidate list and will drop when `--umls-gate` is enabled.
 - UMLS audit script (`scripts/audit_microbe_entities.py`): re-runs UMLS gate against `artifacts/microbe_feature_relations.jsonl`; must be run from Terminal.app per UMLS runtime policy. Live audit results pending.
+- Gold-set sampler smoke run produced `artifacts/gold_set_v1_UNLABELED.jsonl` with 66 rows (8 accepted / 5 gemini_rejected / 3 vocab_excluded / 30 recall_probe / 20 random_co_occurrence). **The 150-row target is not reached on the current corpus** — only 13 substring candidates exist, so gemini_rejected caps at 5; only 3 entity-sentence records contain extended-vocabulary feature keywords. Honest situational truth, documented as a Limitation; expansion path is to widen `--entity-sentences` inputs beyond the two default files.
 
 ## Session 5 (2026-04-03) — Vision Track Multi-Type Expansion
 
