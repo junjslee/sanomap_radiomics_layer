@@ -108,3 +108,17 @@
   - cleaned subject and disease spans in assembled outputs
   - residual clause-like disease examples in assembled text edges
 - Validate edge outputs and confirm bridge hypotheses were not ingested as direct graph edges.
+
+## Reasoning Surface
+
+### Knowns
+- _fill in verified facts_
+
+### Unknowns
+- _fill in identified gaps or risks_
+
+### Assumptions
+- _fill in critical beliefs that require validation_
+
+### Disconfirmation
+- _What would prove us wrong? What signal would trigger a pivot?_

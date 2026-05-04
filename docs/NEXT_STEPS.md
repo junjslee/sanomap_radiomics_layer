@@ -95,3 +95,25 @@ Note: fix `.tex` naming inconsistency before compiling — proposal uses `POSITI
 - Qwen local: **impossible on 8GB M2** (~14GB FP16 needed)
 - **Before any paid run: dry-run first and confirm cost estimate**
 - UMLS: native Terminal only
+
+## Reasoning Surface
+
+### Knowns
+- _fill in verified facts_
+
+### Unknowns
+- _fill in identified gaps or risks_
+
+### Assumptions
+- _fill in critical beliefs that require validation_
+
+### Disconfirmation
+- _What would prove us wrong? What signal would trigger a pivot?_
+
+## So-What Now?
+
+> _TL;DR: What is the single most important next action and why?_
+
+- **Immediate**: _fill in_
+- **Blockers**: _fill in_
+- **Open Questions**: _fill in_

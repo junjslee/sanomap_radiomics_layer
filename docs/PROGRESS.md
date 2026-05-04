@@ -94,3 +94,17 @@ Vision Track was heatmap-only. User confirmed: forest plots, scatter plots, and 
 
 ## What Is Complete
 Full pipeline end-to-end on 1,016-paper corpus. Vision Track code complete for all four figure types. 46 tests green. Proposal current. Explorer live on GitHub Pages.
+
+## Reasoning Surface
+
+### Knowns
+- _fill in verified facts_
+
+### Unknowns
+- _fill in identified gaps or risks_
+
+### Assumptions
+- _fill in critical beliefs that require validation_
+
+### Disconfirmation
+- _What would prove us wrong? What signal would trigger a pivot?_
