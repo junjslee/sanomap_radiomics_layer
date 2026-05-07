@@ -61,34 +61,32 @@ Smoke ran via `scripts/run_vision_dual_smoke_qwen.py` against `localhost:11434`.
 
 If Qwen2.5-VL-3B disagreement rate climbs once the smoke n grows, evaluate upgrade path: (a) `qwen2.5vl:7b` (~8GB at 4-bit, tight on this machine) or (b) DashScope hosted `qwen2.5-vl-32b-instruct` (cents per call).
 
-## Priority 4 — Review gold-set label SUGGESTIONS, then commit Pass 1 (user-driven)
+## Priority 4 — Pass 1 CLOSED (2026-05-07); 14-day temporal window open
 
-Hybrid (computer-aided manual annotation) approach selected this session. Claude generated 66 suggestions to `artifacts/gold_set_v1_LABELED_pass1_SUGGESTIONS.jsonl` using `scripts/suggest_gold_set_labels.py`. Each row carries `_suggestion_rationale` for fast review.
+Pass 1 authoritative file: `artifacts/gold_set_v1_LABELED_pass1.jsonl` (66 rows). Generation pipeline:
+1. `scripts/suggest_gold_set_labels.py` → `gold_set_v1_LABELED_pass1_SUGGESTIONS.jsonl` (Claude proposed).
+2. Operator reviewed all 66 with the imaging-derived scope rule; 7 rows overridden.
+3. `scripts/apply_pass1_overrides.py` → `gold_set_v1_LABELED_pass1.jsonl` (authoritative).
+4. Schema bumped to v1.1 with the scope rule (§ 6.9).
 
-Distribution (suggested, pre-review):
-- not_associated: 40
-- associated_negative: 12
+Final distribution:
+- not_associated: 47
+- associated_negative: 8
 - unclear (entity-type errors, § 6.8): 8
-- associated_unsigned: 3
-- associated_positive: 2
-- no_association_explicit: 1
+- associated_unsigned: 2
+- associated_positive: 1
+- no_association_explicit: 0
 
-**Open scope decision** (4 rows depend on this): Do `bmi`, `waist_hip_ratio`, `trunk_fat_distribution` count as `BodyCompositionFeature`? Schema § 3 framing is imaging-derived; these are anthropometric. Affected: 5b9e031f0ee108f6, e4c9fc61f452de6e, 91655ab9d223b281 (WHR), 0b2f558a2e6e6e9b, f5ae9ff4a1be993b, 1b8deaecd521e3b5 (BMI), 824fa73a6f0aa2c4 (trunk fat). If excluded, those rows downgrade to `not_associated`.
+**14-day temporal window opens 2026-05-07. Pass-2 earliest start: 2026-05-21.** Per § 7.2 of the schema, the wait is non-negotiable: shorter intervals leak short-term memory and inflate κ artificially.
 
+When the window closes, Pass-2 procedure:
 ```bash
-# Step 1: Review the suggestions file row-by-row.
-# For each row: check the _suggestion_rationale against the schema, accept or override.
-# Strip the _suggestion_rationale + _suggested_by fields before saving as authoritative pass 1.
-# Save to: artifacts/gold_set_v1_LABELED_pass1.jsonl
-
-# Step 2: Wait 14 calendar days from your review-completion date
-# (per § 7.2 of docs/benchmark/annotation_schema.md).
-
-# Step 3: Pass 2 — re-label the same 66 rows WITHOUT consulting pass 1.
+# Pass-2: re-label the same 66 rows WITHOUT consulting pass 1.
+# Critically — start from the UNLABELED file, not pass 1, so prior labels do not anchor.
 cp artifacts/gold_set_v1_UNLABELED.jsonl artifacts/gold_set_v1_LABELED_pass2.jsonl
-# Hand-edit fresh; randomize row order if feasible.
+# Hand-edit fresh; randomize row order if feasible to break sequential context.
 
-# Step 4: Evaluate.
+# Evaluate.
 conda run -n base python -m src.benchmark.evaluate \
     --gold artifacts/gold_set_v1_LABELED_pass1.jsonl \
     --iaa-pass2 artifacts/gold_set_v1_LABELED_pass2.jsonl \
@@ -98,7 +96,7 @@ conda run -n base python -m src.benchmark.evaluate \
 
 Acceptance: Cohen's κ (binary collapse) ≥ 0.80; report binary P/R/F1 with 95% Wilson CI.
 
-**Methods-section disclosure**: pass 1 used computer-aided manual annotation (Claude proposed; junjslee reviewed, accepted, or overrode). Pass 2 is junjslee independent. Cohen's κ measures intra-annotator consistency on junjslee's two passes. The Claude suggestions are an annotation aid, not the oracle.
+**Methods-section disclosure**: Pass 1 was computer-aided manual annotation — Claude proposed labels with rationale; junjslee reviewed all 66 and overrode 7 under the imaging-derived scope rule. Pass 2 is junjslee independent (no Claude prompt, no consultation of Pass 1). Cohen's κ measures intra-annotator consistency on junjslee's two passes; the Claude suggestions are an annotation aid, not the oracle.
 
 ## Priority 5 — Compile Proposal PDF (deferred from prior session)
 

@@ -179,6 +179,39 @@ Edge #5 case), the entity is not actually a microbe — label as
 These rows test the UMLS gate: a properly gated pipeline would
 never produce this candidate.
 
+### 6.9 BodyCompositionFeature scope — imaging-derived only (added v1.1)
+A feature qualifies as `BodyCompositionFeature` only if the underlying
+measurement is imaging-derived (CT, MRI, DXA, ultrasound, or PET).
+Anthropometric measurements that do not require imaging — body mass
+index (BMI), waist–hip ratio (WHR), waist circumference, trunk-fat
+distribution from caliper or tape measurement, body weight in
+isolation — do **not** qualify. Sentences whose only candidate
+feature is anthropometric are labeled `not_associated` even when an
+explicit microbe ↔ anthropometric correlation is asserted, because the
+feature falls outside the project's ontology scope.
+
+Imaging-derived qualifying examples: skeletal muscle index (SMI),
+visceral adipose tissue (VAT), subcutaneous adipose tissue (SAT), liver
+fat fraction (PDFF), bone mineral density (BMD via DXA), myosteatosis,
+muscle attenuation, intramuscular fat fraction, skeletal muscle area
+at L3.
+
+Anthropometric examples explicitly excluded: BMI, WHR, waist
+circumference, trunk-fat distribution without imaging context, body
+weight, fat mass when measured by bioelectrical impedance only.
+
+Edge case: if a sentence reports a body composition feature *measured
+by* imaging (e.g., "DXA-derived fat mass") that resolves to imaging
+even when the named feature ("fat mass") is otherwise anthropometric.
+The annotator may use `inferred_feature_canonical` to record the
+imaging-anchored variant.
+
+Why this rule exists: the project's research thesis is that imaging
+phenotypes are the missing intermediate layer between microbiome and
+disease. Allowing anthropometric features to populate the same node
+type would dilute the imaging-phenotype claim that the graph schema
+exists to make.
+
 ---
 
 ## 7. Inter-annotator agreement protocol
@@ -282,3 +315,4 @@ When updating, append a row to the table below.
 | Version | Date | Author | Change |
 |---|---|---|---|
 | v1.0 | 2026-05-04 | junjslee | Initial schema. |
+| v1.1 | 2026-05-07 | junjslee | Added § 6.9 BodyCompositionFeature scope rule (imaging-derived only; BMI/WHR/anthropometric explicitly excluded). Clarification, no semantic shift on already-locked imaging-derived features. Pass-1 labels generated under v1.1 — 7 rows overridden vs the LLM's pre-rule suggestions. |

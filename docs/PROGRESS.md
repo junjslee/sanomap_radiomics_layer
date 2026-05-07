@@ -31,6 +31,16 @@ Three priorities entered this session: (1) close Task 1 with a live UMLS audit; 
 - 66/66 records have label suggestions; no records missed.
 - Dual-verifier smoke (`scripts/run_vision_dual_smoke_qwen.py`) on local Qwen2.5-VL-3B: 2/2 available figures accepted (`PMC10176953_Fig3` panel G, *Peptostreptococcus* ↔ DLCO/VA%pred at r=-0.407; `PMC10176953_Fig6` panel A, *Haemophilus* ↔ 4th Ai at r=-0.6). Pixel + Qwen AND-consensus PASS on both. Qwen returned `light blue` / `blue` color-band descriptions consistent with negative r-values. Verifier disagreement rate = 0% on this micro-sample (n=2). 11 of 13 proposals skipped (figures not present locally; pre-existing data tracking issue, not new). **Task 3 closed.**
 
+### Pass-1 Override Decision (2026-05-07)
+Operator reviewed all 66 LLM suggestions. Override applied to 7 rows on a single principle: **BodyCompositionFeature must be imaging-derived**. BMI, waist–hip ratio, and trunk-fat distribution without an imaging reference are anthropometric and excluded; bone mineral density retained because DXA is imaging. Affected record_ids:
+- WHR: 5b9e031f0ee108f6, e4c9fc61f452de6e, 91655ab9d223b281
+- BMI: 0b2f558a2e6e6e9b, f5ae9ff4a1be993b, 1b8deaecd521e3b5
+- Trunk-fat distribution: 824fa73a6f0aa2c4
+
+Mechanics codified in `scripts/apply_pass1_overrides.py` (re-runnable from suggestions). Authoritative file: `artifacts/gold_set_v1_LABELED_pass1.jsonl`. Schema clarified to v1.1 (see § 6.9 of `docs/benchmark/annotation_schema.md`).
+
+Final Pass-1 distribution: 47 not_associated, 8 associated_negative, 8 unclear (entity-type errors), 2 associated_unsigned, 1 associated_positive, 0 no_association_explicit. **Task 4 Pass-1 closed.** 14-day temporal window opens; Pass-2 earliest 2026-05-21.
+
 ---
 
 ## Architecture (post-upgrade)
