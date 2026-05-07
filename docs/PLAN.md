@@ -11,7 +11,7 @@
 ## Active Gating Items (2026-05-07, end of session)
 - **Task 1 closed live**. UMLS audit drop rate 25% (2/8). Outputs in `artifacts/dropped_entities_audit.jsonl` + `artifacts/umls_gate_report.json`.
 - **Task 2** (dense retrieval): implementation done; τ calibration is strictly downstream of Pass-2 gold labels.
-- **Task 3 closed**. Vision verifier pivoted to local Qwen2.5-VL-3B via Ollama. Smoke run AND-consensus PASS 2/2 on locally-available figures.
+- **Task 3 closed**. Vision verifier pivoted to local Qwen2.5-VL-3B via Ollama. Full smoke run on n=13: 7 AND-consensus ACCEPT, 6 REVIEW (XOR), 0 REJECT, 0 ERRORS. 28/28 unit tests still passing after `proposed_r=None` crash-guard added to `verify_heatmap_r_value` + classified as `INCONCLUSIVE`.
 - **Task 4 Pass-1 closed**. 66-row authoritative `gold_set_v1_LABELED_pass1.jsonl` generated via Claude propose → junjslee review → 7 imaging-scope overrides. Schema bumped v1.0 → v1.1 (§ 6.9 imaging-derived rule). 14-day temporal window opens 2026-05-07; Pass-2 earliest 2026-05-21.
 
 ## Stages

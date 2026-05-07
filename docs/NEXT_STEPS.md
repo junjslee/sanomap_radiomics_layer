@@ -53,13 +53,16 @@ If retrieval at calibrated τ returns < 50 candidates per common feature on the 
 
 ## Priority 3 — Local Qwen2.5-VL-3B vision verifier smoke (CLOSED 2026-05-07)
 
-Smoke ran via `scripts/run_vision_dual_smoke_qwen.py` against `localhost:11434`. Result: 2/2 available figures got dual ACCEPT (pixel + Qwen AND-consensus PASS).
-- `PMC10176953_Fig3` panel G — *Peptostreptococcus* ↔ DLCO/VA%pred, r=-0.407, Qwen color band "light blue", pixel distance 0.019.
-- `PMC10176953_Fig6` panel A — *Haemophilus* ↔ 4th Ai, r=-0.6, Qwen color band "blue", pixel distance 0.0.
+Full coverage on n=13 proposals after `scripts/fetch_missing_figures.py` retrieved the 11 missing PMC figures into `artifacts/figures/`. Result: **7 AND-consensus ACCEPT / 6 REVIEW / 0 REJECT, 0 ERRORS**.
 
-11 of 13 proposals skipped because figures aren't on disk (proposals point at a stale Desktop path; pre-existing data hygiene issue, not new). To grow the smoke n past 2, re-fetch the missing PMC figures into `artifacts/figures/` under the `{figure_id}.jpg` naming convention used by `_resolve_figure`.
+Disagreement queue (6 rows in `artifacts/vision_review_queue.jsonl`) breakdown:
+- 3× `pixel_fail (insufficient_support)` + `vision_pass`: pixel found legend but the proposer's bbox/cell didn't yield enough matching pixels. Qwen colors (`blue`, `light blue`, `light green`) are plausible for the negative r-values claimed.
+- 3× `pixel_inconclusive (legend_not_found)` + `vision_pass`: pixel couldn't find the colorbar; Qwen still read.
 
-If Qwen2.5-VL-3B disagreement rate climbs once the smoke n grows, evaluate upgrade path: (a) `qwen2.5vl:7b` (~8GB at 4-bit, tight on this machine) or (b) DashScope hosted `qwen2.5-vl-32b-instruct` (cents per call).
+**Followup investigation paths (lower priority than Pass-2 of Task 4):**
+1. Manually inspect the 6 review-queue figures and adjudicate each (pixel false negative vs. Qwen false positive vs. genuinely-ambiguous figure).
+2. If disagreement is concentrated in `insufficient_support` cases, loosen the pixel verifier's bbox-tolerance; if concentrated in Qwen over-permissiveness, upgrade to `qwen2.5vl:7b` (~8GB at 4-bit, tight on this M2) or hosted `qwen2.5-vl-32b-instruct` (cents per call).
+3. The 46% disagreement rate is empirical evidence that modal independence is real (pixel and Qwen genuinely disagree on a meaningful fraction). Whether to interpret this as "verifier-monoculture risk is real and the dual gate caught it" (positive framing) or "current verifiers need re-tuning" (negative framing) depends on the manual adjudication outcome.
 
 ## Priority 4 — Pass 1 CLOSED (2026-05-07); 14-day temporal window open
 

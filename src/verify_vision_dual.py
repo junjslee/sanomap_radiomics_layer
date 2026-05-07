@@ -99,6 +99,7 @@ def pixel_verdict_from_payload(payload: Mapping[str, Any]) -> PixelVerdict:
         "legend_not_found",
         "insufficient_colored_pixels",
         "r_out_of_range",
+        "proposed_r_missing",
     }
     if reason in inconclusive_reasons:
         return PixelVerdict.INCONCLUSIVE
