@@ -2,16 +2,14 @@
 
 Operational handoff. Update whenever priority, blocker, or milestone changes.
 
-## Current State (2026-05-04 late)
-- **All four structural upgrade tasks implemented**:
-  - Task 1 (UMLS gate): `src/umls_validator.py` + integration. T005 (Virus) added to accept set this session. Live audit pending.
-  - Task 2 (dense retrieval): `src/feature_retrieval.py`. Corpus encoding pass + τ calibration pending.
-  - Task 3 (dual verifier): `src/verify_vision_dual.py`. Live API smoke pending.
-  - Task 4 (gold benchmark): `docs/benchmark/annotation_schema.md` v1.0 + `src/benchmark/sample_gold_set.py` + `src/benchmark/evaluate.py`. Gold set sampled (66 rows). **Hand-labeling is now the user-driven critical path.**
-- Pre-upgrade baseline: 191 Neo4j rows, 9 CORRELATES_WITH edges, 62 traversable Microbe→Feature→Disease paths.
-- **280 tests passing** (was 156 pre-upgrade) — 105 new tests across the four upgrades. No regressions.
-- `requirements.txt` now exists with `faiss-cpu>=1.8,<2` pinned for production reproducibility.
-- `.env` file contains `GEMINI_API_KEY` but is NOT auto-loaded — must source before `conda run`.
+## Current State (2026-05-07)
+- **Task 1 closed live.** UMLS audit drop rate 25% (2/8) under the 30% threshold. Edge #5 + bacteriodetes typo dropped. Outputs: `artifacts/dropped_entities_audit.jsonl`, `artifacts/umls_gate_report.json`.
+- **Task 3 pivoted to local Qwen2.5-VL-3B via Ollama** (free, fits 8GB M2 at 4-bit). Daemon running at `localhost:11434`. Smoke test queued; `verify_vision_dual.py` accepts the swap via `--api-base-url`/`--model-id` flags only.
+- **Task 4 entered hybrid labeling mode**. `scripts/suggest_gold_set_labels.py` generated 66 label suggestions to `artifacts/gold_set_v1_LABELED_pass1_SUGGESTIONS.jsonl` with per-row `_suggestion_rationale`. Critical path is now junjslee's review of those suggestions.
+- **Task 2 (dense retrieval)**: implementation complete; corpus encoding pass + τ calibration still pending. Calibration is now strictly downstream of pass 1 labels (need labeled data to set per-feature τ).
+- Pre-upgrade baseline preserved: 191 Neo4j rows, 9 CORRELATES_WITH edges, 62 traversable Microbe→Feature→Disease paths.
+- **280 tests passing**. No regressions.
+- Vision verifier paid-API path (Gemini Flash) is now an alternative, not the default.
 
 ## Runtime Notes Preserved From Prior Sessions
 
@@ -36,22 +34,9 @@ set -a && source .env && set +a
 - `torch >= 2.0` with MPS — verified.
 - `faiss-cpu` — **not currently installed**. `src/feature_retrieval.py` falls back to numpy cosine search; for >100k sentence corpora install via `pip install faiss-cpu`.
 
-## Priority 1 — UMLS audit re-run (Task 1 closure)
+## Priority 1 — UMLS audit (CLOSED 2026-05-07)
 
-Run from Terminal.app:
-```bash
-set -a && source .env && set +a
-conda run -n base python scripts/audit_microbe_entities.py \
-    --input artifacts/microbe_feature_relations.jsonl \
-    --output artifacts/dropped_entities_audit.jsonl \
-    --report artifacts/umls_gate_report.json
-```
-Acceptance: `gut bacterial clpb-like gene function` appears in `dropped_entities_audit.jsonl` with `drop_reason=tui_or_similarity_fail`. Report should show drop rate by surface form.
-
-If drop rate on existing accepted edges > 30%, recalibrate:
-- inspect `umls_similarity` distribution of dropped entities
-- relax `MIN_GROUNDING_SIMILARITY` from 0.85 to 0.75 if the dropped distribution is bimodal at low scores
-- document the recalibration choice in PROGRESS.md
+Live audit ran clean. Drop rate 25% (2/8 records). Outputs in `artifacts/dropped_entities_audit.jsonl` + `artifacts/umls_gate_report.json`. Edge #5 dropped at similarity 0.799 < 0.850; `bacteriodetes` typo dropped (no_umls_match). Recalibration not needed.
 
 ## Priority 2 — Calibrate retrieval τ on a small dev set (Task 2 closure)
 
@@ -66,36 +51,44 @@ Outputs the τ that satisfies the precision floor and the resulting recall on de
 
 If retrieval at calibrated τ returns < 50 candidates per common feature on the 1,016-paper corpus, the index is undertuned — sweep τ wider.
 
-## Priority 3 — Live Gemini Vision verifier smoke test (Task 3 closure)
+## Priority 3 — Local Qwen2.5-VL-3B vision verifier smoke (CLOSED 2026-05-07)
 
-Cost: 1 API call per existing vision-track figure × 2 figures = ~$0.04 at Gemini Flash pricing. Bounded.
+Smoke ran via `scripts/run_vision_dual_smoke_qwen.py` against `localhost:11434`. Result: 2/2 available figures got dual ACCEPT (pixel + Qwen AND-consensus PASS).
+- `PMC10176953_Fig3` panel G — *Peptostreptococcus* ↔ DLCO/VA%pred, r=-0.407, Qwen color band "light blue", pixel distance 0.019.
+- `PMC10176953_Fig6` panel A — *Haemophilus* ↔ 4th Ai, r=-0.6, Qwen color band "blue", pixel distance 0.0.
+
+11 of 13 proposals skipped because figures aren't on disk (proposals point at a stale Desktop path; pre-existing data hygiene issue, not new). To grow the smoke n past 2, re-fetch the missing PMC figures into `artifacts/figures/` under the `{figure_id}.jpg` naming convention used by `_resolve_figure`.
+
+If Qwen2.5-VL-3B disagreement rate climbs once the smoke n grows, evaluate upgrade path: (a) `qwen2.5vl:7b` (~8GB at 4-bit, tight on this machine) or (b) DashScope hosted `qwen2.5-vl-32b-instruct` (cents per call).
+
+## Priority 4 — Review gold-set label SUGGESTIONS, then commit Pass 1 (user-driven)
+
+Hybrid (computer-aided manual annotation) approach selected this session. Claude generated 66 suggestions to `artifacts/gold_set_v1_LABELED_pass1_SUGGESTIONS.jsonl` using `scripts/suggest_gold_set_labels.py`. Each row carries `_suggestion_rationale` for fast review.
+
+Distribution (suggested, pre-review):
+- not_associated: 40
+- associated_negative: 12
+- unclear (entity-type errors, § 6.8): 8
+- associated_unsigned: 3
+- associated_positive: 2
+- no_association_explicit: 1
+
+**Open scope decision** (4 rows depend on this): Do `bmi`, `waist_hip_ratio`, `trunk_fat_distribution` count as `BodyCompositionFeature`? Schema § 3 framing is imaging-derived; these are anthropometric. Affected: 5b9e031f0ee108f6, e4c9fc61f452de6e, 91655ab9d223b281 (WHR), 0b2f558a2e6e6e9b, f5ae9ff4a1be993b, 1b8deaecd521e3b5 (BMI), 824fa73a6f0aa2c4 (trunk fat). If excluded, those rows downgrade to `not_associated`.
 
 ```bash
-set -a && source .env && set +a
-conda run -n base python -m src.verify_vision_dual \
-    --pmcids PMC10605408,PMC11924647 \
-    --proposals artifacts/vision_proposals_pipeline.jsonl \
-    --output artifacts/vision_dual_verification.jsonl
-```
-Acceptance: Both currently-verified figures pass the dual gate. If either fails the Vision verifier, inspect the prompt-output to determine whether the disagreement is signal (verifier caught a real issue) or noise (prompt is wrong-shape).
+# Step 1: Review the suggestions file row-by-row.
+# For each row: check the _suggestion_rationale against the schema, accept or override.
+# Strip the _suggestion_rationale + _suggested_by fields before saving as authoritative pass 1.
+# Save to: artifacts/gold_set_v1_LABELED_pass1.jsonl
 
-## Priority 4 — Hand-label the gold set (Task 4 closure, user-driven)
+# Step 2: Wait 14 calendar days from your review-completion date
+# (per § 7.2 of docs/benchmark/annotation_schema.md).
 
-The unlabeled gold set exists at `artifacts/gold_set_v1_UNLABELED.jsonl` (66 rows). Per the schema in `docs/benchmark/annotation_schema.md`:
-
-```bash
-# Pass 1 — copy and label every row
-cp artifacts/gold_set_v1_UNLABELED.jsonl artifacts/gold_set_v1_LABELED_pass1.jsonl
-# Hand-edit each row's label / evidence_type / quantitative / confidence /
-# evidence_span / inferred_feature_canonical fields per the schema.
-
-# Wait 14 days (per § 7.2 of the schema), then:
-
-# Pass 2 — re-label without consulting pass 1
+# Step 3: Pass 2 — re-label the same 66 rows WITHOUT consulting pass 1.
 cp artifacts/gold_set_v1_UNLABELED.jsonl artifacts/gold_set_v1_LABELED_pass2.jsonl
-# Hand-edit the same rows fresh; intentionally do not look at pass 1.
+# Hand-edit fresh; randomize row order if feasible.
 
-# Then evaluate
+# Step 4: Evaluate.
 conda run -n base python -m src.benchmark.evaluate \
     --gold artifacts/gold_set_v1_LABELED_pass1.jsonl \
     --iaa-pass2 artifacts/gold_set_v1_LABELED_pass2.jsonl \
@@ -103,11 +96,9 @@ conda run -n base python -m src.benchmark.evaluate \
     --output artifacts/gold_set_v1_metrics.json
 ```
 
-Acceptance: Cohen's κ (binary collapse) ≥ 0.80 on the IAA pass; report binary P/R/F1 with 95% Wilson CI.
+Acceptance: Cohen's κ (binary collapse) ≥ 0.80; report binary P/R/F1 with 95% Wilson CI.
 
-**Open question on gold-set size**: the sampler produced 66 rows because the corpus has only 13 substring candidates and 3 extended-keyword sentences. Two recovery paths:
-1. Widen entity-sentence inputs (would require re-tagging microbe NER on 5,721-mention text-mention files).
-2. Accept 66 rows as v1, label it, and report wider confidence intervals (±0.10 instead of ±0.07) in Limitations. Recommended.
+**Methods-section disclosure**: pass 1 used computer-aided manual annotation (Claude proposed; junjslee reviewed, accepted, or overrode). Pass 2 is junjslee independent. Cohen's κ measures intra-annotator consistency on junjslee's two passes. The Claude suggestions are an annotation aid, not the oracle.
 
 ## Priority 5 — Compile Proposal PDF (deferred from prior session)
 

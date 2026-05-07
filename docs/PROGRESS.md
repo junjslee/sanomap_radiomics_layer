@@ -1,7 +1,37 @@
 # Progress
 
 ## Last Updated
-2026-05-04 — **All four structural upgrade tasks implemented this session.** Pipeline acceptance is now framed against four stacked gates with full test coverage: (1) UMLS TUI grounding for entity sanitization, (2) BioClinical-ModernBERT dense retrieval replacing `_FEATURE_VOCAB`, (3) dual-verifier consensus (pixel + independent VLM) for Vision Track, (4) gold-label benchmark for measured P/R/F1. Hand-labeling of the gold set is the next user-driven deliverable.
+2026-05-07 — **Task 1 closed live; Task 4 entered hybrid-labeling mode; vision verifier pivoted to local Qwen2.5-VL-3B.** UMLS audit ran clean (drop rate 25% < 30% threshold; Edge #5 + 'bacteriodetes' typo dropped). 66 label suggestions generated for gold set via computer-aided annotation (Claude proposes + rationale, junjslee reviews). Ollama + Qwen2.5-VL-3B installed locally for vision verifier smoke (replaces paid Gemini Vision call).
+
+2026-05-04 — All four structural upgrade tasks implemented. Pipeline acceptance is now framed against four stacked gates with full test coverage: (1) UMLS TUI grounding for entity sanitization, (2) BioClinical-ModernBERT dense retrieval replacing `_FEATURE_VOCAB`, (3) dual-verifier consensus (pixel + independent VLM) for Vision Track, (4) gold-label benchmark for measured P/R/F1.
+
+## Session 8 (2026-05-07) — Live Closure of Task 1 + Hybrid Labeling Pivot
+
+### Frame
+Three priorities entered this session: (1) close Task 1 with a live UMLS audit; (2) pivot Task 3 from paid Gemini Vision to a free-local vision verifier given 8GB M2 constraints; (3) start Task 4 hand-labeling. Operator surfaced a real concern on (3): tech-background self-labeling is weaker than a bio-trained annotator, but having an LLM label the oracle that the LLM-extracted edges are evaluated against collapses the metric. Resolved as **hybrid (computer-aided manual annotation)**: Claude generates per-row label suggestions with rationale; junjslee reviews and overrides; methods section discloses the workflow.
+
+### Changes Delivered
+- **UMLS live audit** ran clean against `artifacts/microbe_feature_relations.jsonl` (8 records). Drop rate **25% (2/8)** — under the 30% recalibration threshold. Edge #5 (`gut bacterial clpb-like gene function`) dropped (`low_similarity:0.799<0.850`, grounded to 'Bacteria' T007). Bonus: `bacteriodetes` (typo of *Bacteroidetes*) also dropped (`no_umls_match`). Outputs: `artifacts/dropped_entities_audit.jsonl`, `artifacts/umls_gate_report.json`. **Task 1 closed.**
+- **Vision verifier pivoted to local Qwen2.5-VL-3B via Ollama.** `src/verify_vision_dual.py` already used OpenAI-compatible chat completions, so the swap is a 2-flag change (`--api-base-url http://localhost:11434/v1 --model-id qwen2.5vl:3b`) with no code rewrite. Best free local option for 8GB M2 (3B at 4-bit ≈ 2GB, fits comfortably). Replaces the prior NEXT_STEPS plan to spend ~$0.04 on Gemini Flash.
+- **Computer-aided gold-set labeling**. New `scripts/suggest_gold_set_labels.py` generates per-row label suggestions with rationale + `_suggestion_rationale` field for review traceability. 66 suggestions written to `artifacts/gold_set_v1_LABELED_pass1_SUGGESTIONS.jsonl`. Distribution: 40 not_associated, 12 associated_negative, 8 unclear (entity-type errors per § 6.8), 3 associated_unsigned, 2 associated_positive, 1 no_association_explicit.
+
+### Decisions
+- **Hybrid labeling protocol**: Claude is a label proposer, not an authoritative annotator. junjslee remains the schema's single annotator. The methods section will disclose 'computer-aided manual annotation' alongside Cohen's κ on junjslee's two passes.
+- **Local Qwen over hosted API**: chosen on operator preference for free local inference. Qwen2.5-VL-3B is the recommended 8GB-feasible vision model (Apple Silicon Q4 quantization). DashScope hosted variant retained as future fallback if local quality proves insufficient.
+- **WHR / BMI scope question deferred to operator review**: 4 of the recall_probe / random_co_occurrence rows have label suggestions tied to anthropometric (non-imaging) features — flagged in `_suggestion_rationale` for explicit reviewer decision.
+
+### Open Questions
+- After junjslee reviews the 66 suggestions and produces `gold_set_v1_LABELED_pass1.jsonl`, the 14-day temporal window starts. Pass 2 cannot begin before 2026-05-21.
+- WHR / BMI scope inclusion in BodyCompositionFeature decides labels for 4 rows.
+- The substring filter false-positive on 'peptostreptococcus stomatis ↔ skeletal_muscle_index' (record 5fce1d6ad71b9859) is a calibration finding for Task 2 dense retrieval — that row's label is `not_associated` despite being in the `accepted_edge` stratum.
+
+### Validations
+- UMLS audit acceptance criterion (per NEXT_STEPS): Edge #5 surface in dropped list — ✅ confirmed.
+- Drop rate ≤ 30% — ✅ at 25%, no recalibration needed.
+- 66/66 records have label suggestions; no records missed.
+- Dual-verifier smoke (`scripts/run_vision_dual_smoke_qwen.py`) on local Qwen2.5-VL-3B: 2/2 available figures accepted (`PMC10176953_Fig3` panel G, *Peptostreptococcus* ↔ DLCO/VA%pred at r=-0.407; `PMC10176953_Fig6` panel A, *Haemophilus* ↔ 4th Ai at r=-0.6). Pixel + Qwen AND-consensus PASS on both. Qwen returned `light blue` / `blue` color-band descriptions consistent with negative r-values. Verifier disagreement rate = 0% on this micro-sample (n=2). 11 of 13 proposals skipped (figures not present locally; pre-existing data tracking issue, not new). **Task 3 closed.**
+
+---
 
 ## Architecture (post-upgrade)
 

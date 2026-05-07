@@ -8,9 +8,11 @@
   4. Gold-label benchmark (150 stratified instances, measured P/R/F1)
 - Each gate is independently auditable; no edge reaches the graph without passing every applicable gate.
 
-## Active Gating Items
-- Tasks 1-3 implemented and unit-tested this session — pending live audit/calibration runs (see `docs/NEXT_STEPS.md` Priorities 1-3).
-- Task 4 not started — dependent on prior tasks landing so the benchmark measures the upgraded pipeline, not the pre-upgrade baseline.
+## Active Gating Items (2026-05-07)
+- **Task 1 closed live**. UMLS audit drop rate 25%; outputs persisted under `artifacts/`.
+- **Task 2** (dense retrieval): implementation done; τ calibration is strictly downstream of pass 1 gold labels.
+- **Task 3** pivoted to local Qwen2.5-VL-3B via Ollama (free local; replaces paid Gemini Flash). Smoke run queued.
+- **Task 4** entered hybrid labeling: Claude proposed 66 label suggestions; junjslee review is now the critical path. Methods disclosure: computer-aided manual annotation, not LLM-only labels.
 
 ## Stages
 1. Keep repo memory current:
