@@ -1,7 +1,7 @@
 # Progress
 
 ## Last Updated
-2026-05-07 — **Task 1 closed live; Task 4 entered hybrid-labeling mode; vision verifier pivoted to local Qwen2.5-VL-3B.** UMLS audit ran clean (drop rate 25% < 30% threshold; Edge #5 + 'bacteriodetes' typo dropped). 66 label suggestions generated for gold set via computer-aided annotation (Claude proposes + rationale, junjslee reviews). Ollama + Qwen2.5-VL-3B installed locally for vision verifier smoke (replaces paid Gemini Vision call).
+2026-05-07 — **Vision Track honestly scoped after gated audit revealed proposer-hallucination + verifier rubber-stamping**. Earlier same day: Task 1 closed live (UMLS drop 25%); Task 4 Pass-1 closed via hybrid labeling (66 rows, 7 scope overrides); Vision verifier pivoted to free local Qwen2.5-VL-3B. Late same day: 3 deterministic pre-verifier gates implemented (caption / colorbar-detect / range-sanity with VLM colorbar extraction); retroactive audit on 14 figures (13 current proposals + 1 historical graph edge) showed only 1/14 unambiguously legitimate. 1 historical vision edge dropped from graph (firmicutes ↔ Total fat % wrong-sign + LFC-scale); 1 retained (prevotella ↔ GLCM_Correlation, real Spearman heatmap). Vision count: **9 CORRELATES_WITH → 8 (1 vision + 7 text)**.
 
 2026-05-04 — All four structural upgrade tasks implemented. Pipeline acceptance is now framed against four stacked gates with full test coverage: (1) UMLS TUI grounding for entity sanitization, (2) BioClinical-ModernBERT dense retrieval replacing `_FEATURE_VOCAB`, (3) dual-verifier consensus (pixel + independent VLM) for Vision Track, (4) gold-label benchmark for measured P/R/F1.
 
@@ -37,6 +37,42 @@ Three priorities entered this session: (1) close Task 1 with a live UMLS audit; 
   - **0 REJECT, 0 ERRORS** (after fixing `proposed_r=None` crash in `verify_heatmap_r_value` + classifying `proposed_r_missing` as `INCONCLUSIVE` rather than `FAIL`).
   - Verifier disagreement rate: 6/13 = 46% — above the 25% recalibration threshold. Reading: the dual gate is doing its job (modal independence is empirically demonstrated; pixel and Qwen really do disagree). Whether the disagreements are pixel false-negatives or Qwen false-positives is the next investigation question; routing them to the review queue rather than silently picking a side is the schema-correct outcome.
   - 28/28 vision-verifier tests pass; no regressions. **Task 3 closed.**
+
+### Vision Track Gated Audit (2026-05-07, Session 9)
+
+**Trigger.** Operator did manual figure-by-figure review of the 13 vision proposals and observed that most figures were not actual correlation heatmaps and that the proposer was reporting r-values whose text was nowhere in the figures. Subagent audit confirmed: 8/13 proposals had hallucinated, out-of-range, or wrong-sign r-values, and 5 of those passed the dual-verifier AND-consensus because both pixel and Qwen verify against the proposer's bbox (consistency, not grounding).
+
+**Structural finding.** The pixel HSV verifier and the Qwen vision verifier both consume the proposer's bbox and r-value, so a self-consistent fabrication (proposer hallucinates both bbox and value such that the predicted color happens to match the colorbar at that location on the assumed default ±1.0 scale) passes the dual gate silently. "Modal independence" is partial: pixel and language modalities differ, but they share the proposer's bbox. The pixel verifier's `observed_range` field also defaults to [-1.0, +1.0] rather than reading the figure's actual colorbar tick labels — so a figure with an LFC scale (e.g., -1.5 to +1.5) was verified as if it were Pearson r.
+
+**Fix.** Added three deterministic pre-verifier gates in `src/vision_gates.py`:
+- **caption_gate** — caption must contain explicit Pearson/Spearman/correlation-coefficient vocabulary; auto-fails on `log fold change` / `LFC` / `log2` / `z-score` / `differential abundance`.
+- **colorbar_detect_gate** — gradient colorbar legend must be detectable in the image (reuses `_detect_legend` from `verify_heatmap`).
+- **range_sanity_gate** — `|proposed_r| ≤ max(|cmin|, |cmax|) + 0.05`. Critically, the actual colorbar bounds (cmin, cmax) are now extracted by an additional focused Qwen call (`extract_colorbar_range_via_vlm`) reading the figure's tick labels, so out-of-range hallucinations on tighter colorbars (e.g., ±0.23 in PMC7889099) are caught.
+
+**Audit results (`scripts/run_vision_gated_audit.py`, n=14: 13 current proposals + 1 historical graph edge):**
+
+| Verdict | n | % |
+|---|---|---|
+| REJECT_GATE | 6 | 43% |
+| ACCEPT | 5 | 36% |
+| REVIEW (XOR-disagree) | 3 | 21% |
+
+Failing-gate breakdown: 3× caption (LFC heatmap, scatter plot, etc. mis-classified by proposer as heatmap), 2× range_sanity (PMC7889099 +0.78 vs ±0.23, PMC7804131 -0.71 vs ±0.5), 1× colorbar_detect (PMC3111466 network/pathway diagram).
+
+**Historical graph-edge decisions:**
+- `PMC10605408_g004` (prevotella_nigrescens ↔ GLCM_Correlation, r=0.95) — **KEPT**. Direct image inspection: real Spearman correlation heatmap with proper -1 to +1 colorbar; Session-4 pixel verifier had distance 0.05, support fraction 1.0. Today's REVIEW comes from a single pixel-inconclusive flicker, not a refutation.
+- `PMC6178902_g0006` (firmicutes ↔ Total fat %, r=-0.95) — **DROPPED**. Direct image inspection: the firmicutes × total_fat_% cell (asterisked) is deep RED, indicating positive value near +1.0; proposer's r=-0.95 is wrong sign. Colorbar is -1.5 to +1.5 (LFC scale, not Pearson r). The original session-4 pixel-verifier "pass" was on the proposer's hallucinated bbox — circular consistency.
+
+Cleanup: `scripts/drop_failed_vision_edges.py` removed the firmicutes row from `artifacts/verified_edges.jsonl` and `artifacts/verified_edges.csv` (1 row each). Backups under `.pre_vision_audit_2026_05_07.bak` suffix. Other graph artifacts unchanged.
+
+**Updated headline counts:**
+- CORRELATES_WITH edges: **8** (was 9 before audit) — 1 vision (PMC10605408 prevotella ↔ GLCM_Correlation r=0.95) + 7 text-track Gemini self-consistency.
+- Vision Track yield on this batch: **1/14 unambiguously legitimate** (PMC11453046_Fig6 from current proposals, not yet promoted to graph).
+- Tests: 28/28 vision-verifier + 24 new vision-gate tests pass; full suite still green.
+
+**Methodological disclosure for the proposal:** the dual-verifier "modal independence" claim only holds *after* the pre-verifier gate chain catches proposer hallucinations that share both bbox and value. Without the gates, AND-consensus alone is structurally vulnerable to self-consistent fabrications. The proposal's vision-track contribution should be scoped to ~1 publishable case-study figure plus a methods note about the gating chain — not the original "9 verified edges" framing.
+
+**Remaining structural limit.** The gates do not catch wrong-sign hallucinations when the proposer's bbox happens to point at a same-color cell elsewhere in the figure. A future "sign-check" gate (proposer-claimed sign vs. Qwen-observed colour hemisphere) is the next-cheapest improvement; not implemented this session.
 
 ### Pass-1 Override Decision (2026-05-07)
 Operator reviewed all 66 LLM suggestions. Override applied to 7 rows on a single principle: **BodyCompositionFeature must be imaging-derived**. BMI, waist–hip ratio, and trunk-fat distribution without an imaging reference are anthropometric and excluded; bone mineral density retained because DXA is imaging. Affected record_ids:

@@ -51,18 +51,25 @@ Outputs the τ that satisfies the precision floor and the resulting recall on de
 
 If retrieval at calibrated τ returns < 50 candidates per common feature on the 1,016-paper corpus, the index is undertuned — sweep τ wider.
 
-## Priority 3 — Local Qwen2.5-VL-3B vision verifier smoke (CLOSED 2026-05-07)
+## Priority 3 — Vision Track scoped + audited (CLOSED + DOWNGRADED 2026-05-07)
 
-Full coverage on n=13 proposals after `scripts/fetch_missing_figures.py` retrieved the 11 missing PMC figures into `artifacts/figures/`. Result: **7 AND-consensus ACCEPT / 6 REVIEW / 0 REJECT, 0 ERRORS**.
+After the dual-verifier smoke produced "7 ACCEPT / 6 REVIEW", manual review by the operator surfaced that most figures were not heatmaps and that proposed r-values were not appearing in source text. Subagent audit confirmed proposer-hallucination + Qwen rubber-stamping. Three deterministic pre-verifier gates were added (`src/vision_gates.py`) and a retroactive audit run via `scripts/run_vision_gated_audit.py`.
 
-Disagreement queue (6 rows in `artifacts/vision_review_queue.jsonl`) breakdown:
-- 3× `pixel_fail (insufficient_support)` + `vision_pass`: pixel found legend but the proposer's bbox/cell didn't yield enough matching pixels. Qwen colors (`blue`, `light blue`, `light green`) are plausible for the negative r-values claimed.
-- 3× `pixel_inconclusive (legend_not_found)` + `vision_pass`: pixel couldn't find the colorbar; Qwen still read.
+**Final post-gate audit results (n=14: 13 current proposals + 1 historical edge):**
+- REJECT_GATE: 6 (caption × 3, range_sanity × 2, colorbar_detect × 1)
+- ACCEPT: 5
+- REVIEW: 3
 
-**Followup investigation paths (lower priority than Pass-2 of Task 4):**
-1. Manually inspect the 6 review-queue figures and adjudicate each (pixel false negative vs. Qwen false positive vs. genuinely-ambiguous figure).
-2. If disagreement is concentrated in `insufficient_support` cases, loosen the pixel verifier's bbox-tolerance; if concentrated in Qwen over-permissiveness, upgrade to `qwen2.5vl:7b` (~8GB at 4-bit, tight on this M2) or hosted `qwen2.5-vl-32b-instruct` (cents per call).
-3. The 46% disagreement rate is empirical evidence that modal independence is real (pixel and Qwen genuinely disagree on a meaningful fraction). Whether to interpret this as "verifier-monoculture risk is real and the dual gate caught it" (positive framing) or "current verifiers need re-tuning" (negative framing) depends on the manual adjudication outcome.
+**Graph cleanup applied** (`scripts/drop_failed_vision_edges.py`):
+- DROPPED: PMC6178902_g0006 (firmicutes ↔ Total fat %, r=-0.95) — manual inspection: cell is RED (positive), claim was negative; LFC scale not Pearson r.
+- KEPT: PMC10605408_g004 (prevotella ↔ GLCM_Correlation, r=0.95) — real Spearman heatmap, distance 0.05, support 1.0.
+
+**Headline count change**: 9 CORRELATES_WITH → 8 (1 vision + 7 text). Backups under `.pre_vision_audit_2026_05_07.bak` suffix in case rollback is needed.
+
+**Followup options (lower priority than Pass-2 of Task 4):**
+1. **Sign-check gate** — proposer-claimed sign vs Qwen-observed colour hemisphere. Catches the wrong-sign failure mode that range_sanity cannot. Estimated: ~50 lines + new prompt.
+2. **Promote PMC11453046_Fig6 to graph** if the current proposals are ever rerun — it is the one current-batch figure that survived gates AND is unambiguously legitimate per audit.
+3. **Adjudicate 3 REVIEW-queue rows** (`PMC9466706_g004`, `PMC7230364_g001`, `PMC10605408_g004` historical) by manual eye if more vision edges are needed for the proposal.
 
 ## Priority 4 — Pass 1 CLOSED (2026-05-07); 14-day temporal window open
 

@@ -11,7 +11,7 @@
 ## Active Gating Items (2026-05-07, end of session)
 - **Task 1 closed live**. UMLS audit drop rate 25% (2/8). Outputs in `artifacts/dropped_entities_audit.jsonl` + `artifacts/umls_gate_report.json`.
 - **Task 2** (dense retrieval): implementation done; τ calibration is strictly downstream of Pass-2 gold labels.
-- **Task 3 closed**. Vision verifier pivoted to local Qwen2.5-VL-3B via Ollama. Full smoke run on n=13: 7 AND-consensus ACCEPT, 6 REVIEW (XOR), 0 REJECT, 0 ERRORS. 28/28 unit tests still passing after `proposed_r=None` crash-guard added to `verify_heatmap_r_value` + classified as `INCONCLUSIVE`.
+- **Task 3 closed + scoped down**. Vision verifier pivoted to local Qwen2.5-VL-3B via Ollama; dual-verifier alone surfaced as structurally insufficient (both verifiers consume proposer's bbox → self-consistent hallucinations pass silently). Three deterministic pre-verifier gates added (`src/vision_gates.py`: caption / colorbar_detect / range_sanity with VLM colorbar tick extraction). Retroactive audit on 14 figures (13 current + 1 historical) → 6 REJECT_GATE, 5 ACCEPT, 3 REVIEW. Historical PMC6178902 firmicutes edge dropped (wrong-sign + LFC scale per direct image inspection); PMC10605408 prevotella edge retained. Headline count: **9 CORRELATES_WITH → 8 (1 vision + 7 text)**. 28 vision-verifier + 24 new vision-gate tests pass.
 - **Task 4 Pass-1 closed**. 66-row authoritative `gold_set_v1_LABELED_pass1.jsonl` generated via Claude propose → junjslee review → 7 imaging-scope overrides. Schema bumped v1.0 → v1.1 (§ 6.9 imaging-derived rule). 14-day temporal window opens 2026-05-07; Pass-2 earliest 2026-05-21.
 
 ## Stages
