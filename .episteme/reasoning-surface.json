@@ -1,26 +1,21 @@
 {
-  "timestamp": "2026-05-04T19:33:23Z",
-  "core_question": "Can a 150-instance stratified gold-label benchmark with single-annotator IAA produce defensible P/R/F1 evidence for the four-task pipeline upgrades, without contaminating measurement with the very components it is meant to evaluate?",
+  "timestamp": "2026-05-19T18:25:00Z",
+  "core_question": "Does the locked judge verdict schema correctly enforce precision-safety guards (evidence-span check, relation vocabulary, required fields) so the downstream graph never receives hallucinated or out-of-vocabulary edges?",
   "knowns": [
-    "8 accepted edges currently exist in artifacts/microbe_feature_relations.jsonl; one (Edge #5) is a known entity-type error.",
-    "_extract_candidates() in scripts/extract_microbe_feature_relations.py produces 13 substring-vocab candidates against the 1,016-paper corpus.",
-    "Gemini self-consistency rejection records are NOT persisted to disk today — only accepted edges are written, so gemini_rejected stratum can be recovered as (candidates − accepted) but per-sample vote counts are lost.",
-    "BioClinical-ModernBERT-base loads cleanly on conda base; faiss-cpu is not yet pinned in dependency tracking.",
-    "TUI accept set was {T007, T194, T204} as of last session; user has now approved adding T005 for virome future-proofing.",
-    "236 tests pass on the full suite post-Task-3 implementation; no regressions."
+    "Task 2 is pure Python with zero Ollama/model/network dependency — all behavior is deterministic and fully unit-testable",
+    "The repo imports src-packages as from src.X without a conftest, confirmed from test_types_and_schemas.py using from src.schema_utils import",
+    "The spec prescribes exactly 3 files: src/pilot/__init__.py (empty), src/pilot/schema.py, tests/test_pilot_schema.py",
+    "ALLOWED_RELATIONS is the CLAUDE.md locked set: ASSOCIATED_WITH, CORRELATES_WITH, POSITIVELY_CORRELATED_WITH, NEGATIVELY_CORRELATED_WITH",
+    "The evidence-span-exists check is the single deterministic precision-safety guard in spec section 6, its failure mode is SchemaError never a silent pass",
+    "src/pilot/ directory does not yet exist — task is purely additive with zero impact on existing modules"
   ],
   "unknowns": [
-    "True precision / recall of the 8 currently-accepted edges against ground truth — the entire reason the gold set exists; cannot be measured before the gold set is hand-labeled.",
-    "What fraction of vocab-excluded sentences mention real body-composition features (recall ceiling of substring matching). The vocab_excluded stratum probes this but only the user's labels resolve it.",
-    "Whether intra-annotator Cohen's κ via 2-week temporal re-labeling will meet the κ ≥ 0.80 floor — schema clarity directly determines this and cannot be tested before the user labels.",
-    "How many of the 13 substring-found candidates Gemini rejected are actually associated (false negatives of the relation classifier) versus correctly rejected. The gemini_rejected stratum probes this.",
-    "Whether the binary collapse of {associated_positive, associated_negative, associated_unsigned} into pred=1 versus a 3-class signed evaluation will hide systematic direction errors in the pipeline."
+    "Whether the conda base environment has pytest installed and accessible via conda run -n base python -m pytest for this repo's working directory — will be revealed at Step 2 run",
+    "Whether any existing test infrastructure configures sys.path beyond the repo root — must confirm before assuming from src.pilot.schema import resolves without a conftest"
   ],
   "assumptions": [
-    "A 150-instance gold set is large enough to estimate P/R/F1 with ±0.07 confidence intervals at the binary-class level — based on the standard normal approximation for binomial proportions at p≈0.7, n=150, σ ≈ √(0.21/150) ≈ 0.037, 95% CI ≈ ±0.07.",
-    "Stratification (15 accepted / 50 gemini-rejected / 35 vocab-excluded / 30 recall-probe / 20 random) gives separately-estimable precision and recall; balanced random sampling would waste budget on uninformative easy cases at the current corpus's sparse-positive distribution.",
-    "Treating no_association_explicit (null-finding citations) as gold=0 in the binary scorer is correct given the current pipeline's accept policy — the pipeline does not emit null-finding edges, so a null-finding sentence should NOT be predicted as associated. Multi-class scoring is future work.",
-    "Reusing scripts/extract_microbe_feature_relations.py:_extract_candidates as the candidate generator preserves identity with the production pipeline. If we re-implemented sampling we'd risk evaluating against a different candidate space than what the pipeline actually sees."
+    "The repo root is on sys.path when pytest runs, consistent with existing tests using from src.X import without any conftest path manipulation",
+    "The frozen dataclass Verdict is sufficient for the spec — no mutable state required, so frozen=True is both correct and safe"
   ],
-  "disconfirmation": "After hand-labeling the 150-instance gold set, if measured precision on the accepted stratum drops below 0.50 (i.e., more than half of the 8 currently-accepted edges are wrong on independent inspection), the entire pipeline acceptance policy needs redesign — Gemini 7/7 self-consistency is then demonstrably insufficient and the four-task upgrade is itself measuring on a contaminated baseline. Conversely, if intra-annotator κ falls below 0.60 on temporal re-labeling, the annotation schema itself is the primary problem, not the pipeline."
+  "disconfirmation": "Step-4 pytest run shows fewer than 5 passed, or any test passes that the spec requires to raise SchemaError — either outcome proves the evidence-span guard or field-validation logic is broken and the precision-safety contract cannot be trusted"
 }
