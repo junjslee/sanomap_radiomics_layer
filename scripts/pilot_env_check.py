@@ -34,8 +34,9 @@ def _chat(model: str) -> str:
 
 def _pick(cands: list[str], have: list[str]) -> str | None:
     for c in cands:
-        if any(c == h or h.startswith(c) for h in have):
-            return next(h for h in have if h == c or h.startswith(c))
+        matched = next((h for h in have if h == c or h.startswith(c)), None)
+        if matched:
+            return matched
     return None
 
 def main() -> int:
@@ -56,11 +57,13 @@ def main() -> int:
         try:
             raw = _chat(model)
             obj = json.loads(raw[raw.index("{"): raw.rindex("}") + 1])
-            assert obj.get("decision") in ("ASSERT", "ABSTAIN"), obj
+            if obj.get("decision") not in ("ASSERT", "ABSTAIN"):
+                raise ValueError(f"unexpected decision value: {obj}")
             print(f"PASS {label} [{model}] -> decision={obj['decision']}")
         except Exception as e:
             print(f"FAIL {label} [{model}] bad JSON/schema: {e}"); ok = False
-    rss_gb = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / (1024**3 if sys.platform=="darwin" else 1024**2)
+    divisor = 1024**3 if sys.platform == "darwin" else 1024**2
+    rss_gb = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / divisor
     print(f"INFO probe peak child RSS ~ {rss_gb:.2f} GB (Ollama server RSS is separate; "
           f"check `ollama ps` for model resident size — must fit 8 GB).")
     print("RESULT:", "PASS" if ok else "FAIL")
