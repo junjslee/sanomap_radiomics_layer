@@ -9,6 +9,22 @@ Codebase reviewed against the PI's 3-step pipeline + 3 end-of-summer deliverable
 - **App (deliverable #1)**: partial — static explorer reads a frozen 2026-04-05 JSONL, does not query the graph. **Manuscript (#2)**: mature draft, headline P/R/F1 + κ blank pending Pass-2 (≥ 2026-05-21). **Video (#3)**: not started.
 - **Reframe**: the critical path is the integration spine + graph-backed app (engineering), running in parallel with the annotator-bound Pass-2 (longest non-parallelizable lead). See `docs/PLAN.md` → "Active Stage" for stages A–D + status.
 - **Delivered 2026-05-19**: WS1 (proposal archived; two-column manuscript compiling). WS2 Fork 1 = **live Neo4j** (operator decision): Stage A reconciler + `graph_export/` bundle, `neo4j_load.py`, read-only `graph_queries.py`, docker-compose, runbook; 321 tests pass. **Coherence finding: docs headline `8 (1 vision + 7 text)` was never composed; manifest truth = `7 (1 vision + 6 text)`, 189 rows / 99 nodes. Paper + PROGRESS corrected.** 62 three-hop paths intact.
+- **Commit state**: all 22 files committed by the checkpoint automation in `36189da chkpt: 2026-05-19T00:17:22` (tree clean). These are `chkpt:` messages, not Conventional Commits — consolidating `679c68e..36189da` into one conventional commit before any PR is a history rewrite (destructive; needs explicit operator authorization). Hygiene: `docs/proposal/paper_sanomap_radiomics_layer.log` got tracked — recommend `.gitignore` for `*.aux/.log/.out`, keep `*.{tex,pdf}`.
+
+### Next-session quickstart (exact commands)
+```bash
+# 1. (operator) bring up live Neo4j — Docker daemon is currently DOWN
+open -a Docker            # then wait for daemon
+export NEO4J_PASSWORD='choose-strong'
+docker compose -f docker-compose.neo4j.yml up -d
+# 2. regenerate + load the coherent graph (idempotent)
+conda run -n base python scripts/build_graph_export.py
+conda run -n base python scripts/neo4j_load.py --dry-run      # validate
+NEO4J_PASSWORD="$NEO4J_PASSWORD" conda run -n base python scripts/neo4j_load.py
+# 3. Stage B (after Fork 3 decision): rewire docs/explorer/index.html off the
+#    frozen 2026-04-05 data.jsonl onto graph_export/ or live Neo4j via
+#    src/graph_queries.py  (the last engineering piece for deliverable #1)
+```
 
 ## Current State (2026-05-07)
 - **Task 1 closed live.** UMLS audit drop rate 25% (2/8) under the 30% threshold. Edge #5 + bacteriodetes typo dropped. Outputs: `artifacts/dropped_entities_audit.jsonl`, `artifacts/umls_gate_report.json`.
