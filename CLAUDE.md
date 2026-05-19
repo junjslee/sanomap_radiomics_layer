@@ -19,5 +19,6 @@ Read on demand:
 - `docs/PLAN.md` — staged execution plan
 - `docs/RUN_CONTEXT.md` — runtime assumptions, model policy, API env vars
 - `docs/RADIOMICS_LAYER_SPECS.md` — graph schema (node/edge types)
-- `README.md` — project overview and professor rubric
+- `docs/DESIGN_PRECISION_FIRST_V1.md` — precision-first extraction spec (DRAFT — pending operator approval)
+- `README.md` — project overview and graph schema
 - `pipeline_tracking.md` — long-form artifact tracking

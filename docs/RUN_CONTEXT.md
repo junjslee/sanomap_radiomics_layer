@@ -85,6 +85,7 @@ Read this file at the start of implementation work.
   - `deepseek-ai/DeepSeek-V3-0324` remains the only confirmed HF-router model/provider path that actually completed in this environment
 
 ## API And Rate-Limit Policy
+- ⚠ 2026-05-19: Gemini API key no longer exists; the paid-API / `GEMINI_API_KEY` path is non-functional. Local-only is operative. Proposed local model stack is in docs/DESIGN_PRECISION_FIRST_V1.md (DRAFT, pending approval).
 - No hosted provider or remote quota policy is locked yet.
 - When a hosted or remote execution path is chosen, document its limits here before large runs.
 - Operator rule:

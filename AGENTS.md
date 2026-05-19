@@ -12,6 +12,7 @@ This file is the vendor-neutral operating manual for agents working in this repo
 - `docs/RUN_CONTEXT.md`
 - `docs/NEXT_STEPS.md`
 - `pipeline_tracking.md`
+- `docs/DESIGN_PRECISION_FIRST_V1.md` (DRAFT — pending operator approval)
 
 ## Workflow
 1. Read project memory before planning or code changes.
