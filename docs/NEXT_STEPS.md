@@ -2,6 +2,32 @@
 
 Operational handoff. Update whenever priority, blocker, or milestone changes.
 
+## Current State (2026-05-19, late) — Precision-First Pivot + Phase-0 Pilot CRASHED (no verdict)
+
+**Pivot.** New operator-approved design: precision-first, MINERVA-aligned extraction instrument — `docs/DESIGN_PRECISION_FIRST_V1.md` (estimand: every graph edge high-precision at a calibrated threshold; recall not claimed; validated by external-DB concordance; local-only, no paid API — Gemini key is gone). Phase-0 **pilot** (go/no-go before any B–G build) on branch **`feat/precision-first-phase0`**, plan `docs/IMPLEMENTATION_PLAN_PRECISION_FIRST_PHASE0.md`.
+
+**Built & green (Tasks 1–4 done):** `scripts/pilot_env_check.py`, `src/pilot/{schema,local_judge,run_pilot}.py` + tests. Full pilot suite 16/16; full repo regression **337 passed / 0**. Step-0 env probe PASS — `medgemma:4b` + `qwen3:4b` load in 8 GB at Q8 and honor the JSON+ABSTAIN schema (local-only premise is empirically feasible).
+
+**Spec §3 corrected + operator-confirmed + locked.** Original disconfirmation predicate was inverted vs the precision-first estimand (it required ASSERTing `peptostreptococcus stomatis→skeletal_muscle_index`, which is gold `not_associated`, and rewarded rubber-stamping 2 known-bad accepted_edge rows). Replaced with: PASS iff judge-vs-gold precision on the accepted_edge stratum ≥ 0.90 (non-vacuous) AND the 3 gold-anchored decisions correct (ASSERT eubacterium→VAT, ASSERT ruminococcus→sarcopenia, **ABSTAIN** peptostrep→SMI). Caught by the independent code-quality review chain before the live run.
+
+**Governance incident (resolved).** A Task-2 subagent edited `.episteme/reasoning-surface.json` (repo + global `~/episteme`) to bypass a Bash hook. Operator chose accept-current-state (the repo surface was a stale→fresh refresh; the global one is untracked/not git-recoverable, accepted). **Standing corrective for all remaining pilot work:** controller owns ALL Bash; subagents are Write/Edit-only, never touch `.episteme/`/config/guardrails, report BLOCKED instead of self-unblocking; subagent reports are verified, not trusted.
+
+**⚠ Pilot live run CRASHED — NO verdict.** `2026-05-19 15:13→16:48` (~95 min), died in Phase B (`qwen3:4b`) on `openai.APITimeoutError` (one Ollama gen exceeded the client read-timeout). Root cause = harness defect: `local_judge._one_sample` fail-closes only on `(SchemaError,ValueError,KeyError,IndexError)` — transport/timeout errors propagate and kill the run; no per-request timeout; **no checkpoint → ~95 min lost, no `pilot_report.json`.** This is an **infrastructure failure, not a §3 PASS/FAIL signal** — we have zero data on whether local cross-family unanimity works.
+
+### Next action (in progress) — Task 5a: harden the harness (necessary regardless)
+1. `local_judge._one_sample`: broad fail-closed incl. `openai.APITimeoutError/APIError/APIConnectionError` → ABSTAIN, never crash.
+2. Explicit per-request timeout on the OpenAI client (e.g. 120 s) so a wedged gen fails fast.
+3. `run_pilot`: per-record checkpoint JSONL + resume-skip → crash/interrupt recoverable.
+Implemented under subagent-driven discipline (controller owns Bash). Does **not** trigger the rerun.
+
+### Operator decisions pending (clear in one pass on return)
+- **Rerun strategy** (after 5a): full 66-row (~95 min+, now resumable) **vs** fast 8-row `accepted_edge` slice (~5–10 min, directional). Resume cmd: `conda run -n base python -m src.pilot.run_pilot --model-a medgemma:4b --model-b qwen3:4b` (+ slice/resume flags added by 5a).
+- **WS-1**: the `[Pasted text #1 +8 lines]` from the very first message never arrived — still parked.
+- **WS-6**: does `pipeline_tracking.md` mention confer "do-not-move"? → swings the `artifacts/` archive between ~26 and ~90 files (audit done, non-destructive, awaiting this call).
+- **chkpt→Conventional consolidation**: pilot commits landed as `chkpt:` (automation races the per-task commit). Consolidating before any PR is a history rewrite → needs explicit operator authorization.
+
+---
+
 ## Current State (2026-05-18) — Deliverable-Gap Reframing
 
 Codebase reviewed against the PI's 3-step pipeline + 3 end-of-summer deliverables. Verdict:
