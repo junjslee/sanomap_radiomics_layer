@@ -78,8 +78,10 @@ These audit artifacts are not written as asserted graph edges.
   the Mermaid diagram in [docs/knowledge_map.md](docs/knowledge_map.md)
 - GitHub work surface:
   code, docs, tests, and handoff state are tracked in this repository
-- Living proposal source:
-  [docs/proposal/report_sanomap_radiomics_layer.tex](docs/proposal/report_sanomap_radiomics_layer.tex)
+- Living manuscript (two-column paper):
+  [docs/proposal/paper_sanomap_radiomics_layer.tex](docs/proposal/paper_sanomap_radiomics_layer.tex)
+- Archived proposal report (frozen, pre-reframing):
+  [docs/proposal/archive/](docs/proposal/archive/)
 
 ## Why This Extension Exists
 

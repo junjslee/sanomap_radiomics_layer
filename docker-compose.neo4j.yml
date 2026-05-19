@@ -1,0 +1,35 @@
+# Fork 1 — minimal local Neo4j for the SanoMap Radiomics Layer.
+#
+# Tuned for the development machine (Apple M2, 8 GB unified memory): modest
+# heap + pagecache so Neo4j coexists with the Python pipeline. Community
+# edition; no APOC required by the import script.
+#
+# Usage (see docs/NEO4J_RUNBOOK.md):
+#   1. Start Docker Desktop (the daemon must be running).
+#   2. NEO4J_PASSWORD=choose-a-strong-one docker compose -f docker-compose.neo4j.yml up -d
+#   3. Browser UI: http://localhost:7474   Bolt: neo4j://localhost:7687
+#
+# Credentials are taken from the NEO4J_PASSWORD env var — never committed.
+
+services:
+  neo4j:
+    image: neo4j:5-community
+    container_name: sanomap-neo4j
+    ports:
+      - "7474:7474"   # HTTP browser
+      - "7687:7687"   # Bolt
+    environment:
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD in the environment}"
+      NEO4J_server_memory_heap_initial__size: "512m"
+      NEO4J_server_memory_heap_max__size: "512m"
+      NEO4J_server_memory_pagecache_size: "512m"
+    volumes:
+      - sanomap_neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  sanomap_neo4j_data:

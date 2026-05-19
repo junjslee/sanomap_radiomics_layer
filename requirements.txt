@@ -38,6 +38,13 @@ scispacy>=0.6
 # Pinning here so production deploys are reproducible.
 faiss-cpu>=1.8,<2
 
+# --- Graph integration (Fork 1 — live Neo4j) -------------------------------
+# Used by scripts/neo4j_load.py and the read-only query layer. The export
+# builder (scripts/build_graph_export.py) has NO dependency on this — only
+# the live-load path does, so a CSV/Cypher-only workflow can skip it.
+# Pinned to the 5.x driver line (Bolt protocol stable; matches neo4j:5).
+neo4j>=5,<6
+
 # --- Testing ---------------------------------------------------------------
 pytest>=8.0
 

@@ -1,6 +1,8 @@
 # Progress
 
 ## Last Updated
+2026-05-19 — **Deliverable workstreams: proposal→manuscript reframed + Fork 1 (live Neo4j) delivered with Stage-A reconciliation.** WS1: pristine proposal report `git mv`'d to `docs/proposal/archive/` (+ frozen PDF); new two-column `article` manuscript `docs/proposal/paper_sanomap_radiomics_layer.tex` written and compiling on local basictex (microtype dropped — non-scalable Type1 fatal). WS2: `scripts/build_graph_export.py` (Stage A) reconciles the divergent vintages into one provenance-stamped `artifacts/graph_export/` bundle; `scripts/neo4j_load.py` + `src/graph_queries.py` (read-only, injection-safe) + `docker-compose.neo4j.yml` + `docs/NEO4J_RUNBOOK.md` deliver the live-Neo4j path. **Coherence finding (failure-first): the documented "9 CORRELATES_WITH → 8 (1 vision + 7 text)" headline was never composed — it applied only the vision retraction to the 9-edge superset and never subtracted the separately-recorded UMLS `bacteriodetes` drop. Composing both onto one base = 7 (1 vision + 6 text), 189 rows / 99 nodes.** All 3 thesis-load-bearing three-hop closers survive (Ruminococcus→sarcopenia 37, Peptostreptococcus→SMI 7, Eubacterium→VAT 18 = 62 paths exact). Edge #5 (`clpb`) confirmed absent from the export superset (lived only in the UMLS audit's separate input). Paper + Key Artifacts corrected to the manifest truth; reconciliation finding written into the paper as a strength. Verification: 17 new tests; full suite **321 passed / 0 failed**; loader `--dry-run` validates without connecting; manuscript builds clean.
+
 2026-05-07 — **Vision Track honestly scoped after gated audit revealed proposer-hallucination + verifier rubber-stamping**. Earlier same day: Task 1 closed live (UMLS drop 25%); Task 4 Pass-1 closed via hybrid labeling (66 rows, 7 scope overrides); Vision verifier pivoted to free local Qwen2.5-VL-3B. Late same day: 3 deterministic pre-verifier gates implemented (caption / colorbar-detect / range-sanity with VLM colorbar extraction); retroactive audit on 14 figures (13 current proposals + 1 historical graph edge) showed only 1/14 unambiguously legitimate. 1 historical vision edge dropped from graph (firmicutes ↔ Total fat % wrong-sign + LFC-scale); 1 retained (prevotella ↔ GLCM_Correlation, real Spearman heatmap). Vision count: **9 CORRELATES_WITH → 8 (1 vision + 7 text)**.
 
 2026-05-04 — All four structural upgrade tasks implemented. Pipeline acceptance is now framed against four stacked gates with full test coverage: (1) UMLS TUI grounding for entity sanitization, (2) BioClinical-ModernBERT dense retrieval replacing `_FEATURE_VOCAB`, (3) dual-verifier consensus (pixel + independent VLM) for Vision Track, (4) gold-label benchmark for measured P/R/F1.
@@ -259,7 +261,9 @@ Vision Track was heatmap-only. User confirmed: forest plots, scatter plots, and 
 - `artifacts/papers_microbe_merged_fulltext.jsonl` — 77 PMCIDs, source for Vision Track fetch
 - `artifacts/vision_proposals_gemini_vision.jsonl` — 3 proposals (session 4 test run)
 - `artifacts/verification_results_gemini_vision.jsonl` — 3 results (1 verified, 2 rejected)
-- `docs/proposal/report_sanomap_radiomics_layer.tex` — report (PDF not yet compiled)
+- `docs/proposal/paper_sanomap_radiomics_layer.tex` — two-column manuscript (compiles on local basictex; PDF built)
+- `docs/proposal/archive/report_sanomap_radiomics_layer.{tex,pdf}` — frozen pre-reframing proposal report (18 pp)
+- `artifacts/graph_export/{nodes.csv,relationships.csv,import.cypher,manifest.json}` — Stage-A reconciled coherent graph (189 rows / 99 nodes)
 
 ## What Is Complete
 Full pipeline end-to-end on 1,016-paper corpus. Vision Track code complete for all four figure types. 46 tests green. Proposal current. Explorer live on GitHub Pages.

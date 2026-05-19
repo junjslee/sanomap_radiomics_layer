@@ -34,10 +34,16 @@ Stages:
 - **C. Manuscript headline** (annotator lane, starts 2026-05-21, longest non-parallelizable lead). Pass-2 independent labels → Cohen's κ + binary P/R/F1 with 95% Wilson CI → `.tex` results; then a coherence pass reconciling every count to post-audit truth.
 - **D. Video** — strictly after B; scripted off the working graph-backed app.
 
-OPEN decision forks — operator's call, deliberately NOT decided here:
-1. **Live Neo4j** (recommended: minimal local Docker + one-file `neo4j` driver loader + read-only canned Cypher) **vs export-only app**. Trade-off: literal "integration" + stronger paper/video defensibility vs added ops surface on the 8GB M2 and supervisor-reproducibility cost.
-2. **Vision framing**: methodology-contribution + 1 audited case study (recommended, honest) **vs** invest the ~50-line sign-check gate + re-run current proposals to recover more legitimate figures (e.g. PMC11453046_Fig6) first.
-3. **App scope ceiling**: read-only graph explorer for the summer (recommended) **vs** richer features (ranked search, saved queries) — scope risk against the video deadline.
+### Status (2026-05-19)
+- **A — DONE.** `scripts/build_graph_export.py` emits `artifacts/graph_export/` (189 rows / 99 nodes) with `manifest.json` (source vintages, git SHA, drop records). Unqualified-CSV ambiguity superseded by the canonical bundle. Tests: `tests/test_build_graph_export.py`.
+- **Fork 1 — RESOLVED → live Neo4j (operator decision 2026-05-18).** Delivered: `scripts/neo4j_load.py` (driver loader, safe `--dry-run` default), `src/graph_queries.py` (8 read-only injection-safe canonical traversals + `assert_read_only` enforced by tests), `docker-compose.neo4j.yml`, `docs/NEO4J_RUNBOOK.md`, `neo4j>=5,<6` pinned. Live import is operator-run (Docker daemon currently down — runbook step).
+- **Coherence finding (Stage A earned its keep):** the documented `9 CORRELATES_WITH → 8 (1 vision + 7 text)` was never composed — vision retraction applied to the 9-superset but the separately-recorded UMLS `bacteriodetes` drop never subtracted from it. Coherent truth = **7 (1 vision + 6 text), 189 rows / 99 nodes**. 62 three-hop paths exact (all 3 closers survive). Paper + PROGRESS corrected to manifest truth.
+- **B — PARTIAL.** Graph/query spine + live-load path done. Remaining: rewire `docs/explorer/index.html` off the frozen 2026-04-05 `data.jsonl` onto the canonical export / live Neo4j.
+- **WS1 — DONE.** Proposal archived (`docs/proposal/archive/`); two-column manuscript `docs/proposal/paper_sanomap_radiomics_layer.tex` compiles on local basictex.
+
+OPEN decision forks still operator's call:
+2. **Vision framing**: methodology-contribution + 1 audited case study (recommended, honest) **vs** invest the ~50-line sign-check gate + re-run current proposals to recover more legitimate figures (e.g. PMC11453046_Fig6) first. (Paper currently takes the recommended honest framing.)
+3. **App scope ceiling**: read-only graph explorer for the summer (recommended) **vs** richer features (ranked search, saved queries) — scope risk against the video deadline. (Decide before Stage B explorer rewire.)
 
 Verification plan for this stage:
 - A: unqualified-CSV ambiguity removed; one command reproduces `graph_export/` from current artifacts; manifest counts match post-audit `verified_edges.jsonl`.
