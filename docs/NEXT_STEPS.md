@@ -2,6 +2,14 @@
 
 Operational handoff. Update whenever priority, blocker, or milestone changes.
 
+## Current State (2026-05-18) — Deliverable-Gap Reframing
+
+Codebase reviewed against the PI's 3-step pipeline + 3 end-of-summer deliverables. Verdict:
+- **Data sourcing**: aligned. **Hybrid text-vision**: capability aligned; vision is text-dominant by audited design (1 legit figure / 14 post-gate) — a paper-framing obligation, not a defect. **Neo4j integration**: NOT aligned in the integration sense — no driver/bolt, hand-run `.cypher`, four divergent graph-artifact vintages, unqualified `artifacts/neo4j_relationships.csv` is junk smoke data.
+- **App (deliverable #1)**: partial — static explorer reads a frozen 2026-04-05 JSONL, does not query the graph. **Manuscript (#2)**: mature draft, headline P/R/F1 + κ blank pending Pass-2 (≥ 2026-05-21). **Video (#3)**: not started.
+- **Reframe**: the critical path is the integration spine + graph-backed app (engineering, startable now), running in parallel with the annotator-bound Pass-2 (longest non-parallelizable lead). Extraction is over-built relative to the graph store/app. See `docs/PLAN.md` → "Active Stage — Deliverable Integration Gap (2026-05-18)" for stages A–D and the 3 OPEN operator decision forks.
+- **Awaiting operator decision before engineering starts**: Fork 1 (live Neo4j vs export-only) materially shapes stages A/B.
+
 ## Current State (2026-05-07)
 - **Task 1 closed live.** UMLS audit drop rate 25% (2/8) under the 30% threshold. Edge #5 + bacteriodetes typo dropped. Outputs: `artifacts/dropped_entities_audit.jsonl`, `artifacts/umls_gate_report.json`.
 - **Task 3 pivoted to local Qwen2.5-VL-3B via Ollama** (free, fits 8GB M2 at 4-bit). Daemon running at `localhost:11434`. Smoke test queued; `verify_vision_dual.py` accepts the swap via `--api-base-url`/`--model-id` flags only.
@@ -162,11 +170,10 @@ Lower priority than Tasks 1-4 closure; the proposal text needs updating with the
 
 ## So-What Now?
 
-> **TL;DR:** Tasks 1-3 are coded and tested. Task 1 needs a Terminal.app audit run; Task 2 needs a small dev-set τ calibration; Task 3 needs a live API smoke test on the 2 existing vision figures. Then Task 4 (gold benchmark) becomes the next session's primary deliverable.
+> **TL;DR:** Tasks 1–4-Pass-1 closed; extraction is research-defensible. The end-of-summer risk is no longer extraction quality — it is the **integration spine + application** (Step 3 / deliverable #1), which is architecturally absent. Two independent lanes: engineering (A→B, startable now, gated only on Fork 1) and annotator (C Pass-2, hard floor 2026-05-21, longest lead).
 
-- **Immediate**: Priority 4 — hand-label `artifacts/gold_set_v1_UNLABELED.jsonl` (Pass 1). All upstream code is in place.
-- **Blockers**: None on the codebase. Task 4 closure is annotator-time-bound (~4 hours pass 1 + 14-day wait + ~4 hours pass 2). Live API smokes (Priorities 1, 3) are unblocked but lower urgency than getting labeled data.
-- **Open Questions**:
-  1. Accept the 66-row v1 gold set, or expand entity-sentence inputs to recover 150 rows? Recommended: accept 66 + report wider CIs in Limitations.
-  2. After hand-labeling, run UMLS audit (Task 1 closure) before evaluating — that may change which accepted edges sit in the accepted_edge stratum and therefore the metrics.
-  3. After Pass 1 + Pass 2 labels exist and Cohen's κ is computed, draft `docs/benchmark/IAA_v1.md` with the disagreement audit per § 7.6 of the schema?
+- **Immediate (annotator lane)**: Pass-2 independent re-label the moment the temporal window opens (2026-05-21). It gates the manuscript's only blank — measured P/R/F1 + Cohen's κ — and Task 2 τ calibration sits downstream of it. Non-parallelizable; start on time, do not defer.
+- **Immediate (engineering lane, after Fork 1)**: PLAN Stage A — collapse the four divergent graph-artifact vintages into one regenerable `graph_export/` with a manifest; kill/alias the junk unqualified `neo4j_relationships.csv`. Then Stage B — point the explorer at the live/canonical graph and add the 6 README Cypher queries + evidence drill-down.
+- **Blockers**: Engineering lane is blocked only on **Fork 1 (live Neo4j vs export-only)** — an operator decision, not a codebase blocker. Annotator lane blocked until 2026-05-21 by the non-negotiable temporal window.
+- **Open decision forks (operator)**: (1) live Neo4j vs export-only; (2) vision paper-framing: methodology+case-study vs build sign-check gate and recover more figures; (3) app scope ceiling. Detail + recommendations in `docs/PLAN.md` → Active Stage 2026-05-18.
+- **Carried open questions**: (a) accept 66-row gold set + wider CIs (recommended) vs expand to 150; (b) re-run UMLS audit before evaluating so the accepted_edge stratum matches post-gate truth; (c) draft `docs/benchmark/IAA_v1.md` after κ per § 7.6.

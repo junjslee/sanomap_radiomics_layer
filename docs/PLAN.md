@@ -14,6 +14,36 @@
 - **Task 3 closed + scoped down**. Vision verifier pivoted to local Qwen2.5-VL-3B via Ollama; dual-verifier alone surfaced as structurally insufficient (both verifiers consume proposer's bbox → self-consistent hallucinations pass silently). Three deterministic pre-verifier gates added (`src/vision_gates.py`: caption / colorbar_detect / range_sanity with VLM colorbar tick extraction). Retroactive audit on 14 figures (13 current + 1 historical) → 6 REJECT_GATE, 5 ACCEPT, 3 REVIEW. Historical PMC6178902 firmicutes edge dropped (wrong-sign + LFC scale per direct image inspection); PMC10605408 prevotella edge retained. Headline count: **9 CORRELATES_WITH → 8 (1 vision + 7 text)**. 28 vision-verifier + 24 new vision-gate tests pass.
 - **Task 4 Pass-1 closed**. 66-row authoritative `gold_set_v1_LABELED_pass1.jsonl` generated via Claude propose → junjslee review → 7 imaging-scope overrides. Schema bumped v1.0 → v1.1 (§ 6.9 imaging-derived rule). 14-day temporal window opens 2026-05-07; Pass-2 earliest 2026-05-21.
 
+## Active Stage — Deliverable Integration Gap (2026-05-18)
+
+Trigger: codebase reviewed against the PI's 3-step pipeline (data sourcing / hybrid text-vision extraction / Neo4j integration) and 3 end-of-summer deliverables (working application, manuscript, video).
+
+Findings (facts, not decisions):
+- Step 1 data sourcing — **aligned**. 1,016-paper corpus + PMC full-text path mature.
+- Step 2 hybrid text-vision — **capability aligned; evidentiary balance text-dominant by audited design.** Post-gate vision yield = 1 unambiguously-legitimate figure / 14. The gating chain (`src/vision_gates.py`) is itself the publishable vision contribution. This is a framing obligation, not a defect to hide.
+- Step 3 Neo4j integration — **NOT aligned in the integration sense.** No `neo4j` driver / `GraphDatabase` / `bolt://` anywhere; export is a hand-run `.cypher`. Multiple `neo4j_relationships*.csv` vintages; unqualified `artifacts/neo4j_relationships.csv` is an 11-row smoke file containing clause-fragment junk diseases and the firmicutes vision edge the 2026-05-07 audit DROPPED. `scripts/neo4j_import.cypher` is Apr-7, pre-audit. Pipeline / cypher / explorer JSONL / verified_edges are four different vintages — no single regenerable graph.
+- Deliverable #1 application — **partial.** `docs/explorer/index.html` is static, backend-less, reads a frozen 2026-04-05 185-row `data.jsonl` ("85 edges") — it browses a stale file, it does not query the graph.
+- Deliverable #2 manuscript — **mature draft, data-gated.** `report_sanomap_radiomics_layer.tex` headline P/R/F1 + Cohen's κ blank pending Pass-2 (≥ 2026-05-21); embedded counts need a post-audit coherence pass.
+- Deliverable #3 video — **not started** (correctly end-stage).
+
+Governing reframe: the weak point is the integration spine + application, not extraction quality. Extraction is over-built relative to the graph store and the app; end-of-summer risk concentrates on A/B below.
+
+Stages:
+- **A. Single coherent regenerable graph artifact** (engineering lane, reversible, may start now). One command: pipeline artifacts → `graph_export/` (nodes + relationships + import.cypher + manifest with corpus vintage, counts, audit state, git SHA). Retire or alias the ambiguous unqualified `neo4j_relationships.csv`.
+- **B. Graph-backed application.** App fed by the canonical export (or live Neo4j per Fork 1); expose the 6 Cypher queries already documented in README; entity search → neighborhood expansion → evidence drill-down (PMID/sentence/figure). Reuse the existing vis-network UI; the gap is the query layer + data freshness, not the UI.
+- **C. Manuscript headline** (annotator lane, starts 2026-05-21, longest non-parallelizable lead). Pass-2 independent labels → Cohen's κ + binary P/R/F1 with 95% Wilson CI → `.tex` results; then a coherence pass reconciling every count to post-audit truth.
+- **D. Video** — strictly after B; scripted off the working graph-backed app.
+
+OPEN decision forks — operator's call, deliberately NOT decided here:
+1. **Live Neo4j** (recommended: minimal local Docker + one-file `neo4j` driver loader + read-only canned Cypher) **vs export-only app**. Trade-off: literal "integration" + stronger paper/video defensibility vs added ops surface on the 8GB M2 and supervisor-reproducibility cost.
+2. **Vision framing**: methodology-contribution + 1 audited case study (recommended, honest) **vs** invest the ~50-line sign-check gate + re-run current proposals to recover more legitimate figures (e.g. PMC11453046_Fig6) first.
+3. **App scope ceiling**: read-only graph explorer for the summer (recommended) **vs** richer features (ranked search, saved queries) — scope risk against the video deadline.
+
+Verification plan for this stage:
+- A: unqualified-CSV ambiguity removed; one command reproduces `graph_export/` from current artifacts; manifest counts match post-audit `verified_edges.jsonl`.
+- B: app loads current (not 2026-04-05) graph; the 6 Cypher queries return; evidence drill-down resolves to PMID/sentence/figure.
+- C: κ ≥ 0.80 (binary collapse); P/R/F1 with 95% Wilson CI in `.tex`; every numeric claim in `.tex` reconciled to post-audit truth.
+
 ## Stages
 1. Keep repo memory current:
    - `AGENTS.md`
