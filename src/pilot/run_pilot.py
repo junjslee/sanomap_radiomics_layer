@@ -64,6 +64,7 @@ def run(gold_path: str, accepted_path: str, model_a: str, model_b: str,
     from openai import OpenAI
     recs = _load_records(gold_path, accepted_path)
     client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
+    # SEQUENTIAL: all model-A first, then all model-B (8 GB: never both resident)
     cfg_a = JudgeConfig(model_id=model_a)
     va = [judge_unanimous(client, cfg_a, r) for r in recs]
     cfg_b = JudgeConfig(model_id=model_b)
