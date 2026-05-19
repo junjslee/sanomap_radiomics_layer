@@ -25,7 +25,7 @@ class Verdict:
 def _norm(s: str) -> str:
     return " ".join(s.lower().split())
 
-def validate_verdict(obj: dict, *, source_sentence: str) -> Verdict:
+def validate_verdict(obj: object, *, source_sentence: str) -> Verdict:
     if not isinstance(obj, dict):
         raise SchemaError(f"verdict not an object: {type(obj)}")
     for k in ("decision", "relation_type", "sign", "evidence_quote", "confidence"):
