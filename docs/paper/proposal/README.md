@@ -5,4 +5,4 @@ Frozen snapshot of the **proposal-style report** (single-column, double-spaced, 
 - `report_sanomap_radiomics_layer.tex` — pristine proposal source (moved here via `git mv`, history preserved).
 - `report_sanomap_radiomics_layer.pdf` — compiled proposal snapshot.
 
-Do not edit these. The live manuscript is `docs/proposal/paper_sanomap_radiomics_layer.tex`.
+Do not edit these. The live manuscript is `docs/paper/paper_sanomap_radiomics_layer.tex`.

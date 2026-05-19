@@ -39,7 +39,7 @@ Stages:
 - **Fork 1 — RESOLVED → live Neo4j (operator decision 2026-05-18).** Delivered: `scripts/neo4j_load.py` (driver loader, safe `--dry-run` default), `src/graph_queries.py` (8 read-only injection-safe canonical traversals + `assert_read_only` enforced by tests), `docker-compose.neo4j.yml`, `docs/NEO4J_RUNBOOK.md`, `neo4j>=5,<6` pinned. Live import is operator-run (Docker daemon currently down — runbook step).
 - **Coherence finding (Stage A earned its keep):** the documented `9 CORRELATES_WITH → 8 (1 vision + 7 text)` was never composed — vision retraction applied to the 9-superset but the separately-recorded UMLS `bacteriodetes` drop never subtracted from it. Coherent truth = **7 (1 vision + 6 text), 189 rows / 99 nodes**. 62 three-hop paths exact (all 3 closers survive). Paper + PROGRESS corrected to manifest truth.
 - **B — PARTIAL.** Graph/query spine + live-load path done. Remaining: rewire `docs/explorer/index.html` off the frozen 2026-04-05 `data.jsonl` onto the canonical export / live Neo4j.
-- **WS1 — DONE.** Proposal archived (`docs/proposal/archive/`); two-column manuscript `docs/proposal/paper_sanomap_radiomics_layer.tex` compiles on local basictex.
+- **WS1 — DONE.** Proposal archived (`docs/paper/proposal/`); two-column manuscript `docs/paper/paper_sanomap_radiomics_layer.tex` compiles on local basictex.
 
 OPEN decision forks still operator's call:
 2. **Vision framing**: methodology-contribution + 1 audited case study (recommended, honest) **vs** invest the ~50-line sign-check gate + re-run current proposals to recover more legitimate figures (e.g. PMC11453046_Fig6) first. (Paper currently takes the recommended honest framing.)

@@ -9,7 +9,7 @@ Codebase reviewed against the PI's 3-step pipeline + 3 end-of-summer deliverable
 - **App (deliverable #1)**: partial — static explorer reads a frozen 2026-04-05 JSONL, does not query the graph. **Manuscript (#2)**: mature draft, headline P/R/F1 + κ blank pending Pass-2 (≥ 2026-05-21). **Video (#3)**: not started.
 - **Reframe**: the critical path is the integration spine + graph-backed app (engineering), running in parallel with the annotator-bound Pass-2 (longest non-parallelizable lead). See `docs/PLAN.md` → "Active Stage" for stages A–D + status.
 - **Delivered 2026-05-19**: WS1 (proposal archived; two-column manuscript compiling). WS2 Fork 1 = **live Neo4j** (operator decision): Stage A reconciler + `graph_export/` bundle, `neo4j_load.py`, read-only `graph_queries.py`, docker-compose, runbook; 321 tests pass. **Coherence finding: docs headline `8 (1 vision + 7 text)` was never composed; manifest truth = `7 (1 vision + 6 text)`, 189 rows / 99 nodes. Paper + PROGRESS corrected.** 62 three-hop paths intact.
-- **Commit state**: all 22 files committed by the checkpoint automation in `36189da chkpt: 2026-05-19T00:17:22` (tree clean). These are `chkpt:` messages, not Conventional Commits — consolidating `679c68e..36189da` into one conventional commit before any PR is a history rewrite (destructive; needs explicit operator authorization). Hygiene: `docs/proposal/paper_sanomap_radiomics_layer.log` got tracked — recommend `.gitignore` for `*.aux/.log/.out`, keep `*.{tex,pdf}`.
+- **Commit state**: all 22 files committed by the checkpoint automation in `36189da chkpt: 2026-05-19T00:17:22` (tree clean). These are `chkpt:` messages, not Conventional Commits — consolidating `679c68e..36189da` into one conventional commit before any PR is a history rewrite (destructive; needs explicit operator authorization). Hygiene: `docs/paper/paper_sanomap_radiomics_layer.log` got tracked — recommend `.gitignore` for `*.aux/.log/.out`, keep `*.{tex,pdf}`.
 
 ### Next-session quickstart (exact commands)
 ```bash
@@ -138,7 +138,7 @@ Still blocked on `pdflatex`:
 ```bash
 brew install --cask basictex
 # restart terminal, then:
-cd docs/proposal
+cd docs/paper/proposal
 pdflatex report_sanomap_radiomics_layer.tex
 ```
 Lower priority than Tasks 1-4 closure; the proposal text needs updating with the four-task architecture before recompile is meaningful.
