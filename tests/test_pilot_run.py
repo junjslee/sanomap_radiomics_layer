@@ -75,3 +75,12 @@ def test_load_records_real_schema_keys():
     assert recs[1]["subject"] == "peptostreptococcus stomatis"
     assert recs[1]["object"] == "skeletal_muscle_index"
     assert recs[1]["label"] == "not_associated"
+
+def test_thesis_anchors_constant():
+    # regression guard on the operator-confirmed spec §3 criterion: the
+    # peptostrep ABSTAIN was previously inverted (the governance incident).
+    assert THESIS_ANCHORS == {
+        ("eubacterium", "visceral_adipose_tissue"): "ASSERT",
+        ("ruminococcus", "sarcopenia"): "ASSERT",
+        ("peptostreptococcus stomatis", "skeletal_muscle_index"): "ABSTAIN",
+    }

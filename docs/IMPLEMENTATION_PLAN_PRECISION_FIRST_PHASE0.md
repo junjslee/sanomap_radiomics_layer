@@ -408,44 +408,91 @@ git commit -m "feat(pilot): N-sample unanimity + cross-family agreement judge"
 
 ```python
 # tests/test_pilot_run.py
-from src.pilot.run_pilot import compute_report, THESIS_CLOSERS
+import json, os, tempfile
+from src.pilot.run_pilot import compute_report, _load_records, THESIS_ANCHORS
 
 def _row(subj, obj, label, stratum, decision):
-    return ({"subject": subj, "object": obj, "label": label, "stratum": stratum},
-            decision)
+    return ({"subject": subj, "object": obj, "label": label,
+             "stratum": stratum}, decision)
+
+_E = ("eubacterium", "visceral_adipose_tissue")
+_R = ("ruminococcus", "sarcopenia")
+_P = ("peptostreptococcus stomatis", "skeletal_muscle_index")
+
+def _anchor_rows(correct=True):
+    # E/R gold-assertable -> ASSERT; P gold not_associated -> ABSTAIN.
+    # correct=False flips P to a wrong ASSERT.
+    return [
+        _row(*_E, "associated_positive", "accepted_edge", "ASSERT"),
+        _row(*_R, "associated_negative", "accepted_edge", "ASSERT"),
+        _row(*_P, "not_associated", "accepted_edge",
+             "ABSTAIN" if correct else "ASSERT"),
+    ]
 
 def test_precision_and_coverage_math():
-    judged = [
-        _row("Ruminococcus", "sarcopenia", "associated_positive", "accepted_edge", "ASSERT"),
-        _row("Peptostreptococcus", "skeletal_muscle_index", "associated_negative", "accepted_edge", "ASSERT"),
-        _row("Eubacterium", "visceral_adipose_tissue", "associated_unsigned", "accepted_edge", "ASSERT"),
-        _row("X", "y", "not_associated", "accepted_edge", "ASSERT"),   # false positive
-        _row("Z", "w", "not_associated", "accepted_edge", "ABSTAIN"),  # correctly held
+    judged = _anchor_rows() + [
+        _row("x", "y", "associated_positive", "accepted_edge", "ASSERT"),
+        _row("z", "w", "not_associated", "accepted_edge", "ASSERT"),  # FP
     ]
-    rep = compute_report(judged)
-    assert rep["accepted_edge"]["n_asserted"] == 4
-    assert abs(rep["accepted_edge"]["precision"] - 0.75) < 1e-9  # 3/4
-    assert abs(rep["accepted_edge"]["coverage"] - 0.8) < 1e-9    # 4/5
+    rep = compute_report(judged)["accepted_edge"]
+    assert rep["n_asserted"] == 4
+    assert abs(rep["precision"] - 0.75) < 1e-9   # E,R,x correct of E,R,x,z
+    assert abs(rep["coverage"] - 0.8) < 1e-9     # 4 asserted / 5 accepted
 
-def test_disconfirmation_pass_when_closers_survive_and_5of8():
-    judged = [_row(s, o, "associated_positive", "accepted_edge", "ASSERT")
-              for (s, o) in THESIS_CLOSERS] + [
-        _row(f"A{i}", f"B{i}", "associated_positive", "accepted_edge", "ASSERT")
-        for i in range(2)] + [
-        _row(f"C{i}", f"D{i}", "associated_positive", "accepted_edge", "ABSTAIN")
-        for i in range(3)]
+def test_pass_when_precision_high_and_anchors_correct():
+    judged = _anchor_rows() + [
+        _row(f"m{i}", f"f{i}", "associated_positive", "accepted_edge", "ASSERT")
+        for i in range(8)]
     rep = compute_report(judged)
-    assert rep["verdict"] == "PASS"
+    assert rep["verdict"] == "PASS", rep["verdict_reason"]
 
-def test_disconfirmation_fail_when_a_closer_lost():
-    judged = [_row("Ruminococcus", "sarcopenia", "associated_positive", "accepted_edge", "ABSTAIN")] + [
-        _row(s, o, "associated_positive", "accepted_edge", "ASSERT")
-        for (s, o) in THESIS_CLOSERS[1:]] + [
-        _row(f"A{i}", f"B{i}", "associated_positive", "accepted_edge", "ASSERT")
-        for i in range(5)]
+def test_fail_when_precision_below_target():
+    judged = _anchor_rows() + [
+        _row(f"b{i}", f"c{i}", "not_associated", "accepted_edge", "ASSERT")
+        for i in range(8)]
     rep = compute_report(judged)
     assert rep["verdict"] == "FAIL"
-    assert "thesis closer" in rep["verdict_reason"].lower()
+    assert "precision" in rep["verdict_reason"]
+
+def test_fail_when_anchor_decision_wrong():
+    judged = _anchor_rows(correct=False) + [
+        _row(f"m{i}", f"f{i}", "associated_positive", "accepted_edge", "ASSERT")
+        for i in range(8)]
+    rep = compute_report(judged)
+    assert rep["verdict"] == "FAIL"
+    assert "anchor" in rep["verdict_reason"].lower()
+
+def test_load_records_real_schema_keys():
+    rows = [
+        {"sentence": "s1", "microbe": "eubacterium",
+         "candidate_feature_canonical": "visceral_adipose_tissue",
+         "label": "associated_positive", "stratum": "accepted_edge"},
+        {"sentence": "s2", "microbe": "peptostreptococcus stomatis",
+         "candidate_feature_canonical": "skeletal_muscle_index",
+         "label": "not_associated", "stratum": "accepted_edge"},
+    ]
+    fd, p = tempfile.mkstemp(suffix=".jsonl")
+    with os.fdopen(fd, "w") as f:
+        for r in rows:
+            f.write(json.dumps(r) + "\n")
+    try:
+        recs = _load_records(p)
+    finally:
+        os.unlink(p)
+    assert recs[0]["subject"] == "eubacterium"
+    assert recs[0]["object"] == "visceral_adipose_tissue"
+    assert recs[1]["subject"] == "peptostreptococcus stomatis"
+    assert recs[1]["object"] == "skeletal_muscle_index"
+    assert recs[1]["label"] == "not_associated"
+
+def test_thesis_anchors_constant():
+    # regression guard on the operator-confirmed spec §3 criterion: the
+    # peptostrep ABSTAIN was previously inverted (the governance incident).
+    assert THESIS_ANCHORS == {
+        ("eubacterium", "visceral_adipose_tissue"): "ASSERT",
+        ("ruminococcus", "sarcopenia"): "ASSERT",
+        ("peptostreptococcus stomatis", "skeletal_muscle_index"): "ABSTAIN",
+    }
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -457,70 +504,96 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'src.pilot.run_pilot'`
 
 ```python
 # src/pilot/run_pilot.py
-"""Phase-0 pilot harness. Reads already-labeled artifacts, runs the
+"""Phase-0 pilot harness. Reads the already-labeled gold set, runs the
 cross-family unanimity judge SEQUENTIALLY per model (8 GB constraint:
-all model-A, then all model-B — never both resident), computes precision +
-coverage on the accepted_edge stratum, and applies the spec §3 crisp
-disconfirmation predicates. Emits artifacts/pilot/pilot_report.json.
-NO graph writes."""
+all model-A, then all model-B — never both resident), and applies the
+estimand-aligned spec §3 disconfirmation: judge-vs-gold precision on the
+accepted_edge stratum plus the three gold-anchored thesis decisions.
+Emits artifacts/pilot/pilot_report.json. NO graph writes."""
 from __future__ import annotations
 import argparse, json, os
 from .local_judge import JudgeConfig, judge_unanimous, cross_family
 
-# spec §3: the 3 thesis-load-bearing three-hop closers (subject, object)
-THESIS_CLOSERS = [
-    ("Ruminococcus", "sarcopenia"),
-    ("Peptostreptococcus", "skeletal_muscle_index"),
-    ("Eubacterium", "visceral_adipose_tissue"),
-]
-POSITIVE_LABELS = {"associated_positive", "associated_negative",
+# spec §3 gold label classes
+GOLD_ASSERTABLE = {"associated_positive", "associated_negative",
                    "associated_unsigned"}
+GOLD_NONASSERT = {"not_associated", "unclear", "no_association_explicit"}
+
+# spec §3 anchors: (microbe, feature_canonical) -> required judge decision,
+# taken from the human Pass-1 GOLD label (not graph structure):
+#   eubacterium/visceral_adipose_tissue          assoc_positive -> ASSERT
+#   ruminococcus/sarcopenia                      assoc_negative -> ASSERT
+#   peptostreptococcus stomatis/skeletal_muscle_index  not_associated -> ABSTAIN
+THESIS_ANCHORS = {
+    ("eubacterium", "visceral_adipose_tissue"): "ASSERT",
+    ("ruminococcus", "sarcopenia"): "ASSERT",
+    ("peptostreptococcus stomatis", "skeletal_muscle_index"): "ABSTAIN",
+}
+TARGET_PRECISION = 0.90  # spec §2D default
 
 def compute_report(judged: list[tuple[dict, str]]) -> dict:
     acc = [(r, d) for (r, d) in judged if r["stratum"] == "accepted_edge"]
     asserted = [(r, d) for (r, d) in acc if d == "ASSERT"]
-    tp = sum(1 for (r, _) in asserted if r["label"] in POSITIVE_LABELS)
-    precision = tp / len(asserted) if asserted else 0.0
+    correct_assert = sum(1 for (r, _) in asserted
+                         if r["label"] in GOLD_ASSERTABLE)
+    precision = correct_assert / len(asserted) if asserted else 0.0
     coverage = len(asserted) / len(acc) if acc else 0.0
+    correct = correct_assert + sum(
+        1 for (r, d) in acc if d == "ABSTAIN" and r["label"] in GOLD_NONASSERT)
+    accuracy = correct / len(acc) if acc else 0.0
 
-    def survived(subj, obj):
-        for (r, d) in judged:
+    def decision_for(subj, obj):
+        for (r, d) in acc:
             if r["subject"] == subj and r["object"] == obj:
-                return d == "ASSERT"
-        return False
-    closers_ok = all(survived(s, o) for (s, o) in THESIS_CLOSERS)
-    n_accepted_kept = len(asserted)
+                return d
+        return None
+    anchors = {}
+    anchors_ok = True
+    for (subj, obj), expected in THESIS_ANCHORS.items():
+        got = decision_for(subj, obj)
+        ok = got == expected
+        anchors_ok = anchors_ok and ok
+        anchors[f"{subj} -> {obj}"] = {"expected": expected, "got": got,
+                                       "ok": ok}
 
-    if not closers_ok:
-        verdict, reason = "FAIL", "lost >=1 thesis closer (spec §3 i)"
-    elif n_accepted_kept < 5:
-        verdict, reason = "FAIL", f"only {n_accepted_kept}/8 accepted retained (spec §3 ii)"
+    if not asserted:
+        verdict, reason = "FAIL", "judge asserted nothing (vacuous precision)"
+    elif precision < TARGET_PRECISION:
+        verdict = "FAIL"
+        reason = f"precision {precision:.3f} < target {TARGET_PRECISION} (spec §3)"
+    elif not anchors_ok:
+        bad = [k for k, v in anchors.items() if not v["ok"]]
+        verdict, reason = "FAIL", f"thesis anchor(s) wrong decision: {bad}"
     else:
-        verdict, reason = "PASS", "closers retained and >=5/8 accepted retained"
+        verdict = "PASS"
+        reason = (f"precision {precision:.3f} >= {TARGET_PRECISION} and all "
+                  f"3 gold-anchored thesis decisions correct")
     return {
         "accepted_edge": {"n_total": len(acc), "n_asserted": len(asserted),
                           "precision": precision, "coverage": coverage,
-                          "true_positives": tp},
-        "thesis_closers_survived": closers_ok,
+                          "accuracy": accuracy,
+                          "correct_assert": correct_assert},
+        "thesis_anchors": anchors,
         "verdict": verdict, "verdict_reason": reason,
     }
 
-def _load_records(gold_path: str, accepted_path: str) -> list[dict]:
+def _load_records(gold_path: str) -> list[dict]:
     recs: list[dict] = []
     with open(gold_path) as f:
         for line in f:
             o = json.loads(line)
-            recs.append({"sentence": o.get("sentence", ""),
-                         "subject": o.get("microbe") or o.get("subject", ""),
-                         "object": o.get("feature") or o.get("object", ""),
-                         "label": o.get("label", "not_associated"),
-                         "stratum": o.get("stratum", "unknown")})
+            recs.append({
+                "sentence": o.get("sentence", ""),
+                "subject": o.get("microbe", ""),
+                "object": o.get("candidate_feature_canonical", ""),
+                "label": o.get("label", "not_associated"),
+                "stratum": o.get("stratum", "unknown"),
+            })
     return recs
 
-def run(gold_path: str, accepted_path: str, model_a: str, model_b: str,
-        out_path: str) -> dict:
+def run(gold_path: str, model_a: str, model_b: str, out_path: str) -> dict:
     from openai import OpenAI
-    recs = _load_records(gold_path, accepted_path)
+    recs = _load_records(gold_path)
     client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
     # SEQUENTIAL: all model-A first, then all model-B (8 GB: never both resident)
     cfg_a = JudgeConfig(model_id=model_a)
@@ -537,13 +610,13 @@ def run(gold_path: str, accepted_path: str, model_a: str, model_b: str,
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--gold", default="artifacts/gold_set_v1_LABELED_pass1.jsonl")
-    ap.add_argument("--accepted", default="artifacts/microbe_feature_relations.jsonl")
-    ap.add_argument("--model-a", default="medgemma-1.5-4b-it")
+    ap.add_argument("--gold",
+                    default="artifacts/gold_set_v1_LABELED_pass1.jsonl")
+    ap.add_argument("--model-a", default="medgemma:4b")
     ap.add_argument("--model-b", default="qwen3:4b")
     ap.add_argument("--out", default="artifacts/pilot/pilot_report.json")
     a = ap.parse_args()
-    rep = run(a.gold, a.accepted, a.model_a, a.model_b, a.out)
+    rep = run(a.gold, a.model_a, a.model_b, a.out)
     print(json.dumps(rep, indent=2))
     return 0 if rep["verdict"] == "PASS" else 1
 
