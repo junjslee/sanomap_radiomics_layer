@@ -5,6 +5,7 @@ SanoMap substitute for fine-tuning: two independent families must also agree.
 Model backend is config-driven (spec G: MGH-compute upgrade = rerun)."""
 from __future__ import annotations
 from dataclasses import dataclass
+import logging
 from .schema import Verdict, validate_verdict
 
 @dataclass(frozen=True)
@@ -53,7 +54,9 @@ def _one_sample(client, cfg: JudgeConfig, rec: dict) -> Verdict:
             messages=[{"role": "user", "content": build_prompt(rec)}])
         raw = resp.choices[0].message.content
         return validate_verdict(_extract_json(raw), source_sentence=rec["sentence"])
-    except Exception:
+    except Exception as e:  # noqa: BLE001 — fail-closed boundary, see docstring
+        logging.warning("_one_sample: exception -> ABSTAIN: %s: %s",
+                        type(e).__name__, e)
         return _ABSTAIN
 
 def judge_unanimous(client, cfg: JudgeConfig, rec: dict) -> Verdict:

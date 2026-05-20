@@ -100,7 +100,10 @@ def _load_checkpoint(path: str) -> dict[tuple[int, str], Verdict]:
         return done
     with open(path) as f:
         for line in f:
-            o = json.loads(line)
+            try:
+                o = json.loads(line)
+            except json.JSONDecodeError:
+                continue  # skip a partially-written trailing line (crash mid-write)
             done[(o["idx"], o["model"])] = Verdict(
                 o["decision"], o["relation_type"], o["sign"],
                 o["evidence_quote"], o["confidence"])
@@ -132,13 +135,16 @@ def _judge_all(client, model_id: str, recs: list[dict],
 
 def run(gold_path: str, model_a: str, model_b: str, out_path: str,
         checkpoint_path: str | None = None,
-        request_timeout: float = DEFAULT_TIMEOUT) -> dict:
+        request_timeout: float = DEFAULT_TIMEOUT,
+        fresh: bool = False) -> dict:
     from openai import OpenAI
     recs = _load_records(gold_path)
     ckpt = checkpoint_path or os.path.join(
         os.path.dirname(out_path) or ".", "pilot_checkpoint.jsonl")
     os.makedirs(os.path.dirname(ckpt) or ".", exist_ok=True)
     done = _load_checkpoint(ckpt)
+    if fresh:
+        done = {}  # --fresh: ignore prior checkpoint; file left on disk
     client = OpenAI(base_url="http://localhost:11434/v1",
                     api_key="ollama", timeout=request_timeout)
     # SEQUENTIAL: all model-A first, then all model-B (8 GB: never both resident)
@@ -164,9 +170,13 @@ def main() -> int:
                          "defaults to <out-dir>/pilot_checkpoint.jsonl")
     ap.add_argument("--request-timeout", type=float, default=DEFAULT_TIMEOUT,
                     help="per-request OpenAI client timeout in seconds")
+    ap.add_argument("--fresh", action="store_true",
+                    help="ignore any existing checkpoint and start fresh "
+                         "(prior checkpoint file is left on disk untouched)")
     a = ap.parse_args()
     rep = run(a.gold, a.model_a, a.model_b, a.out,
-              checkpoint_path=a.checkpoint, request_timeout=a.request_timeout)
+              checkpoint_path=a.checkpoint, request_timeout=a.request_timeout,
+              fresh=a.fresh)
     print(json.dumps(rep, indent=2))
     return 0 if rep["verdict"] == "PASS" else 1
 
