@@ -5,7 +5,7 @@ SanoMap substitute for fine-tuning: two independent families must also agree.
 Model backend is config-driven (spec G: MGH-compute upgrade = rerun)."""
 from __future__ import annotations
 from dataclasses import dataclass
-from .schema import Verdict, validate_verdict, SchemaError
+from .schema import Verdict, validate_verdict
 
 @dataclass(frozen=True)
 class JudgeConfig:
@@ -38,14 +38,23 @@ def _extract_json(text: str) -> dict:
     return json.loads(text[i:j + 1])
 
 def _one_sample(client, cfg: JudgeConfig, rec: dict) -> Verdict:
+    # Fail-closed boundary (Task 5a): this function's contract is
+    # "return a schema-valid Verdict or ABSTAIN; never raise." ANY failure
+    # (parse error, schema violation, transport/timeout, client error, etc.)
+    # degrades to ABSTAIN — a precision-first judge treats an unobtainable
+    # judgement as "no assertable association." Broad `except Exception` is
+    # deliberate: the narrow tuple {SchemaError, ValueError, KeyError,
+    # IndexError} crashed a 95-min run on openai.APITimeoutError (2026-05-19).
+    # KeyboardInterrupt/SystemExit (BaseException) still escape so the run
+    # remains user-interruptible. (Spec §4: fail-closed = precision-safe.)
     try:
         resp = client.chat.completions.create(
             model=cfg.model_id, temperature=cfg.temperature,
             messages=[{"role": "user", "content": build_prompt(rec)}])
         raw = resp.choices[0].message.content
         return validate_verdict(_extract_json(raw), source_sentence=rec["sentence"])
-    except (SchemaError, ValueError, KeyError, IndexError):
-        return _ABSTAIN  # fail-closed = precision-safe (spec §4)
+    except Exception:
+        return _ABSTAIN
 
 def judge_unanimous(client, cfg: JudgeConfig, rec: dict) -> Verdict:
     samples = [_one_sample(client, cfg, rec) for _ in range(cfg.n_samples)]

@@ -43,3 +43,14 @@ def test_cross_family_disagreement_abstains():
     a = Verdict("ASSERT", "CORRELATES_WITH", "positive", "x", 0.9)
     b = Verdict("ASSERT", "CORRELATES_WITH", "negative", "y", 0.8)
     assert cross_family(a, b).decision == "ABSTAIN"
+
+def test_one_sample_fail_closed_on_transport_error():
+    # Task 5a regression guard: any exception from the client (e.g. transport
+    # timeout, connection error) must degrade to ABSTAIN, never raise. The
+    # narrow except tuple {SchemaError,ValueError,KeyError,IndexError} crashed
+    # a 95-min run on openai.APITimeoutError; the boundary is now broad.
+    c = MagicMock()
+    c.chat.completions.create.side_effect = RuntimeError("simulated transport timeout")
+    cfg = JudgeConfig(model_id="m", n_samples=3)
+    v = judge_unanimous(c, cfg, REC)
+    assert v.decision == "ABSTAIN"

@@ -84,3 +84,38 @@ def test_thesis_anchors_constant():
         ("ruminococcus", "sarcopenia"): "ASSERT",
         ("peptostreptococcus stomatis", "skeletal_muscle_index"): "ABSTAIN",
     }
+
+def test_checkpoint_roundtrip_and_resume_skip(tmp_path):
+    # Task 5a regression guard: _load_checkpoint round-trips per-record
+    # decisions; _judge_all skips records already in the checkpoint without
+    # invoking the client; new judgements are appended with flush.
+    from unittest.mock import MagicMock
+    from src.pilot.run_pilot import _load_checkpoint, _judge_all
+    from src.pilot.schema import Verdict
+    ckpt = tmp_path / "ck.jsonl"
+    with open(ckpt, "w") as f:
+        f.write(json.dumps({
+            "idx": 0, "model": "m",
+            "decision": "ASSERT", "relation_type": "CORRELATES_WITH",
+            "sign": "positive", "evidence_quote": "q", "confidence": 0.9,
+        }) + "\n")
+    done = _load_checkpoint(str(ckpt))
+    assert (0, "m") in done and done[(0, "m")].decision == "ASSERT"
+    client = MagicMock()
+    client.chat.completions.create.return_value = MagicMock(choices=[
+        MagicMock(message=MagicMock(content=(
+            '{"decision":"ABSTAIN","relation_type":null,"sign":null,'
+            '"evidence_quote":null,"confidence":0.0}')))])
+    recs = [
+        {"sentence": "s0", "subject": "a", "object": "b",
+         "label": "associated_positive", "stratum": "accepted_edge"},
+        {"sentence": "s1", "subject": "c", "object": "d",
+         "label": "not_associated", "stratum": "accepted_edge"},
+    ]
+    out = _judge_all(client, "m", recs, done, str(ckpt))
+    assert len(out) == 2
+    assert out[0].decision == "ASSERT"      # from checkpoint, no client call
+    assert out[1].decision == "ABSTAIN"     # judged via client
+    assert client.chat.completions.create.call_count == 5  # n_samples=5 default
+    lines = open(ckpt).read().strip().split("\n")
+    assert len(lines) == 2
