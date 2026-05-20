@@ -101,6 +101,7 @@ def test_checkpoint_roundtrip_and_resume_skip(tmp_path):
         }) + "\n")
     done = _load_checkpoint(str(ckpt))
     assert (0, "m") in done and done[(0, "m")].decision == "ASSERT"
+    assert isinstance(done[(0, "m")], Verdict)  # type contract of _load_checkpoint
     client = MagicMock()
     client.chat.completions.create.return_value = MagicMock(choices=[
         MagicMock(message=MagicMock(content=(

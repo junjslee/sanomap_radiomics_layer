@@ -308,6 +308,17 @@ def test_cross_family_disagreement_abstains():
     a = Verdict("ASSERT", "CORRELATES_WITH", "positive", "x", 0.9)
     b = Verdict("ASSERT", "CORRELATES_WITH", "negative", "y", 0.8)
     assert cross_family(a, b).decision == "ABSTAIN"
+
+def test_one_sample_fail_closed_on_transport_error():
+    # Task 5a regression guard: any exception from the client (e.g. transport
+    # timeout, connection error) must degrade to ABSTAIN, never raise. The
+    # narrow except tuple {SchemaError,ValueError,KeyError,IndexError} crashed
+    # a 95-min run on openai.APITimeoutError; the boundary is now broad.
+    c = MagicMock()
+    c.chat.completions.create.side_effect = RuntimeError("simulated transport timeout")
+    cfg = JudgeConfig(model_id="m", n_samples=3)
+    v = judge_unanimous(c, cfg, REC)
+    assert v.decision == "ABSTAIN"
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -325,7 +336,7 @@ SanoMap substitute for fine-tuning: two independent families must also agree.
 Model backend is config-driven (spec G: MGH-compute upgrade = rerun)."""
 from __future__ import annotations
 from dataclasses import dataclass
-from .schema import Verdict, validate_verdict, SchemaError
+from .schema import Verdict, validate_verdict
 
 @dataclass(frozen=True)
 class JudgeConfig:
@@ -358,14 +369,23 @@ def _extract_json(text: str) -> dict:
     return json.loads(text[i:j + 1])
 
 def _one_sample(client, cfg: JudgeConfig, rec: dict) -> Verdict:
+    # Fail-closed boundary (Task 5a): this function's contract is
+    # "return a schema-valid Verdict or ABSTAIN; never raise." ANY failure
+    # (parse error, schema violation, transport/timeout, client error, etc.)
+    # degrades to ABSTAIN — a precision-first judge treats an unobtainable
+    # judgement as "no assertable association." Broad `except Exception` is
+    # deliberate: the narrow tuple {SchemaError, ValueError, KeyError,
+    # IndexError} crashed a 95-min run on openai.APITimeoutError (2026-05-19).
+    # KeyboardInterrupt/SystemExit (BaseException) still escape so the run
+    # remains user-interruptible. (Spec §4: fail-closed = precision-safe.)
     try:
         resp = client.chat.completions.create(
             model=cfg.model_id, temperature=cfg.temperature,
             messages=[{"role": "user", "content": build_prompt(rec)}])
         raw = resp.choices[0].message.content
         return validate_verdict(_extract_json(raw), source_sentence=rec["sentence"])
-    except (SchemaError, ValueError, KeyError, IndexError):
-        return _ABSTAIN  # fail-closed = precision-safe (spec §4)
+    except Exception:
+        return _ABSTAIN
 
 def judge_unanimous(client, cfg: JudgeConfig, rec: dict) -> Verdict:
     samples = [_one_sample(client, cfg, rec) for _ in range(cfg.n_samples)]
@@ -493,6 +513,42 @@ def test_thesis_anchors_constant():
         ("ruminococcus", "sarcopenia"): "ASSERT",
         ("peptostreptococcus stomatis", "skeletal_muscle_index"): "ABSTAIN",
     }
+
+def test_checkpoint_roundtrip_and_resume_skip(tmp_path):
+    # Task 5a regression guard: _load_checkpoint round-trips per-record
+    # decisions; _judge_all skips records already in the checkpoint without
+    # invoking the client; new judgements are appended with flush.
+    from unittest.mock import MagicMock
+    from src.pilot.run_pilot import _load_checkpoint, _judge_all
+    from src.pilot.schema import Verdict
+    ckpt = tmp_path / "ck.jsonl"
+    with open(ckpt, "w") as f:
+        f.write(json.dumps({
+            "idx": 0, "model": "m",
+            "decision": "ASSERT", "relation_type": "CORRELATES_WITH",
+            "sign": "positive", "evidence_quote": "q", "confidence": 0.9,
+        }) + "\n")
+    done = _load_checkpoint(str(ckpt))
+    assert (0, "m") in done and done[(0, "m")].decision == "ASSERT"
+    assert isinstance(done[(0, "m")], Verdict)  # type contract of _load_checkpoint
+    client = MagicMock()
+    client.chat.completions.create.return_value = MagicMock(choices=[
+        MagicMock(message=MagicMock(content=(
+            '{"decision":"ABSTAIN","relation_type":null,"sign":null,'
+            '"evidence_quote":null,"confidence":0.0}')))])
+    recs = [
+        {"sentence": "s0", "subject": "a", "object": "b",
+         "label": "associated_positive", "stratum": "accepted_edge"},
+        {"sentence": "s1", "subject": "c", "object": "d",
+         "label": "not_associated", "stratum": "accepted_edge"},
+    ]
+    out = _judge_all(client, "m", recs, done, str(ckpt))
+    assert len(out) == 2
+    assert out[0].decision == "ASSERT"      # from checkpoint, no client call
+    assert out[1].decision == "ABSTAIN"     # judged via client
+    assert client.chat.completions.create.call_count == 5  # n_samples=5 default
+    lines = open(ckpt).read().strip().split("\n")
+    assert len(lines) == 2
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -509,10 +565,16 @@ cross-family unanimity judge SEQUENTIALLY per model (8 GB constraint:
 all model-A, then all model-B — never both resident), and applies the
 estimand-aligned spec §3 disconfirmation: judge-vs-gold precision on the
 accepted_edge stratum plus the three gold-anchored thesis decisions.
-Emits artifacts/pilot/pilot_report.json. NO graph writes."""
+Emits artifacts/pilot/pilot_report.json. NO graph writes.
+
+Resilience (Task 5a): per-record checkpoint JSONL + resume-skip so a
+crash or interrupt is recoverable; explicit per-request client timeout
+so a wedged generation fails fast (caught by local_judge's fail-closed
+boundary → ABSTAIN) instead of hanging."""
 from __future__ import annotations
 import argparse, json, os
 from .local_judge import JudgeConfig, judge_unanimous, cross_family
+from .schema import Verdict
 
 # spec §3 gold label classes
 GOLD_ASSERTABLE = {"associated_positive", "associated_negative",
@@ -530,6 +592,7 @@ THESIS_ANCHORS = {
     ("peptostreptococcus stomatis", "skeletal_muscle_index"): "ABSTAIN",
 }
 TARGET_PRECISION = 0.90  # spec §2D default
+DEFAULT_TIMEOUT = 120.0   # per-request OpenAI client timeout (seconds)
 
 def compute_report(judged: list[tuple[dict, str]]) -> dict:
     acc = [(r, d) for (r, d) in judged if r["stratum"] == "accepted_edge"]
@@ -591,19 +654,61 @@ def _load_records(gold_path: str) -> list[dict]:
             })
     return recs
 
-def run(gold_path: str, model_a: str, model_b: str, out_path: str) -> dict:
+def _load_checkpoint(path: str) -> dict[tuple[int, str], Verdict]:
+    """Load per-(record_idx, model_id) verdicts from a JSONL checkpoint."""
+    done: dict[tuple[int, str], Verdict] = {}
+    if not os.path.exists(path):
+        return done
+    with open(path) as f:
+        for line in f:
+            o = json.loads(line)
+            done[(o["idx"], o["model"])] = Verdict(
+                o["decision"], o["relation_type"], o["sign"],
+                o["evidence_quote"], o["confidence"])
+    return done
+
+def _judge_all(client, model_id: str, recs: list[dict],
+               done: dict[tuple[int, str], Verdict],
+               ckpt_path: str) -> list[Verdict]:
+    """Judge all records with one model. Resume-skip from `done`; append each
+    fresh verdict to the checkpoint JSONL with flush so a crash loses nothing."""
+    cfg = JudgeConfig(model_id=model_id)
+    out: list[Verdict] = []
+    with open(ckpt_path, "a") as ck:
+        for i, r in enumerate(recs):
+            key = (i, model_id)
+            if key in done:
+                out.append(done[key])
+                continue
+            v = judge_unanimous(client, cfg, r)
+            ck.write(json.dumps({
+                "idx": i, "model": model_id,
+                "decision": v.decision, "relation_type": v.relation_type,
+                "sign": v.sign, "evidence_quote": v.evidence_quote,
+                "confidence": v.confidence,
+            }) + "\n")
+            ck.flush()
+            out.append(v)
+    return out
+
+def run(gold_path: str, model_a: str, model_b: str, out_path: str,
+        checkpoint_path: str | None = None,
+        request_timeout: float = DEFAULT_TIMEOUT) -> dict:
     from openai import OpenAI
     recs = _load_records(gold_path)
-    client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
+    ckpt = checkpoint_path or os.path.join(
+        os.path.dirname(out_path) or ".", "pilot_checkpoint.jsonl")
+    os.makedirs(os.path.dirname(ckpt) or ".", exist_ok=True)
+    done = _load_checkpoint(ckpt)
+    client = OpenAI(base_url="http://localhost:11434/v1",
+                    api_key="ollama", timeout=request_timeout)
     # SEQUENTIAL: all model-A first, then all model-B (8 GB: never both resident)
-    cfg_a = JudgeConfig(model_id=model_a)
-    va = [judge_unanimous(client, cfg_a, r) for r in recs]
-    cfg_b = JudgeConfig(model_id=model_b)
-    vb = [judge_unanimous(client, cfg_b, r) for r in recs]
+    va = _judge_all(client, model_a, recs, done, ckpt)
+    vb = _judge_all(client, model_b, recs, done, ckpt)
     judged = [(recs[i], cross_family(va[i], vb[i]).decision)
               for i in range(len(recs))]
     report = compute_report(judged)
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     with open(out_path, "w") as f:
         json.dump(report, f, indent=2)
     return report
@@ -615,8 +720,14 @@ def main() -> int:
     ap.add_argument("--model-a", default="medgemma:4b")
     ap.add_argument("--model-b", default="qwen3:4b")
     ap.add_argument("--out", default="artifacts/pilot/pilot_report.json")
+    ap.add_argument("--checkpoint", default=None,
+                    help="per-record checkpoint JSONL (resume-skip); "
+                         "defaults to <out-dir>/pilot_checkpoint.jsonl")
+    ap.add_argument("--request-timeout", type=float, default=DEFAULT_TIMEOUT,
+                    help="per-request OpenAI client timeout in seconds")
     a = ap.parse_args()
-    rep = run(a.gold, a.model_a, a.model_b, a.out)
+    rep = run(a.gold, a.model_a, a.model_b, a.out,
+              checkpoint_path=a.checkpoint, request_timeout=a.request_timeout)
     print(json.dumps(rep, indent=2))
     return 0 if rep["verdict"] == "PASS" else 1
 
