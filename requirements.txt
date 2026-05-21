@@ -1,0 +1,56 @@
+# SanoMap Radiomics Layer — Python dependencies
+#
+# Pinning policy:
+#   - Hard-pin only where a known incompatibility exists (transformers).
+#   - Otherwise use lower bounds compatible with the project's smoke-tested
+#     conda base environment (Python 3.10, M2/MPS, 8 GB unified memory).
+#   - Optional groups marked with a section header so a minimal install can
+#     skip heavy GPU/UMLS deps.
+
+# --- Core (always required) -------------------------------------------------
+numpy>=1.24,<3
+pillow>=10.0
+requests>=2.31
+
+# --- NER + relation extraction ---------------------------------------------
+# transformers 5.0.0.dev pre-release ships ModernBERT support; we lower-bound
+# at 4.45 because that is the first stable release with ModernBERT model_type
+# registration, and upper-bound at <6 to avoid silent breakage on a future
+# major bump.
+transformers>=4.45,<6
+torch>=2.0,<3
+huggingface_hub>=0.24
+
+# --- Vision Track (figure analysis) ----------------------------------------
+opencv-python>=4.8
+
+# --- UMLS normalization (Task 1, optional but standard) --------------------
+# scispacy 0.6.x ships the en_core_sci_lg + UMLS linker integration the
+# project depends on. Pin to >=0.6 to ensure the linker registration API
+# matches the code path in src/text_ner_minerva.py:189.
+spacy>=3.7,<4
+scispacy>=0.6
+
+# --- Dense retrieval (Task 2) ----------------------------------------------
+# faiss-cpu is OPTIONAL: src/feature_retrieval.py falls back to a numpy
+# cosine search at current corpus scale (~30k sentences). Install for
+# production runs >100k sentences or when index latency matters.
+# Pinning here so production deploys are reproducible.
+faiss-cpu>=1.8,<2
+
+# --- Graph integration (Fork 1 — live Neo4j) -------------------------------
+# Used by scripts/neo4j_load.py and the read-only query layer. The export
+# builder (scripts/build_graph_export.py) has NO dependency on this — only
+# the live-load path does, so a CSV/Cypher-only workflow can skip it.
+# Pinned to the 5.x driver line (Bolt protocol stable; matches neo4j:5).
+neo4j>=5,<6
+
+# --- Testing ---------------------------------------------------------------
+pytest>=8.0
+
+# --- Notes -----------------------------------------------------------------
+# Not in this file (managed via conda or runtime-only):
+#   - pdflatex / basictex (system package, used only for proposal compile)
+#   - en_core_sci_lg model (download via:
+#       pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_lg-0.5.4.tar.gz
+#     — version-pinned with the scispacy release used)

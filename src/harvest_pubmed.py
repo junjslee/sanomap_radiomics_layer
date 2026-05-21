@@ -75,6 +75,26 @@ BODYCOMP_MODALITY_BLOCK = (
     "(dual-energy x-ray absorptiometry[Title/Abstract]) OR (DXA[Title/Abstract]))"
 )
 
+# HV1 modality expansion (2026-05-21): adds ultrasound, MRE (magnetic
+# resonance elastography), FibroScan, mpMRI, and DECT. Required by the L11
+# liver-MRE lane and broadly useful for the gut-liver axis literature where
+# elastography/FibroScan is the dominant modality reading.
+EXPANDED_MODALITY_BLOCK = (
+    "((computed tomography[Title/Abstract]) OR (CT[Title/Abstract]) OR "
+    "(magnetic resonance imaging[Title/Abstract]) OR (MRI[Title/Abstract]) OR "
+    "(dual-energy x-ray absorptiometry[Title/Abstract]) OR (DXA[Title/Abstract]) OR "
+    "(positron emission tomography[Title/Abstract]) OR (PET[Title/Abstract]) OR "
+    "(ultrasound[Title/Abstract]) OR (sonography[Title/Abstract]) OR "
+    "(sonographic[Title/Abstract]) OR (ultrasonography[Title/Abstract]) OR "
+    "(elastography[Title/Abstract]) OR (MRE[Title/Abstract]) OR "
+    "(magnetic resonance elastography[Title/Abstract]) OR "
+    "(transient elastography[Title/Abstract]) OR (FibroScan[Title/Abstract]) OR "
+    "(shear wave elastography[Title/Abstract]) OR "
+    "(multiparametric MRI[Title/Abstract]) OR (mpMRI[Title/Abstract]) OR "
+    "(dual-energy CT[Title/Abstract]) OR (DECT[Title/Abstract]) OR "
+    "(spectral CT[Title/Abstract]))"
+)
+
 HUMAN_CLINICAL_BLOCK = (
     "((human*[Title/Abstract]) OR (adult*[Title/Abstract]) OR "
     "(patient*[Title/Abstract]) OR (patients[Title/Abstract]) OR "
@@ -180,6 +200,38 @@ BODYCOMP_DISEASE_ASSOCIATION_QUERY = (
     f"AND ({OUTCOME_SIGNAL_BLOCK} OR {ASSOCIATION_SIGNAL_BLOCK})"
 )
 
+# HV1 (2026-05-21): liver MRE / FibroScan + gut microbiome. This is L11
+# territory — the existing body-comp lane misses MRE/FibroScan because the
+# default modality block is CT/MRI/DXA-only. Sanity smoke command:
+#   conda run -n base python -m src.harvest_pubmed \
+#     --query-profile microbe_liver_elastography --max-papers 50 --dry-run
+LIVER_ELASTOGRAPHY_FEATURE_BLOCK = (
+    "((liver stiffness[Title/Abstract]) OR (liver fibrosis[Title/Abstract]) OR "
+    "(hepatic steatosis[Title/Abstract]) OR (PDFF[Title/Abstract]) OR "
+    "(proton density fat fraction[Title/Abstract]) OR "
+    "(liver surface nodularity[Title/Abstract]) OR "
+    "(NAFLD[Title/Abstract]) OR (MAFLD[Title/Abstract]) OR "
+    "(MASLD[Title/Abstract]) OR (cirrhosis[Title/Abstract]) OR "
+    "(hepatocellular carcinoma[Title/Abstract]))"
+)
+
+MICROBE_LIVER_ELASTOGRAPHY_QUERY = (
+    f"({LIVER_ELASTOGRAPHY_FEATURE_BLOCK} "
+    f"AND {EXPANDED_MODALITY_BLOCK} "
+    f"AND {MICROBIOME_BLOCK}) "
+    f"{NON_PRIMARY_ARTICLE_EXCLUSION_BLOCK}"
+)
+
+# HV1 — broader expansion: body-comp + microbiome with the expanded modality
+# block (adds US, MRE, FibroScan, mpMRI, DECT to the CT/MRI/DXA baseline).
+# Use this alongside the strict `microbe_bodycomp` profile to compare yield.
+MICROBE_BODYCOMP_EXPANDED_MODALITY_QUERY = (
+    f"({BODYCOMP_FEATURE_BLOCK} "
+    f"AND {EXPANDED_MODALITY_BLOCK} "
+    f"AND {MICROBIOME_BLOCK}) "
+    f"{NON_PRIMARY_ARTICLE_EXCLUSION_BLOCK}"
+)
+
 QUERY_PROFILES: dict[str, str] = {
     "microbe_radiomics": MICROBE_IMAGING_PHENOTYPE_QUERY,
     "microbe_radiomics_strict": MICROBE_RADIOMICS_STRICT_QUERY,
@@ -191,6 +243,9 @@ QUERY_PROFILES: dict[str, str] = {
     "radiomics_disease_strict": RADIOMICS_DISEASE_STRICT_QUERY,
     "bodycomp_disease": BODYCOMP_DISEASE_QUERY,
     "bodycomp_disease_association": BODYCOMP_DISEASE_ASSOCIATION_QUERY,
+    # HV1 modality expansion (operator-pick before any harvest run):
+    "microbe_liver_elastography": MICROBE_LIVER_ELASTOGRAPHY_QUERY,
+    "microbe_bodycomp_expanded_modality": MICROBE_BODYCOMP_EXPANDED_MODALITY_QUERY,
 }
 
 

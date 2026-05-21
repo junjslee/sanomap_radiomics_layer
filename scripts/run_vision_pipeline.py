@@ -31,9 +31,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import base64
+import json
 import os
 import sys
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -189,6 +193,104 @@ def _classify_and_filter(
         if f["topology"] in _QUALIFYING_TOPOLOGIES and f["topology_confidence"] >= min_confidence
     ]
     return qualifying
+
+
+_RELEVANCE_PROMPT = (
+    "Examine this scientific figure and its caption carefully.\n"
+    "Caption: {caption}\n\n"
+    "Question: Does this figure show a DIRECT quantitative association "
+    "(correlation coefficient, odds ratio, hazard ratio, regression coefficient, or p-value) "
+    "between a MICROBIAL entity (bacterium, fungus, archaea, specific genus/species, or "
+    "microbiome diversity index such as Shannon/Chao) and a RADIOMICS or MEDICAL IMAGING "
+    "feature (CT texture, MRI signal, radiomics score, body composition measurement, "
+    "imaging phenotype)?\n\n"
+    "Answer 'yes' only if BOTH a microbial entity AND a radiomics/imaging feature appear "
+    "as the two axes or compared variables with a quantitative association shown.\n"
+    "Answer 'no' if: the figure is a flowchart, study design, survival curve, diversity "
+    "comparison only, PCA plot without labelled associations, or a correlation matrix "
+    "between two radiomics features (not involving a microbe).\n\n"
+    "Reply with exactly one word: yes or no."
+)
+
+_COMPLETION_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+
+
+def _encode_image_b64(image_path: str) -> str:
+    path = Path(image_path)
+    suffix = path.suffix.lower()
+    mime = "image/jpeg" if suffix in {".jpg", ".jpeg"} else "image/png"
+    data = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{data}"
+
+
+def _check_relevance(
+    figure: dict[str, Any],
+    options: ProposerOptions,
+) -> tuple[bool, str]:
+    """VLM relevance gate: is this figure showing a microbe↔radiomics association?
+
+    Returns (is_relevant, one-word-reason).
+    Fails open: if the API call errors, returns (True, 'error') so the figure
+    proceeds to the extraction stage rather than being silently dropped.
+    """
+    image_path = figure.get("image_path")
+    if not image_path or not Path(image_path).exists():
+        return False, "no_image"
+
+    caption = str(figure.get("caption") or "")[:400]
+    prompt = _RELEVANCE_PROMPT.format(caption=caption)
+    image_uri = _encode_image_b64(image_path)
+
+    base_url = options.api_base_url or _COMPLETION_URL
+    url = base_url.rstrip("/")
+    if not url.endswith("/chat/completions"):
+        url = url + "/chat/completions"
+
+    body = json.dumps({
+        "model": options.model_id,
+        "temperature": 0.0,
+        "max_tokens": 5,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": image_uri}},
+            ],
+        }],
+    }).encode("utf-8")
+
+    headers = {"Content-Type": "application/json"}
+    if options.api_key:
+        headers["Authorization"] = f"Bearer {options.api_key}"
+
+    req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+        text = payload["choices"][0]["message"]["content"].strip().lower()
+        is_relevant = text.startswith("yes")
+        return is_relevant, text[:20]
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:60]
+        return True, f"gate_error:{detail}"
+    except Exception as exc:
+        return True, f"gate_error:{exc}"
+
+
+def _run_relevance_gate(
+    qualifying: list[dict[str, Any]],
+    options: ProposerOptions,
+) -> list[dict[str, Any]]:
+    """Filter qualifying figures through the VLM relevance gate."""
+    relevant: list[dict[str, Any]] = []
+    for fig in qualifying:
+        fid = str(fig.get("figure_id") or "?")[:16]
+        is_relevant, reason = _check_relevance(fig, options)
+        flag = "+" if is_relevant else "-"
+        print(f"  [{flag}] {fid}  → {reason}")
+        if is_relevant:
+            relevant.append(fig)
+    return relevant
 
 
 def _run_proposals(
@@ -399,6 +501,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--temperature", type=float, default=0.1)
     parser.add_argument("--max-tokens", type=int, default=300)
+    parser.add_argument(
+        "--skip-relevance-gate",
+        action="store_true",
+        help="Skip the VLM relevance gate (step 2.5). Use for debugging or if gate is too strict.",
+    )
 
     # Verification
     parser.add_argument(
@@ -502,10 +609,7 @@ def main(argv: list[str] | None = None) -> int:
         print("  export GEMINI_API_KEY=your-key-here")
         return 1
 
-    # -----------------------------------------------------------------------
-    # Step 3: VLM proposals
-    # -----------------------------------------------------------------------
-    print(f"\n[3/4] VLM proposals ({args.backend} / {args.model_id})")
+    # Build options here — shared by relevance gate and extraction stage
     options = ProposerOptions(
         backend=args.backend,
         model_id=args.model_id,
@@ -515,6 +619,24 @@ def main(argv: list[str] | None = None) -> int:
         temperature=args.temperature,
         max_tokens=args.max_tokens,
     )
+
+    # -----------------------------------------------------------------------
+    # Step 2.5: VLM relevance gate
+    # -----------------------------------------------------------------------
+    if not args.skip_relevance_gate:
+        print(f"\n[2.5/4] Relevance gate — microbe↔radiomics check ({len(qualifying)} figures)")
+        qualifying = _run_relevance_gate(qualifying, options)
+        print(f"  Relevant after gate: {len(qualifying)}")
+        if not qualifying:
+            print("  No figures passed the relevance gate.")
+            return 0
+    else:
+        print("\n[2.5/4] Relevance gate skipped (--skip-relevance-gate)")
+
+    # -----------------------------------------------------------------------
+    # Step 3: VLM proposals
+    # -----------------------------------------------------------------------
+    print(f"\n[3/4] VLM proposals ({args.backend} / {args.model_id})")
 
     skip_ids = _load_processed_figure_ids(args.proposals_out) if args.skip_existing else set()
     new_proposals = _run_proposals(qualifying, options, skip_ids)

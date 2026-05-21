@@ -33,14 +33,29 @@
 
       header h1 {
         margin: 0;
-        font-size: clamp(1.5rem, 2vw + 1rem, 2.4rem);
-        letter-spacing: 0.03em;
+        font-size: clamp(1.55rem, 2vw + 1rem, 2.5rem);
+        letter-spacing: 0.015em;
+        background: linear-gradient(135deg, #f8fafc 0%, #bae6fd 60%, #38bdf8 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
       }
 
-      header p {
+      header .tagline {
+        margin: 0.55rem auto 0;
+        max-width: 740px;
+        color: rgba(186, 230, 253, 0.85);
+        font-size: 0.95rem;
+        font-style: italic;
+        letter-spacing: 0.01em;
+      }
+
+      header .header-counts {
         margin: 0.5rem auto 0;
-        max-width: 680px;
-        color: rgba(248, 250, 252, 0.72);
+        max-width: 760px;
+        color: rgba(248, 250, 252, 0.62);
+        font-size: 0.88rem;
       }
 
       .panel {
@@ -49,6 +64,225 @@
         border-radius: 1rem;
         padding: 1.5rem;
         box-shadow: 0 20px 40px rgba(2, 6, 23, 0.65);
+      }
+
+      /* ---- Featured 3-hop closers (thesis demos) ---- */
+      .featured-section {
+        margin-bottom: 1.5rem;
+      }
+
+      .section-eyebrow {
+        font-size: 0.72rem;
+        margin: 0 0 0.85rem 0;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(248, 250, 252, 0.55);
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+      }
+
+      .section-eyebrow::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(56,189,248,0.25), transparent);
+      }
+
+      .featured-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 0.85rem;
+      }
+
+      .featured-card {
+        position: relative;
+        background: linear-gradient(135deg, rgba(56,189,248,0.10), rgba(99,102,241,0.06));
+        border: 1px solid rgba(56,189,248,0.25);
+        border-radius: 0.95rem;
+        padding: 1.05rem 1.15rem 1rem;
+        cursor: pointer;
+        transition: transform 180ms ease, border-color 150ms, box-shadow 180ms;
+        text-align: left;
+        font-family: inherit;
+        color: inherit;
+      }
+      .featured-card:hover {
+        border-color: var(--accent);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 28px -10px rgba(56, 189, 248, 0.45);
+      }
+      .featured-card:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      .axis-tag {
+        display: inline-block;
+        font-size: 0.63rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(56, 189, 248, 0.75);
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+      }
+
+      .path-title {
+        font-size: 1.0rem;
+        font-weight: 600;
+        color: var(--accent-soft);
+        margin: 0 0 0.6rem 0;
+        line-height: 1.35;
+      }
+
+      .path-arrow {
+        color: rgba(248, 250, 252, 0.45);
+        margin: 0 0.3rem;
+        font-weight: 400;
+      }
+
+      .path-count {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+      }
+      .path-count .num {
+        font-size: 1.55rem;
+        font-weight: 600;
+        color: #fff;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+      }
+      .path-count .label {
+        font-size: 0.78rem;
+        color: rgba(248, 250, 252, 0.6);
+      }
+
+      .run-btn {
+        background: rgba(56, 189, 248, 0.14);
+        border: 1px solid rgba(56, 189, 248, 0.32);
+        color: var(--accent-soft);
+        border-radius: 0.5rem;
+        padding: 0.38rem 0.75rem;
+        font-size: 0.78rem;
+        font-weight: 500;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 120ms, border-color 120ms;
+      }
+      .run-btn:hover {
+        background: rgba(56, 189, 248, 0.26);
+        border-color: var(--accent);
+      }
+
+      /* ---- Queries panel ---- */
+      .queries-panel {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--border);
+        border-radius: 0.85rem;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.25rem;
+      }
+
+      .queries-title {
+        font-size: 0.78rem;
+        margin: 0 0 0.75rem 0;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(248, 250, 252, 0.6);
+        font-weight: 600;
+      }
+
+      .query-buttons {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.55rem;
+        margin-bottom: 0.85rem;
+      }
+
+      .query-btn {
+        background: rgba(56, 189, 248, 0.08);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        border-radius: 0.65rem;
+        color: var(--text);
+        cursor: pointer;
+        padding: 0.65rem 0.85rem;
+        text-align: left;
+        transition: background 120ms, border-color 120ms;
+        font-family: inherit;
+      }
+      .query-btn:hover {
+        background: rgba(56, 189, 248, 0.18);
+        border-color: var(--accent);
+      }
+      .query-btn strong {
+        display: block;
+        color: var(--accent-soft);
+        font-size: 0.92rem;
+        margin-bottom: 0.15rem;
+      }
+      .query-btn span {
+        display: block;
+        color: rgba(248, 250, 252, 0.6);
+        font-size: 0.78rem;
+        line-height: 1.3;
+      }
+
+      .query-params {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 0.65rem;
+      }
+      .query-params label {
+        display: flex;
+        gap: 0.45rem;
+        align-items: center;
+        color: rgba(248, 250, 252, 0.72);
+        font-size: 0.85rem;
+      }
+      .query-params input {
+        background: rgba(248, 250, 252, 0.04);
+        border: 1px solid var(--border);
+        border-radius: 0.55rem;
+        padding: 0.4rem 0.6rem;
+        color: var(--text);
+        font-size: 0.85rem;
+        width: 12rem;
+      }
+      .query-params button {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--border);
+        border-radius: 0.55rem;
+        color: var(--text);
+        cursor: pointer;
+        padding: 0.4rem 0.85rem;
+        font-size: 0.83rem;
+      }
+      .query-params button:hover {
+        background: rgba(255, 255, 255, 0.16);
+      }
+
+      .query-status {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        font-size: 0.83rem;
+        color: rgba(248, 250, 252, 0.7);
+      }
+      .query-status button {
+        background: rgba(248, 113, 113, 0.12);
+        border: 1px solid rgba(248, 113, 113, 0.3);
+        border-radius: 0.55rem;
+        color: #fecaca;
+        cursor: pointer;
+        padding: 0.3rem 0.7rem;
+        font-size: 0.78rem;
+      }
+      .query-status button:hover {
+        background: rgba(248, 113, 113, 0.22);
       }
 
       /* ---- Tab bar ---- */
@@ -279,14 +513,92 @@
   </head>
   <body>
     <header>
-      <h1>SanoMap Radiomics Layer</h1>
-      <p>
-        Knowledge graph explorer — 85 graph-ready edges auto-loaded (72 ASSOCIATED_WITH · 12 microbe-disease · 1 Vision Track).
-        Switch between table and force-directed graph views.
+      <h1>SanoMap Imaging-Phenotype Layer</h1>
+      <p class="tagline">
+        Microbe ↔ Radiomic / Body-Composition Feature ↔ Disease
+        — a literature-mined, gate-audited knowledge graph extension over MINERVA.
+      </p>
+      <p class="header-counts">
+        <span id="headerCounts">loading…</span>
+        Switch between table and force-directed graph views, or run a canonical traversal below.
       </p>
     </header>
 
     <section class="panel">
+      <!-- ===== FEATURED 3-HOP CLOSERS (thesis demos) ===== -->
+      <div class="featured-section">
+        <h3 class="section-eyebrow">Featured thesis traversals — the intermediate layer in action</h3>
+        <div class="featured-cards">
+          <button class="featured-card" type="button"
+                  onclick="runFeaturedCloser('ruminococcus', 'sarcopenia', 'Gut–muscle axis')">
+            <span class="axis-tag">Gut–muscle axis</span>
+            <div class="path-title">Ruminococcus<span class="path-arrow">→</span>sarcopenia<span class="path-arrow">→</span>disease</div>
+            <div class="path-count">
+              <span class="num" id="closer-count-1">…</span>
+              <span class="label">downstream disease associations</span>
+            </div>
+            <span class="run-btn">Show traversal →</span>
+          </button>
+          <button class="featured-card" type="button"
+                  onclick="runFeaturedCloser('peptostreptococcus stomatis', 'skeletal_muscle_index', 'Gut–muscle axis')">
+            <span class="axis-tag">Gut–muscle axis</span>
+            <div class="path-title">Peptostreptococcus<span class="path-arrow">→</span>SMI<span class="path-arrow">→</span>disease</div>
+            <div class="path-count">
+              <span class="num" id="closer-count-2">…</span>
+              <span class="label">downstream disease associations</span>
+            </div>
+            <span class="run-btn">Show traversal →</span>
+          </button>
+          <button class="featured-card" type="button"
+                  onclick="runFeaturedCloser('eubacterium', 'visceral_adipose_tissue', 'Gut–adipose axis')">
+            <span class="axis-tag">Gut–adipose axis</span>
+            <div class="path-title">Eubacterium<span class="path-arrow">→</span>VAT<span class="path-arrow">→</span>disease</div>
+            <div class="path-count">
+              <span class="num" id="closer-count-3">…</span>
+              <span class="label">downstream disease associations</span>
+            </div>
+            <span class="run-btn">Show traversal →</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ===== QUERIES PANEL (read-only canonical traversals) ===== -->
+      <div class="queries-panel">
+        <h3 class="queries-title">Canonical traversals — read-only, mirrors <code>src/graph_queries.py</code></h3>
+        <div class="query-buttons">
+          <button class="query-btn" onclick="runQuery('three_hop_paths')">
+            <strong>3-hop paths</strong>
+            <span>Microbe → Feature → Disease (the intermediate-layer thesis)</span>
+          </button>
+          <button class="query-btn" onclick="runQuery('signed_microbe_disease')">
+            <strong>Signed microbe ↔ disease</strong>
+            <span>Polarity-resolved edges (positively / negatively correlated)</span>
+          </button>
+          <button class="query-btn" onclick="runQuery('vision_verified_edges')">
+            <strong>Vision-verified</strong>
+            <span>Quantitative figure edges (post-audit)</span>
+          </button>
+          <button class="query-btn" onclick="runQuery('full_modality_chain')">
+            <strong>Full modality chain</strong>
+            <span>Microbe → Feature → Modality, with disease attached</span>
+          </button>
+        </div>
+        <div class="query-params">
+          <label>Features for disease:
+            <input id="queryDiseaseInput" type="text" placeholder="e.g. cirrhosis" />
+            <button onclick="runQuery('features_for_disease', document.getElementById('queryDiseaseInput').value)">Run</button>
+          </label>
+          <label>Features at body location:
+            <input id="queryLocationInput" type="text" placeholder="e.g. abdomen" />
+            <button onclick="runQuery('features_at_location', document.getElementById('queryLocationInput').value)">Run</button>
+          </label>
+        </div>
+        <div class="query-status">
+          <span id="activeQueryLabel">Loading…</span>
+          <button id="clearQueryBtn" class="hidden" onclick="clearQuery()">Clear query</button>
+        </div>
+      </div>
+
       <!-- Tab bar -->
       <div class="tab-bar">
         <button class="tab-btn active" id="tabTable" onclick="switchTab('table')">Table View</button>
@@ -323,7 +635,7 @@
           <table>
             <thead>
               <tr>
-                <th>PMID</th>
+                <th>Source</th>
                 <th>Subject</th>
                 <th>Phenotype / Target</th>
                 <th>Disease / Context</th>
@@ -382,10 +694,16 @@
       // ================================================================
       // State
       // ================================================================
-      let records = [];
+      let records = [];          // canonical full set — never mutated by queries
+      let queryRecords = null;   // active query subset; null = no query active
+      let activeQueryName = null;
       let graphNetwork = null;
       let graphBuilt = false;
       let physicsEnabled = true;
+
+      function effectiveRecords() {
+        return queryRecords !== null ? queryRecords : records;
+      }
 
       // ================================================================
       // Tab switching
@@ -439,8 +757,10 @@
         const filterVal = document.getElementById('edgeFilter').value;
         const allowedRels = EDGE_FILTER_RELS[filterVal];
 
-        // Only graph-eligible records (have subject_node + object_node, not audit-only)
-        const eligible = records.filter(r =>
+        // Only graph-eligible records (have subject_node + object_node, not audit-only).
+        // effectiveRecords() resolves to the active-query subset, or to the full
+        // records[] when no query is active.
+        const eligible = effectiveRecords().filter(r =>
           r.subject_node && r.object_node && !r.not_for_graph_ingestion
         );
 
@@ -562,6 +882,228 @@
         }).filter(Boolean);
       }
 
+      // ================================================================
+      // Canonical queries (mirror src/graph_queries.py over the loaded JSONL)
+      // ================================================================
+      // All queries operate on the canonical `records` array and return a
+      // subset. JS-side implementation — the static explorer doesn't talk
+      // to Neo4j today. Semantics match graph_queries.py one-to-one so the
+      // app and the Cypher path stay reconcilable when live Neo4j ships.
+
+      function uniqueByEdgeId(arr) {
+        const seen = new Set();
+        const out = [];
+        for (const r of arr) {
+          if (!seen.has(r.edge_id)) {
+            seen.add(r.edge_id);
+            out.push(r);
+          }
+        }
+        return out;
+      }
+
+      const QUERIES = {
+        // three_hop_paths: Microbe -[CORRELATES_WITH]-> Feature -[ASSOCIATED_WITH]-> Disease.
+        // Returns BOTH legs of the traversal so the table + graph render the full chain.
+        three_hop_paths: () => {
+          const correlates = records.filter(r =>
+            r.graph_rel_type === 'CORRELATES_WITH' && r.subject_node_type === 'Microbe'
+          );
+          const featureNames = new Set(correlates.map(r => r.object_node));
+          const featureDisease = records.filter(r =>
+            r.graph_rel_type === 'ASSOCIATED_WITH' && featureNames.has(r.subject_node)
+          );
+          return uniqueByEdgeId([...correlates, ...featureDisease]);
+        },
+
+        features_for_disease: (sub) => {
+          const needle = (sub || '').trim().toLowerCase();
+          if (!needle) {
+            return records.filter(r => r.graph_rel_type === 'ASSOCIATED_WITH');
+          }
+          return records.filter(r =>
+            r.graph_rel_type === 'ASSOCIATED_WITH' &&
+            (r.disease || '').toLowerCase().includes(needle)
+          );
+        },
+
+        signed_microbe_disease: () => {
+          const signed = records.filter(r =>
+            r.graph_rel_type === 'POSITIVELY_CORRELATED_WITH' ||
+            r.graph_rel_type === 'NEGATIVELY_CORRELATED_WITH'
+          );
+          signed.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
+          return signed;
+        },
+
+        features_at_location: (loc) => {
+          const needle = (loc || '').trim().toLowerCase();
+          if (!needle) {
+            return records.filter(r => r.graph_rel_type === 'MEASURED_AT');
+          }
+          return records.filter(r =>
+            r.graph_rel_type === 'MEASURED_AT' &&
+            (r.object_node || '').toLowerCase() === needle
+          );
+        },
+
+        // full_modality_chain: Microbe -CORRELATES_WITH-> Feature -ACQUIRED_VIA-> Modality
+        //                                              \-ASSOCIATED_WITH-> Disease
+        full_modality_chain: () => {
+          const correlates = records.filter(r =>
+            r.graph_rel_type === 'CORRELATES_WITH' && r.subject_node_type === 'Microbe'
+          );
+          const featureNames = new Set(correlates.map(r => r.object_node));
+          const modality = records.filter(r =>
+            r.graph_rel_type === 'ACQUIRED_VIA' && featureNames.has(r.subject_node)
+          );
+          const disease = records.filter(r =>
+            r.graph_rel_type === 'ASSOCIATED_WITH' && featureNames.has(r.subject_node)
+          );
+          return uniqueByEdgeId([...correlates, ...modality, ...disease]);
+        },
+
+        vision_verified_edges: () => {
+          return records.filter(r =>
+            r.graph_rel_type === 'CORRELATES_WITH' &&
+            (r.evidence || '').includes('Vision proposal')
+          );
+        },
+      };
+
+      const QUERY_LABELS = {
+        three_hop_paths: '3-hop paths (Microbe → Feature → Disease)',
+        features_for_disease: 'Features for disease',
+        signed_microbe_disease: 'Signed microbe ↔ disease edges',
+        features_at_location: 'Features at body location',
+        full_modality_chain: 'Modality chain',
+        vision_verified_edges: 'Vision-verified edges',
+      };
+
+      function runQuery(name, param) {
+        const fn = QUERIES[name];
+        if (!fn) return;
+        const result = fn(param);
+        queryRecords = result;
+        activeQueryName = name;
+        const wantsParam = (name === 'features_for_disease' || name === 'features_at_location');
+        const trimmed = (param || '').trim();
+        const paramSuffix = (wantsParam && trimmed) ? ` ("${trimmed}")` : '';
+        const el = document.getElementById('activeQueryLabel');
+        if (el) {
+          el.textContent =
+            `Active query: ${QUERY_LABELS[name]}${paramSuffix} — ${result.length} records.`;
+        }
+        const btn = document.getElementById('clearQueryBtn');
+        if (btn) btn.classList.remove('hidden');
+        graphBuilt = false;
+        renderTable();
+        if (!document.getElementById('graphTab').classList.contains('hidden')) {
+          rebuildGraph();
+        }
+      }
+
+      function clearQuery() {
+        queryRecords = null;
+        activeQueryName = null;
+        const el = document.getElementById('activeQueryLabel');
+        if (el) {
+          el.textContent = `No query active — showing all ${records.length} rows.`;
+        }
+        const btn = document.getElementById('clearQueryBtn');
+        if (btn) btn.classList.add('hidden');
+        graphBuilt = false;
+        renderTable();
+        if (!document.getElementById('graphTab').classList.contains('hidden')) {
+          rebuildGraph();
+        }
+      }
+
+      // ================================================================
+      // Featured 3-hop closer cards (thesis demos)
+      // ================================================================
+      // Each card represents one Microbe → Feature → Disease chain that the
+      // intermediate-layer thesis depends on. Cards compute their downstream
+      // disease counts live from the loaded records so the headline numbers
+      // never drift from the data.
+
+      const FEATURED_CLOSERS = [
+        { microbe: 'ruminococcus',                feature: 'sarcopenia',              countEl: 'closer-count-1' },
+        { microbe: 'peptostreptococcus stomatis', feature: 'skeletal_muscle_index',   countEl: 'closer-count-2' },
+        { microbe: 'eubacterium',                 feature: 'visceral_adipose_tissue', countEl: 'closer-count-3' },
+      ];
+
+      function updateFeaturedCounts() {
+        for (const c of FEATURED_CLOSERS) {
+          const downstream = records.filter(r =>
+            r.graph_rel_type === 'ASSOCIATED_WITH' && r.subject_node === c.feature
+          ).length;
+          const el = document.getElementById(c.countEl);
+          if (el) el.textContent = downstream;
+        }
+      }
+
+      function runFeaturedCloser(microbe, feature, axisLabel) {
+        const microbeEdge = records.filter(r =>
+          r.graph_rel_type === 'CORRELATES_WITH'
+          && r.subject_node === microbe
+          && r.object_node === feature
+        );
+        const featureDisease = records.filter(r =>
+          r.graph_rel_type === 'ASSOCIATED_WITH' && r.subject_node === feature
+        );
+        const subset = uniqueByEdgeId([...microbeEdge, ...featureDisease]);
+        queryRecords = subset;
+        activeQueryName = 'featured_closer';
+        const label = document.getElementById('activeQueryLabel');
+        if (label) {
+          label.textContent =
+            `Featured: ${microbe} → ${feature} (${axisLabel}) — ` +
+            `1 microbe→feature + ${featureDisease.length} feature→disease = ${subset.length} edges.`;
+        }
+        const btn = document.getElementById('clearQueryBtn');
+        if (btn) btn.classList.remove('hidden');
+        graphBuilt = false;
+        renderTable();
+        if (!document.getElementById('graphTab').classList.contains('hidden')) {
+          rebuildGraph();
+        }
+      }
+
+      function resetQueryLabelOnLoad() {
+        const el = document.getElementById('activeQueryLabel');
+        if (el) {
+          el.textContent = `No query active — showing all ${records.length} rows.`;
+        }
+        const btn = document.getElementById('clearQueryBtn');
+        if (btn) btn.classList.add('hidden');
+        queryRecords = null;
+        activeQueryName = null;
+      }
+
+      function updateHeaderCounts(recs) {
+        // Compute post-audit breakdown live from the loaded JSONL so the
+        // header never drifts from the data. Categories mirror the manifest
+        // semantics: text feature→disease, microbe→disease signed, microbe→
+        // feature quantitative (vision + text), and schema backbone.
+        const by = {};
+        for (const r of recs) {
+          by[r.graph_rel_type] = (by[r.graph_rel_type] || 0) + 1;
+        }
+        const associated = by.ASSOCIATED_WITH || 0;
+        const microbeDisease = (by.POSITIVELY_CORRELATED_WITH || 0) + (by.NEGATIVELY_CORRELATED_WITH || 0);
+        const correlates = by.CORRELATES_WITH || 0;
+        const backbone = (by.MEASURED_AT || 0) + (by.ACQUIRED_VIA || 0) + (by.REPRESENTED_BY || 0);
+        const total = recs.length;
+        const el = document.getElementById('headerCounts');
+        if (el) {
+          el.textContent =
+            `${total} graph-ready rows (${associated} ASSOCIATED_WITH · ` +
+            `${microbeDisease} microbe-disease signed · ${correlates} CORRELATES_WITH · ` +
+            `${backbone} backbone).`;
+        }
+      }
+
       function normalize(v) { return (v ?? '').toString().trim().toLowerCase(); }
 
       function matches(record, needle, keys) {
@@ -593,7 +1135,42 @@
         if (Array.isArray(r.evidence_fragments)) {
           return r.evidence_fragments.filter(Boolean).join(' || ') || '—';
         }
-        return r.evidence || r.evidence_sentence || r.sentence_text || r.sentence || '—';
+        let txt = r.evidence || r.evidence_sentence || r.sentence_text || r.sentence || '—';
+        // For vision edges, surface r_value + figure_id alongside the proposal id.
+        if (r.r_value != null) txt = `r=${r.r_value} · ${txt}`;
+        if (r.figure_id && /^PMC\d+/.test(r.figure_id)) txt = `${txt} · fig=${r.figure_id}`;
+        return txt;
+      }
+
+      function escapeHtml(s) {
+        return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                              .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      function sourceLink(r) {
+        // Prefer PMC (full text where open access), then PubMed. Title (if
+        // present) is shown as a tooltip via the link's `title` attribute so
+        // hover surfaces the paper title without a UI redesign.
+        const pmid = r.pmid;
+        const pmcid = r.pmcid;
+        const title = r.title || '';
+        if (pmcid) {
+          const safePmcid = encodeURIComponent(pmcid);
+          return `<a href="https://pmc.ncbi.nlm.nih.gov/articles/${safePmcid}/"
+                     target="_blank" rel="noopener noreferrer"
+                     title="${escapeHtml(title) || pmcid}"
+                     style="color:var(--accent-soft);text-decoration:none;border-bottom:1px dotted rgba(186,230,253,0.4)">
+                  ${escapeHtml(pmcid)}</a>`;
+        }
+        if (pmid) {
+          const safePmid = encodeURIComponent(pmid);
+          return `<a href="https://pubmed.ncbi.nlm.nih.gov/${safePmid}/"
+                     target="_blank" rel="noopener noreferrer"
+                     title="${escapeHtml(title) || ('PMID '+pmid)}"
+                     style="color:var(--accent-soft);text-decoration:none;border-bottom:1px dotted rgba(186,230,253,0.4)">
+                  ${escapeHtml(pmid)}</a>`;
+        }
+        return '—';
       }
 
       function renderTable() {
@@ -602,7 +1179,7 @@
         const ff = document.getElementById('filterFeature').value;
         const pf = document.getElementById('filterPmid').value;
 
-        const filtered = records.filter(r =>
+        const filtered = effectiveRecords().filter(r =>
           matches(r, sf, ['subject_node','microbe_or_signature','microbe']) &&
           matches(r, df, ['disease','disease_context','object_node']) &&
           matches(r, ff, ['feature_family','feature_title','claim_hint','phenotype',
@@ -615,12 +1192,12 @@
 
         document.getElementById('resultsBody').innerHTML = filtered.slice(0, 200).map(r => `
           <tr>
-            <td>${r.pmid ?? r.PMID ?? '—'}</td>
-            <td>${subjectLabel(r)}</td>
-            <td>${phenotypeLabel(r)}</td>
-            <td>${diseaseLabel(r)}</td>
-            <td>${artifactType(r)}</td>
-            <td>${evidenceLabel(r)}</td>
+            <td>${sourceLink(r)}</td>
+            <td>${escapeHtml(subjectLabel(r))}</td>
+            <td>${escapeHtml(phenotypeLabel(r))}</td>
+            <td>${escapeHtml(diseaseLabel(r))}</td>
+            <td>${escapeHtml(artifactType(r))}</td>
+            <td>${escapeHtml(evidenceLabel(r))}</td>
           </tr>
         `.trim()).join('');
 
@@ -654,6 +1231,9 @@
         reader.onload = e => {
           records = parseJsonl(e.target.result ?? '');
           graphBuilt = false;
+          updateHeaderCounts(records);
+          updateFeaturedCounts();
+          resetQueryLabelOnLoad();
           renderTable();
           // Re-render graph if it's currently visible
           if (!document.getElementById('graphTab').classList.contains('hidden')) {
@@ -673,6 +1253,9 @@
         })
         .then(text => {
           records = parseJsonl(text);
+          updateHeaderCounts(records);
+          updateFeaturedCounts();
+          resetQueryLabelOnLoad();
           renderTable();
         })
         .catch(() => {

@@ -7,6 +7,24 @@
   - text-derived phenotype-to-disease edges use `ASSOCIATED_WITH`
   - bridge hypotheses remain audit-only and are never ingested as asserted graph edges
 
+## Summer-2026 Operating Objective (overlay, 2026-05-21)
+
+The v1 Objective above remains the layer-level acceptance criterion. The summer-2026 operating objective overlays it with deliverable framing.
+
+- **What is being built.** The **Microbe ↔ Imaging-Phenotype ↔ Disease evidence graph** — `RadiomicFeature` + `BodyCompositionFeature` as the intermediate axis between gut microbiome and disease. Every edge gated; every claim cites PMID + sentence + figure.
+- **End-of-summer deliverables, priority order:**
+  1. **App** — graph-backed explorer on live Neo4j; read-only scope per Fork 3 (2026-05-21); 6 canonical queries + evidence drill-down (PMID → sentence → figure).
+  2. **Manuscript** — measured P/R/F1 + Cohen's κ on the 66-row gold set; full gate-chain disclosure.
+  3. **Video** — end-stage walkthrough, sequenced strictly after App + Manuscript.
+- **Three governance tests applied at every decision** (detail in `docs/PLAN.md` → Governing Frame (2026-05-21)):
+  1. **Novelty — proven, protected, plausible.** Proven = measured P/R/F1 + κ, reproducible from source. Protected = gates catch hallucination, entity-type errors, proposer/verifier collusion; failure modes named, not silenced. Plausible = every edge cites PMID + sentence + figure; the graph organizes prior biology, doesn't invent.
+  2. **Utility — truly helpful.** Cited 3-hop traversal answers "for disease X, what microbe ↔ imaging-feature evidence exists?" in seconds.
+  3. **Sharp & dense system design.** Every expansion compounds novelty OR utility. Positive-system enumeration is the default rule shape.
+- **Acceptance overlay** (in addition to the v1 acceptance criteria below):
+  - `docs/explorer/index.html` is graph-backed on live Neo4j with the 6 canonical queries + evidence drill-down + the 3 thesis 3-hop closers as featured demos.
+  - Cohen's κ ≥ 0.80 (binary collapse) with binary P/R/F1 + 95% Wilson CI written into the `.tex`.
+  - A video walkthrough produced from the working app + final manuscript counts.
+
 ## Users Or Stakeholders
 - Research and data-engineering workflows that need graph-ready microbiome, phenotype, and disease evidence.
 - Future local or GPU agents that need a stable handoff and operating model.

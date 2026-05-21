@@ -409,6 +409,7 @@ class MicrobeExtractor:
 
     def _rows_from_pipeline_output(self, raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
+        extractor_tag = self._extractor_tag()
         for row in raw:
             text = _normalize_text(str(row.get("word") or ""))
             if not text:
@@ -420,10 +421,23 @@ class MicrobeExtractor:
                     "end": int(row.get("end") or -1),
                     "score": float(row.get("score") or 0.0),
                     "label": str(row.get("entity_group") or row.get("entity") or "ENTITY"),
-                    "extractor": "distilbert_biomedical",
+                    "extractor": extractor_tag,
                 }
             )
         return _dedupe_span_results(out)
+
+    def _extractor_tag(self) -> str:
+        """Return a model-agnostic provenance tag for the ``extractor`` field
+        in each row. Recognises the two current model lineages explicitly so
+        downstream artefacts can be re-traced to the upstream model without a
+        manual lookup; falls back to a generic ``ner_pipeline`` tag for any
+        model_id we haven't enumerated yet."""
+        mid = (self.model_id or "").lower()
+        if "speciesdetect" in mid or "openmed-ner-species" in mid:
+            return "openmed_speciesdetect"
+        if "biomedical-ner-all" in mid or "d4data" in mid:
+            return "distilbert_biomedical"
+        return "ner_pipeline"
 
 
 def _dedupe_span_results(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -645,7 +659,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--disease-ner-mode", choices=["scibert_adapter", "bc5cdr"], default="scibert_adapter")
     parser.add_argument("--disease-ner-base-model", default="allenai/scibert_scivocab_uncased")
     parser.add_argument("--disease-ner-checkpoint", default="")
-    parser.add_argument("--microbe-ner-model-id", default="d4data/biomedical-ner-all")
+    # Default upgraded 2026-05-21 from `d4data/biomedical-ner-all` (DistilBERT,
+    # 66M, MACCROBAT-trained, no published benchmark F1) to OpenMed's
+    # SpeciesDetect-PubMed-335M (BiomedBERT-large, LINNAEUS-trained,
+    # F1=0.9649 on LINNAEUS). This closes Gap 1 of the MINERVA comparison
+    # (substitute identified → benchmarked species-specific NER). The legacy
+    # d4data model is still selectable via this flag for A/B comparison.
+    parser.add_argument("--microbe-ner-model-id",
+                        default="OpenMed/OpenMed-NER-SpeciesDetect-PubMed-335M")
     parser.add_argument("--ner-batch-size", type=int, default=4)
     parser.add_argument("--umls-linker", choices=["on", "off"], default="on")
     parser.add_argument("--validate-schema", action="store_true")

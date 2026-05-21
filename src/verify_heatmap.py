@@ -408,6 +408,15 @@ def verify_heatmap_r_value(
     legend_bbox: tuple[int, int, int, int] | None = None,
     heatmap_bbox: tuple[int, int, int, int] | None = None,
 ) -> dict[str, Any]:
+    if proposed_r is None:
+        return _failure_payload(
+            proposed_r=0.0,
+            reason_code="proposed_r_missing",
+            r_min=r_min,
+            r_max=r_max,
+            diagnostics={"r_min": r_min, "r_max": r_max,
+                         "note": "proposer returned candidate_r=None"},
+        )
     if proposed_r < r_min or proposed_r > r_max:
         return _failure_payload(
             proposed_r=proposed_r,

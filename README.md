@@ -1,6 +1,6 @@
 # SanoMap Radiomics Layer
 
-SanoMap Radiomics Layer is a MINERVA-inspired extension that adds imaging phenotypes to a literature-derived microbiome knowledge graph. The project focuses on making microbiome, imaging phenotype, and disease evidence usable together, with radiomic and body-composition features acting as explicit intermediate nodes instead of leaving the graph as a microbe-to-disease view only.
+A MINERVA-inspired extension that adds imaging phenotypes to a literature-derived microbiome knowledge graph. Radiomic and body-composition features sit as explicit intermediate nodes between microbes and disease, so microbiome, imaging-phenotype, and disease evidence can be traversed together instead of as a microbe-to-disease view only.
 
 ## Knowledge Graph Schema
 
@@ -29,24 +29,43 @@ graph LR
     style IR fill:#92400e,color:#fff
 ```
 
-## Corpus Metrics
+## Graph Metrics
+
+Counts below are taken from the reconciled, provenance-stamped export bundle
+`artifacts/graph_export/` (`manifest.json` is the post-audit source of truth).
+"Post-audit" means after the 2026-05-07 vision-edge retraction and the UMLS
+entity-gate drop were both composed onto one base.
 
 | Metric | Value |
 |---|---|
-| Papers in corpus | 640 |
+| Papers in corpus | 1,016 |
 | Phenotype mentions extracted | 5,721 |
-| ASSOCIATED_WITH edges (phenotype → disease) | 72 |
-| Clean disease targets | 30 |
-| Microbe-disease edges (signed polarity) | 12 |
+| Nodes (all types) | 99 |
+| Relationship rows (all types) | 189 |
+| ASSOCIATED_WITH edges (phenotype → disease) | 74 |
+| CORRELATES_WITH edges (microbe → feature, quantitatively verified) | 7 |
+| Signed microbe-disease edges (POSITIVELY/NEGATIVELY_CORRELATED_WITH) | 29 |
+| MEASURED_AT + ACQUIRED_VIA backbone rows | 78 |
+| Disease nodes | 38 |
+| Microbe nodes | 23 |
+| BodyCompositionFeature nodes | 8 |
+| RadiomicFeature nodes | 6 |
 | BodyLocation nodes | 18 |
 | ImagingModality nodes | 5 |
 | ImageRef nodes (Vision Track verified) | 1 |
-| Total Neo4j export rows | 161 |
-| Automated test checks passing | 156 |
+| End-to-end Microbe → Feature → Disease three-hop paths | 62 |
+| Automated test checks passing | 321 |
+
+The 7 CORRELATES_WITH edges are 1 Vision Track (PMC10605408, r=0.95,
+Prevotella_nigrescens ↔ GLCM_Correlation, pixel-verified) + 6 Text Track
+(Gemini 2.5 Flash-Lite, 7/7 temperature-varied self-consistency). Three of
+them close a three-hop path: Ruminococcus → sarcopenia (37 diseases),
+Peptostreptococcus stomatis → skeletal_muscle_index (7 diseases), and
+Eubacterium → visceral_adipose_tissue (18 diseases).
 
 ## Graph Policy
 
-The current direct-evidence graph policy is:
+The graph asserts direct evidence only:
 - `(Microbe)-[:CORRELATES_WITH]->(RadiomicFeature)`
 - `(Microbe)-[:CORRELATES_WITH]->(BodyCompositionFeature)`
 - `(MicrobialSignature)-[:CORRELATES_WITH]->(RadiomicFeature)`
@@ -60,77 +79,107 @@ The current direct-evidence graph policy is:
 - `(ImagingModality)-[:REPRESENTED_BY]->(ImageRef)`
 - `(Microbe)-[:POSITIVELY_ASSOCIATED_WITH / NEGATIVELY_ASSOCIATED_WITH]->(Disease)`
 
-Audit-only lanes that help inspect the extension without asserting new graph facts are:
+Two audit-only lanes let you inspect the extension without asserting new
+graph facts:
 - direct text subject-to-phenotype candidates in `phenotype_axis_candidates*.jsonl`
 - bridge matches that only share disease context in `bridge_hypotheses*.jsonl`
 
-These audit artifacts are not written as asserted graph edges.
+These audit artifacts are never written as graph edges.
 
-## Professor Deliverable Mapping
+## Repository Map
 
-- Topic:
-  microbiome, imaging phenotypes, and disease knowledge graph construction from biomedical literature
-- Knowledge map:
+- Project objective and acceptance criteria:
+  [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)
+- Active implementation plan:
+  [docs/PLAN.md](docs/PLAN.md)
+- Completed work and validation:
+  [docs/PROGRESS.md](docs/PROGRESS.md)
+- Runtime assumptions and constraints:
+  [docs/RUN_CONTEXT.md](docs/RUN_CONTEXT.md)
+- Next operational handoff:
+  [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)
+- Graph schema (node/edge types):
+  [docs/RADIOMICS_LAYER_SPECS.md](docs/RADIOMICS_LAYER_SPECS.md)
+- Knowledge map and schema diagram:
   [docs/knowledge_map.md](docs/knowledge_map.md)
-- Small tool:
+- Local artifact explorer:
   [docs/explorer/index.html](docs/explorer/index.html)
-- Visualization:
-  the Mermaid diagram in [docs/knowledge_map.md](docs/knowledge_map.md)
-- GitHub work surface:
-  code, docs, tests, and handoff state are tracked in this repository
-- Living proposal source:
-  [docs/proposal/report_sanomap_radiomics_layer.tex](docs/proposal/report_sanomap_radiomics_layer.tex)
+- Living manuscript (two-column paper):
+  [docs/paper/paper_sanomap_radiomics_layer.tex](docs/paper/paper_sanomap_radiomics_layer.tex)
+- Archived proposal report (frozen, pre-reframing):
+  [docs/paper/proposal/](docs/paper/proposal/)
+- Long-form pipeline tracking:
+  [pipeline_tracking.md](pipeline_tracking.md)
 
 ## Why This Extension Exists
 
-MINERVA is strong prior work for large-scale microbe-disease extraction, but our project scope is different. This repo is not trying to be a verbatim reproduction of MINERVA. It is extending the upstream idea by making imaging phenotypes explicit and by adding a figure-aware path for quantitative evidence extraction.
+MINERVA is prior work for large-scale microbe-disease extraction. This repo
+is not a reproduction of it. It extends the upstream idea by making imaging
+phenotypes explicit nodes and by adding a figure-aware path for quantitative
+evidence extraction.
 
-That means the repo is trying to answer a different practical question:
+The question it targets: how can microbiome findings be connected to
+imaging-derived phenotypes and then to disease in a graph that stays
+explainable and reviewable?
 
-How can we connect microbiome findings to imaging-derived phenotypes and then to disease in a graph that stays explainable and reviewable?
+## Pipeline Architecture
 
-## What Is Already Working
+The pipeline is structured as five independent gates. Each gate is
+independently auditable; an edge reaches the graph only after passing every
+applicable gate.
 
-- PubMed retrieval and merged corpus preparation
-- PMC full-text acquisition for open-access articles
-- phenotype text extraction in `src/extract_radiomics_text.py`
-- disease and microbe sentence extraction in `src/text_ner_minerva.py`
-- relation-input construction in `src/build_relation_input.py`
-- relation aggregation in `src/relation_extract_stage.py`
-- shared span cleanup in `src/span_cleanup.py`
-- phenotype edge assembly and audit artifacts in `src/assemble_edges.py`
-- imaging backbone node extraction (BodyLocation, ImagingModality) in `src/assemble_edges.py`
-- deterministic heatmap verification in `src/verify_heatmap.py`
-- Vision Track end-to-end: figure indexing, VLM proposal, deterministic verification
-- local static explorer in `docs/explorer/index.html`
-- explicit graph diagram in `docs/knowledge_map.md`
+| Gate | Purpose | Module | Failure mode |
+|---|---|---|---|
+| Retrieval (text) | Dense feature-mention retrieval over BioClinical-ModernBERT embeddings; replaces the hand-curated `_FEATURE_VOCAB` substring filter | `src/feature_retrieval.py` | Recall ceiling, threshold τ |
+| Entity sanitization | UMLS TUI grounding — a Microbe must ground to T007/T194/T204; gene-function noise is rejected | `src/umls_validator.py` | Coverage gap (novel taxa not in UMLS) |
+| Relation acceptance (text) | Gemini 2.5 Flash-Lite, 7-sample temperature-varied self-consistency, full agreement | `scripts/extract_microbe_feature_relations.py` | Self-correlated; does not bound systematic error |
+| Verification (vision) | Pixel HSV verifier AND independent VLM verifier with a verifier-only prompt, AND-consensus, fronted by three deterministic pre-verifier gates (caption / colorbar-detect / range-sanity) | `src/verify_vision_dual.py`, `src/vision_gates.py` | Verifier disagreement routes to a human review queue |
+| Evaluation | Stratified gold-label benchmark; intra-annotator agreement via 14-day temporal re-labeling | `src/benchmark/sample_gold_set.py` + `evaluate.py` | Single-annotator ceiling; corpus undersizing on rare strata |
 
-## Current Snapshot
+### Vision Track scope
 
-- Corpus: `640` papers (merged baseline + clinical-recall expansion)
-- Phenotype mentions extracted: `5,721`
-- Disease string quality: `30` clean, clinically meaningful disease targets after expanded stopword filtering
-- Graph-ready phenotype-to-disease edges: `72` ASSOCIATED_WITH edges across 30 disease targets
-- Graph-ready microbe-disease edges: `9` CORRELATES_WITH_DISEASE pairs (Gemini 2.5 Flash-Lite validated)
-- Imaging backbone: `18` BodyLocation nodes, `5` ImagingModality nodes, `75` MEASURED_AT / ACQUIRED_VIA Neo4j rows
-- ImageRef: `1` node from validated Vision Track figure (PMC10605408, r=0.95, Prevotella_nigrescens ↔ GLCM_Correlation)
-- Total Neo4j export rows: `149`
-- Vision Track: 3 figures attempted total — 1 verified (PMC10605408), 2 correctly rejected by deterministic verifier (PMC10176953 dot-plot style, PMC11924647 feature-feature only)
-- Validation: `156` pytest checks passing locally
+Vision-edge verification was audited on 2026-05-07. The dual verifier alone
+was found structurally insufficient: both the pixel and the VLM verifier
+consume the proposer's bounding box, so a self-consistent fabrication passes
+AND-consensus silently. Three deterministic pre-verifier gates in
+`src/vision_gates.py` close that gap (caption vocabulary, colorbar
+detection, range sanity with VLM colorbar-tick extraction). On a 14-figure
+retroactive audit (13 current proposals + 1 historical edge), the post-gate
+breakdown was 6 REJECT_GATE / 5 ACCEPT / 3 REVIEW; one historical edge
+(PMC6178902, wrong-sign on an LFC-scale figure) was dropped and one
+(PMC10605408, a real Spearman heatmap) was retained. The gating chain is the
+publishable vision-track contribution; the evidentiary balance is
+text-dominant by audited design, not by omission.
 
-## Current Status
+## Pipeline At A Glance
 
-- The full 640-paper corpus has been run through the improved extraction pipeline.
-- Disease string quality is substantially improved: sentence-fragment noise removed at two layers (`_detect_disease()` stopword expansion + assembly-side prefix/substring patterns).
-- Final disease target set contains 30 clinically meaningful concepts — no sentence fragments, no section-header noise, no technique/method strings.
-- The imaging backbone (BodyLocation + ImagingModality) is implemented with vocabulary-expanded coverage (body location 8.1% → 42.8%).
-- The ImageRef node type completes the professor's four-part chain: Disease ← Feature → BodyLocation / ImagingModality → ImageRef.
-- The Vision Track is validated end-to-end: 1 verified figure, 2 correctly rejected by deterministic verifier.
-- The local pytest suite is green at `156 passed`.
+1. `src/harvest_pubmed.py`
+   harvests literature using split query profiles
+2. `src/merge_paper_corpora.py`
+   merges the microbiome-side corpora
+3. `src/download_pmc_fulltext.py`
+   attaches PMC full text when available
+4. `src/extract_radiomics_text.py`
+   extracts phenotype mentions and feature metadata
+5. `src/text_ner_minerva.py`
+   extracts disease and microbe-bearing evidence sentences
+6. `src/build_relation_input.py`
+   joins sentence evidence with phenotype context
+7. `src/relation_extract_stage.py`
+   predicts and aggregates relation labels
+8. `src/index_figures.py`, `src/propose_vision_qwen.py`, `src/verify_heatmap.py`, `src/verify_vision_dual.py`, `src/vision_gates.py`
+   support the figure-analysis path
+9. `src/assemble_edges.py`
+   emits graph-ready phenotype-to-disease edges plus audit-only phenotype-axis artifacts after review
+10. `scripts/build_graph_export.py`
+    reconciles the divergent artifact vintages into the canonical `artifacts/graph_export/` bundle with a provenance manifest
+11. `scripts/neo4j_load.py` + `src/graph_queries.py`
+    load the export into a live Neo4j instance and expose read-only, injection-safe canonical traversals
 
 ## PubMed Harvest Queries
 
-These are the query profiles used to build the corpus. Run via `src/harvest_pubmed.py --query-profile <name>`.
+Query profiles used to build the corpus. Run via
+`src/harvest_pubmed.py --query-profile <name>`.
 
 | Profile | Purpose |
 |---|---|
@@ -166,7 +215,8 @@ All primary research only — systematic reviews and meta-analyses are excluded.
 
 ## Neo4j Graph Queries
 
-After importing `artifacts/neo4j_relationships_microbe_expanded.csv`:
+After loading the canonical export (`scripts/neo4j_load.py`, fed from
+`artifacts/graph_export/`):
 
 ```cypher
 // Three-hop path: Microbe → Imaging Phenotype → Disease
@@ -203,68 +253,61 @@ RETURN m.name, f.name, r.r_value, r.confidence, r.pmid;
 
 ## Prior Work And Boundary
 
-- Prior work:
-  MINERVA is the methodological inspiration for large-scale microbiome relationship mining.
-- This project:
-  a radiomics-first imaging phenotype extension built on that direction, not a claim of exact upstream reproduction.
-- Current model policy:
-  substitute models are used where upstream-associated checkpoints are not available in this workspace.
-- Checkpoint access:
-  if professor-mediated or upstream-mediated access later becomes available, the repo should document the model ids and rerun steps, while keeping restricted weights out of Git history.
+- Prior work: MINERVA is the methodological inspiration for large-scale
+  microbiome relationship mining.
+- This project: a radiomics-first imaging-phenotype extension built on that
+  direction, not a claim of exact upstream reproduction.
+- Model policy: substitute models are used where upstream-associated
+  checkpoints are not available in this workspace.
+- Checkpoint access: if upstream-mediated access later becomes available,
+  the repo should document the model ids and rerun steps while keeping
+  restricted weights out of Git history.
 
 ## BNER Provenance Note
 
-The MINERVA paper states that microbial NER used `BNER2.0` and reused the original authors' public GitHub splits.
+The MINERVA paper states that microbial NER used `BNER2.0` and reused the
+original authors' public GitHub splits.
 
 Current verification status:
-- strongest public candidate lineage:
-  `https://github.com/lixusheng1/bacterial_NER`
-- checked-in `test_set.iob` in that repo matches MINERVA's reported `2,043` bacterial test entities
-- exact release parity is still unconfirmed because the checked-in public corpus totals do not match MINERVA's full reported `BNER2.0` totals
+- strongest public candidate lineage: `https://github.com/lixusheng1/bacterial_NER`
+- the checked-in `test_set.iob` in that repo matches MINERVA's reported
+  `2,043` bacterial test entities
+- exact release parity is unconfirmed because the checked-in public corpus
+  totals do not match MINERVA's full reported `BNER2.0` totals
 
-Operationally, this repo treats `lixusheng1/bacterial_NER` as the strongest public candidate source for MINERVA-style microbial NER training data, but not as the exact confirmed upstream release.
+This repo treats `lixusheng1/bacterial_NER` as the strongest public
+candidate source for MINERVA-style microbial NER training data, not as the
+confirmed upstream release.
 
-## Pipeline At A Glance
+## Status
 
-1. `src/harvest_pubmed.py`
-   harvests literature using split query profiles
-2. `src/merge_paper_corpora.py`
-   merges the microbiome-side corpora
-3. `src/download_pmc_fulltext.py`
-   attaches PMC full text when available
-4. `src/extract_radiomics_text.py`
-   extracts phenotype mentions and feature metadata
-5. `src/text_ner_minerva.py`
-   extracts disease and microbe-bearing evidence sentences
-6. `src/build_relation_input.py`
-   joins sentence evidence with phenotype context
-7. `src/relation_extract_stage.py`
-   predicts and aggregates relation labels
-8. `src/index_figures.py`, `src/propose_vision_qwen.py`, and `src/verify_heatmap.py`
-   support the figure-analysis path
-9. `src/assemble_edges.py`
-   emits graph-ready phenotype-to-disease edges plus audit-only phenotype-axis artifacts after review
+- The full 1,016-paper corpus has been run through the extraction pipeline
+  (640 initial papers + 376 net-new from four added query lanes).
+- Disease-string quality: sentence-fragment noise is removed at two layers
+  (`_detect_disease()` stopword expansion + assembly-side prefix/substring
+  patterns). The graph carries 38 Disease nodes after filtering.
+- The imaging backbone (BodyLocation + ImagingModality) is implemented with
+  expanded vocabulary coverage; the ImageRef node type completes the
+  Disease ← Feature → BodyLocation / ImagingModality → ImageRef chain.
+- The Vision Track is end-to-end with all four figure types
+  (heatmap, forest plot, scatter plot, dot plot) and the post-2026-05-07
+  pre-verifier gate chain.
+- A single regenerable graph artifact exists: `scripts/build_graph_export.py`
+  emits `artifacts/graph_export/` (189 rows / 99 nodes) with a provenance
+  `manifest.json` (source vintages, git SHA, drop records). A live Neo4j path
+  (`scripts/neo4j_load.py`, `src/graph_queries.py`, `docker-compose.neo4j.yml`,
+  `docs/NEO4J_RUNBOOK.md`) is in place; live import is operator-run.
+- The local pytest suite is green at `321 passed / 0 failed`.
 
-## Repo Guide
+## Open Items
 
-- Project objective:
-  [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)
-- Active implementation plan:
-  [docs/PLAN.md](docs/PLAN.md)
-- Completed work and validation:
-  [docs/PROGRESS.md](docs/PROGRESS.md)
-- Runtime assumptions and constraints:
-  [docs/RUN_CONTEXT.md](docs/RUN_CONTEXT.md)
-- Next operational handoff:
-  [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)
-- Long-form tracking:
-  [pipeline_tracking.md](pipeline_tracking.md)
-
-## Next Milestones
-
-- review the current phenotype-axis assembly outputs for semantic graph readiness
-- decide whether broad disease targets such as `inflammation` should remain graph-eligible
-- promote only reviewed outputs to edge assembly
-- expand direct subject-to-phenotype evidence beyond audit-only status only after a stronger validation policy exists
-
-Until then, the repo should be described as a validated proof-of-concept extension with a clear professor-facing deliverable and an explicit upstream-alignment roadmap.
+- The static explorer (`docs/explorer/index.html`) currently reads a frozen
+  2026-04-05 JSONL snapshot, not the canonical export. Rewiring it onto
+  `artifacts/graph_export/` (or live Neo4j via `src/graph_queries.py`) is the
+  remaining application work.
+- The manuscript's measured P/R/F1 + Cohen's κ are gated on the gold-set
+  Pass-2 re-labeling, which cannot start before the 14-day temporal window
+  closes (earliest 2026-05-21).
+- Whether broad disease targets such as `inflammation` should remain
+  graph-eligible is an open review question; only reviewed outputs are
+  promoted to edge assembly.
