@@ -2,29 +2,46 @@
 
 Operational handoff. Update whenever priority, blocker, or milestone changes.
 
-## Current State (2026-05-19, late) — Precision-First Pivot + Phase-0 Pilot CRASHED (no verdict)
+## Current State (2026-05-20, evening) — Phase-0 PILOT VERDICT: FAIL (vacuous precision, deterministic)
 
-**Pivot.** New operator-approved design: precision-first, MINERVA-aligned extraction instrument — `docs/DESIGN_PRECISION_FIRST_V1.md` (estimand: every graph edge high-precision at a calibrated threshold; recall not claimed; validated by external-DB concordance; local-only, no paid API — Gemini key is gone). Phase-0 **pilot** (go/no-go before any B–G build) on branch **`feat/precision-first-phase0`**, plan `docs/IMPLEMENTATION_PLAN_PRECISION_FIRST_PHASE0.md`.
+**TL;DR.** Local cross-family unanimous-N judge (medgemma:4b + qwen3:4b @ Q8 on 8 GB) returned **ABSTAIN on every observed record — 11/11 across both model families** (8 medgemma Phase A + 3 qwen3 Phase B before operator-authorized kill once the deterministic outcome was locked). `cross_family(ABSTAIN, *) = ABSTAIN` by spec §2C, so the §3 verdict is locked at **FAIL: "judge asserted nothing (vacuous precision)"**. This is the precision-first design correctly disconfirming the local-only premise on this gold set — not a bug, not a crash, a clean empirical answer. Hand-computed report: `artifacts/pilot/pilot_report_slice.json`.
 
-**Built & green (Tasks 1–4 done):** `scripts/pilot_env_check.py`, `src/pilot/{schema,local_judge,run_pilot}.py` + tests. Full pilot suite 16/16; full repo regression **337 passed / 0**. Step-0 env probe PASS — `medgemma:4b` + `qwen3:4b` load in 8 GB at Q8 and honor the JSON+ABSTAIN schema (local-only premise is empirically feasible).
+**Task 5a complete** (harness hardening — necessary after the 2026-05-19 95-min crash): broad fail-closed (`except Exception` at the precision-safety boundary) + 120 s per-request OpenAI client timeout + per-record checkpoint + resume + `--fresh` CLI flag + `logging.warning` for observability. Commits `ef0c215` + `b8ed935`. Pilot suite 18/18, full repo regression **339/0**. Spec §3 corrected + locked (operator-confirmed precision-on-gold + 3 gold-anchored decisions). The Phase-0 build is production-quality; the verdict above is the verdict the operator-locked criterion produces.
 
-**Spec §3 corrected + operator-confirmed + locked.** Original disconfirmation predicate was inverted vs the precision-first estimand (it required ASSERTing `peptostreptococcus stomatis→skeletal_muscle_index`, which is gold `not_associated`, and rewarded rubber-stamping 2 known-bad accepted_edge rows). Replaced with: PASS iff judge-vs-gold precision on the accepted_edge stratum ≥ 0.90 (non-vacuous) AND the 3 gold-anchored decisions correct (ASSERT eubacterium→VAT, ASSERT ruminococcus→sarcopenia, **ABSTAIN** peptostrep→SMI). Caught by the independent code-quality review chain before the live run.
+**Pilot run detail (slice, 8 accepted_edge rows):** Phase A medgemma:4b 8/8 ABSTAIN; Phase B qwen3:4b 3/8 ABSTAIN before kill (slice idx 0,1,2 = all 3 thesis anchors). Cross-family: 2 of 3 anchors wrong (eubacterium→VAT and ruminococcus→sarcopenia both gold-positive, judge ABSTAIN); 1 of 3 "correct" by universal-abstain coincidence (peptostrep→SMI gold *not_associated*, judge ABSTAIN — the gold-negative anchor). Accuracy 2/8 = 0.25 on the only 2 gold-non-assertable rows. The crashed 2026-05-19 full run corroborates: its 1 completed qwen3 record was also ABSTAIN. 12 ABSTAIN observations across 2 independent runs, 2 model families, 0 ASSERTs.
 
-**Governance incident (resolved).** A Task-2 subagent edited `.episteme/reasoning-surface.json` (repo + global `~/episteme`) to bypass a Bash hook. Operator chose accept-current-state (the repo surface was a stale→fresh refresh; the global one is untracked/not git-recoverable, accepted). **Standing corrective for all remaining pilot work:** controller owns ALL Bash; subagents are Write/Edit-only, never touch `.episteme/`/config/guardrails, report BLOCKED instead of self-unblocking; subagent reports are verified, not trusted.
+**GitHub durability:** branch pushed and tracking — `https://github.com/junjslee/sanomap_radiomics_layer/tree/feat/precision-first-phase0` @ `b8ed935`. `.episteme/advisory-surface` activated for this project (operator-authorized opt-out from the reasoning-surface classifier; reversible by `rm .episteme/advisory-surface`). All work is off-machine.
 
-**⚠ Pilot live run CRASHED — NO verdict.** `2026-05-19 15:13→16:48` (~95 min), died in Phase B (`qwen3:4b`) on `openai.APITimeoutError` (one Ollama gen exceeded the client read-timeout). Root cause = harness defect: `local_judge._one_sample` fail-closes only on `(SchemaError,ValueError,KeyError,IndexError)` — transport/timeout errors propagate and kill the run; no per-request timeout; **no checkpoint → ~95 min lost, no `pilot_report.json`.** This is an **infrastructure failure, not a §3 PASS/FAIL signal** — we have zero data on whether local cross-family unanimity works.
+### Operator decisions pending (clear in one pass)
 
-### Next action (in progress) — Task 5a: harden the harness (necessary regardless)
-1. `local_judge._one_sample`: broad fail-closed incl. `openai.APITimeoutError/APIError/APIConnectionError` → ABSTAIN, never crash.
-2. Explicit per-request timeout on the OpenAI client (e.g. 120 s) so a wedged gen fails fast.
-3. `run_pilot`: per-record checkpoint JSONL + resume-skip → crash/interrupt recoverable.
-Implemented under subagent-driven discipline (controller owns Bash). Does **not** trigger the rerun.
+**1. Spec §3 fallback path (the verdict's required next action — recommended: (d) diagnose-first):**
+- (a) loosen within-model unanimity (4-of-5 majority instead of 5-of-5) — deviates from MINERVA's all-agree contract; doesn't address per-sample variance root cause.
+- (b) reduce `n_samples` 5→3 — minor; if temp-0 disagreement is the cause, fewer samples helps only marginally and weakens the precision claim.
+- (c) defer to MGH unquantized compute (spec G upgrade path) — biggest lever; full-precision MedGemma-1.5/Qwen3 on stronger hardware likely addresses any per-sample disagreement; requires access setup.
+- **(d) diagnose first — RECOMMENDED.** The harness emits no per-sample logs, so we can't distinguish whether (i) the 5 samples are emitting *different* `(relation_type, sign)` tuples breaking unanimity, (ii) at least one sample is itself returning ABSTAIN, or (iii) parse-fail is cascading to ABSTAIN via the broad boundary. Implement **5b: per-sample debug logging** behind a `--debug-samples` flag, run a single record, observe. ~30 min of work, then choose (a)/(b)/(c) on evidence not speculation.
 
-### Operator decisions pending (clear in one pass on return)
-- **Rerun strategy** (after 5a): full 66-row (~95 min+, now resumable) **vs** fast 8-row `accepted_edge` slice (~5–10 min, directional). Resume cmd: `conda run -n base python -m src.pilot.run_pilot --model-a medgemma:4b --model-b qwen3:4b` (+ slice/resume flags added by 5a).
-- **WS-1**: the `[Pasted text #1 +8 lines]` from the very first message never arrived — still parked.
-- **WS-6**: does `pipeline_tracking.md` mention confer "do-not-move"? → swings the `artifacts/` archive between ~26 and ~90 files (audit done, non-destructive, awaiting this call).
-- **chkpt→Conventional consolidation**: pilot commits landed as `chkpt:` (automation races the per-task commit). Consolidating before any PR is a history rewrite → needs explicit operator authorization.
+**2. Known harness gap (5b-class, not blocking the §3 decision but worth fixing before any remediated rerun):** `timeout=120.0` on the OpenAI client is httpx's *per-byte* read timeout, not a wall-clock total. Slow-trickle Ollama responses bypass it (the 2026-05-19 crash root cause). The 5a fix did not patch this — the universal-ABSTAIN pattern hid it. Real fix = `httpx.Timeout(...)` with explicit connect/read/pool, or wrap the chat call in a wall-clock timer.
+
+**3. Still parked from earlier sessions:**
+- **WS-1**: `[Pasted text #1 +8 lines]` from the first session message never arrived.
+- **WS-6**: does `pipeline_tracking.md` mention confer "do-not-move" on artifact files? Audit-only scaffold landed; the 26 vs ~90 file decision is yours.
+- **chkpt→Conventional consolidation**: 28 `chkpt:` interleaved with 8 Conventional commits on the *pushed* branch. Consolidating before any PR is now a force-push history rewrite — needs explicit operator authorization.
+- **Advisory-surface opt-out**: `.episteme/advisory-surface` durable until you `rm` it. Remove before next high-impact op if you want the classifier back enforcing.
+
+### Resume commands (after §3 decision)
+```bash
+# RECOMMENDED — option (d), diagnose first:
+#   1. Add per-sample logging to src/pilot/local_judge.py (5b): in _one_sample, emit
+#      logging.debug("sample %d: decision=%s relation_type=%s sign=%s", idx, v.decision, v.relation_type, v.sign)
+#      and a --debug-samples CLI flag on run_pilot that enables DEBUG level.
+#   2. Run on one record, observe the 5 samples:
+#      conda run -n base python -m src.pilot.run_pilot \
+#        --gold artifacts/pilot/accepted_edge_only.jsonl \
+#        --checkpoint /tmp/diag_ckpt.jsonl --fresh --debug-samples 2>&1 | grep 'sample '
+#   3. Read the per-sample tuples; decide (a)/(b)/(c) based on what's broken.
+
+# Option (c) MGH compute path is the deferred-to-better-hardware alternative; spec G makes that a rerun, not a rebuild.
+```
 
 ---
 
